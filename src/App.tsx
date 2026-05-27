@@ -1,4 +1,5 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Modal } from "antd";
 import Bubble, { type BubbleItemType, type BubbleListProps } from "@ant-design/x/es/bubble";
 import Sender from "@ant-design/x/es/sender";
 import Suggestion, { type SuggestionItem } from "@ant-design/x/es/suggestion";
@@ -6,6 +7,8 @@ import XProvider from "@ant-design/x/es/x-provider";
 import type { AssistantMessage, ChatMessage, ImageAttachment, StreamEvent, UserMessage } from "./types";
 
 const STORAGE_KEY = "my-pi-chat-session";
+const SESSIONS_STORAGE_KEY = "my-pi-chat-sessions";
+const ACTIVE_SESSION_KEY = "my-pi-active-session-id";
 const supportedImageMimeTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const maxImageBytes = 5 * 1024 * 1024;
 
@@ -24,6 +27,14 @@ const modelPresets = [
 
 type ModelOption = (typeof modelPresets)[number];
 type SlashSuggestionInfo = { query: string };
+type ChatSession = {
+  id: string;
+  title: string;
+  archived: boolean;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
+};
 
 const defaultSystemPrompt =
   "You are My Pi, an online agent conversation assistant. Be concise, practical, and explicit about assumptions.";
@@ -77,11 +88,47 @@ const xTheme = {
 };
 
 function createSessionId() {
-  const stored = localStorage.getItem("my-pi-session-id");
-  if (stored) return stored;
-  const next = crypto.randomUUID();
-  localStorage.setItem("my-pi-session-id", next);
-  return next;
+  return crypto.randomUUID();
+}
+
+function createSession(title = "Untitled session", messages: ChatMessage[] = []): ChatSession {
+  const timestamp = Date.now();
+
+  return {
+    id: createSessionId(),
+    title,
+    archived: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    messages
+  };
+}
+
+function getSessionTitleFromMessages(messages: ChatMessage[]) {
+  const firstUserMessage = messages.find((message) => message.role === "user");
+  if (!firstUserMessage?.content.trim()) return "Untitled session";
+  return firstUserMessage.content.trim().slice(0, 48);
+}
+
+function readStoredSessions(): ChatSession[] {
+  try {
+    const rawSessions = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    if (rawSessions) {
+      const parsed = JSON.parse(rawSessions) as ChatSession[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.some((session) => !session.archived) ? parsed : [createSession(), ...parsed];
+      }
+    }
+
+    const legacyMessages = readStoredMessages();
+    if (legacyMessages.length > 0) {
+      return [createSession(getSessionTitleFromMessages(legacyMessages), legacyMessages)];
+    }
+  } catch {
+    // Fall through to a clean session if local storage is unavailable or corrupted.
+  }
+
+  return [createSession()];
 }
 
 function getMessageText(message: ChatMessage) {
@@ -219,17 +266,43 @@ async function readEventStream(response: Response, onEvent: (event: StreamEvent)
 }
 
 export default function App() {
-  const [messages, setMessages] = useState<ChatMessage[]>(readStoredMessages);
+  const initialSessions = useMemo(() => readStoredSessions(), []);
+  const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    const stored = localStorage.getItem(ACTIVE_SESSION_KEY);
+    return initialSessions.some((session) => session.id === stored) ? stored! : initialSessions[0].id;
+  });
   const [input, setInput] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageAttachment | null>(null);
   const [systemPrompt, setSystemPrompt] = useState(defaultSystemPrompt);
   const [modelKey, setModelKey] = useState("openai:gpt-4o-mini");
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(modelPresets);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [renameSessionId, setRenameSessionId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const [draftAssistant, setDraftAssistant] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const sessionIdRef = useRef<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const activeSession = useMemo(() => {
+    return sessions.find((session) => session.id === activeSessionId) || sessions[0];
+  }, [activeSessionId, sessions]);
+
+  const messages = activeSession?.messages ?? [];
+
+  const visibleSessions = useMemo(() => {
+    return sessions
+      .filter((session) => !session.archived)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }, [sessions]);
+
+  const archivedSessions = useMemo(() => {
+    return sessions
+      .filter((session) => session.archived)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }, [sessions]);
 
   const selectedModel = useMemo(() => {
     return parseModelKey(modelKey);
@@ -261,8 +334,9 @@ export default function App() {
   }, [draftAssistant, isStreaming, messages]);
 
   useEffect(() => {
-    sessionIdRef.current = createSessionId();
-  }, []);
+    sessionIdRef.current = activeSessionId;
+    localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
+  }, [activeSessionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -294,8 +368,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  }, [messages]);
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+  }, [sessions]);
 
   useEffect(() => {
     if (selectedImage && !selectedModelSupportsImages) {
@@ -304,9 +378,63 @@ export default function App() {
     }
   }, [selectedImage, selectedModelSupportsImages]);
 
+  function updateSession(sessionId: string, updater: (session: ChatSession) => ChatSession) {
+    setSessions((current) =>
+      current.map((session) =>
+        session.id === sessionId
+          ? {
+              ...updater(session),
+              updatedAt: Date.now()
+            }
+          : session
+      )
+    );
+  }
+
+  function createNewSession() {
+    const nextSession = createSession();
+    setSessions((current) => [nextSession, ...current]);
+    setActiveSessionId(nextSession.id);
+    setInput("");
+    setSelectedImage(null);
+    setDraftAssistant("");
+    setError(null);
+  }
+
+  function beginRenameSession(session: ChatSession) {
+    setRenameSessionId(session.id);
+    setRenameDraft(session.title);
+  }
+
+  function saveSessionName(sessionId: string) {
+    const nextTitle = renameDraft.trim() || "Untitled session";
+    updateSession(sessionId, (session) => ({ ...session, title: nextTitle }));
+    setRenameSessionId(null);
+    setRenameDraft("");
+  }
+
+  function archiveSession(sessionId: string) {
+    updateSession(sessionId, (session) => ({ ...session, archived: true }));
+    if (activeSessionId === sessionId) {
+      const nextActive = visibleSessions.find((session) => session.id !== sessionId) || createSession();
+      if (!sessions.some((session) => session.id === nextActive.id)) {
+        setSessions((current) => [nextActive, ...current]);
+      }
+      setActiveSessionId(nextActive.id);
+      setDraftAssistant("");
+      setInput("");
+      setSelectedImage(null);
+    }
+  }
+
+  function restoreSession(sessionId: string) {
+    updateSession(sessionId, (session) => ({ ...session, archived: false }));
+    setActiveSessionId(sessionId);
+  }
+
   async function submitMessage(messageText: string) {
     const trimmed = messageText.trim();
-    if ((!trimmed && !selectedImage) || isStreaming) return;
+    if ((!trimmed && !selectedImage) || isStreaming || !activeSession) return;
 
     if (selectedImage && !selectedModelSupportsImages) {
       setError("The selected model does not support image input. Choose a vision-capable model.");
@@ -319,9 +447,14 @@ export default function App() {
       images: selectedImage ? [selectedImage] : undefined,
       timestamp: Date.now()
     };
-    const nextMessages = [...messages, userMessage];
+    const conversationId = activeSession.id;
+    const nextMessages = [...activeSession.messages, userMessage];
 
-    setMessages(nextMessages);
+    updateSession(conversationId, (session) => ({
+      ...session,
+      title: session.messages.length === 0 ? getSessionTitleFromMessages([userMessage]) : session.title,
+      messages: nextMessages
+    }));
     setInput("");
     setSelectedImage(null);
     setDraftAssistant("");
@@ -333,7 +466,7 @@ export default function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-session-id": sessionIdRef.current
+          "x-session-id": conversationId
         },
         body: JSON.stringify({
           ...selectedModel,
@@ -370,7 +503,10 @@ export default function App() {
       });
 
       if (finalMessage) {
-        setMessages((current) => [...current, finalMessage as AssistantMessage]);
+        updateSession(conversationId, (session) => ({
+          ...session,
+          messages: [...session.messages, finalMessage as AssistantMessage]
+        }));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected chat error");
@@ -381,10 +517,10 @@ export default function App() {
   }
 
   function clearConversation() {
-    setMessages([]);
+    if (!activeSession) return;
+    updateSession(activeSession.id, (session) => ({ ...session, messages: [] }));
     setDraftAssistant("");
     setError(null);
-    localStorage.removeItem(STORAGE_KEY);
   }
 
   function handleSlashSelect(value: string) {
@@ -428,7 +564,7 @@ export default function App() {
     <XProvider theme={xTheme}>
       <main className="app-shell">
         <aside className="sidebar">
-          <div>
+          <div className="brand-block">
             <p className="eyebrow">Online agent console</p>
             <h1>My Pi Agent</h1>
             <p className="sidebar-copy">
@@ -436,29 +572,96 @@ export default function App() {
             </p>
           </div>
 
-          <label className="field">
-            <span>Model</span>
-            <select value={modelKey} onChange={(event) => setModelKey(event.target.value)}>
-              {modelOptions.map((preset) => (
-                <option key={getModelKey(preset.provider, preset.model)} value={getModelKey(preset.provider, preset.model)}>
-                  {preset.label}{preset.supportsImages ? " · vision" : ""}
-                </option>
+          <div className="sidebar-actions">
+            <button className="secondary-button" disabled={isStreaming} type="button" onClick={createNewSession}>
+              New session
+            </button>
+            <button className="secondary-button" type="button" onClick={() => setIsSettingsOpen(true)}>
+              Settings
+            </button>
+          </div>
+
+          <div className="session-manager">
+            <div className="session-section-heading">
+              <span>Conversations</span>
+              <small>{visibleSessions.length}</small>
+            </div>
+
+            <div className="session-list">
+              {visibleSessions.map((session) => (
+                <div
+                  className={session.id === activeSessionId ? "session-row session-row-active" : "session-row"}
+                  key={session.id}
+                >
+                  {renameSessionId === session.id ? (
+                    <input
+                      autoFocus
+                      className="session-rename-input"
+                      value={renameDraft}
+                      onBlur={() => saveSessionName(session.id)}
+                      onChange={(event) => setRenameDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") saveSessionName(session.id);
+                        if (event.key === "Escape") {
+                          setRenameSessionId(null);
+                          setRenameDraft("");
+                        }
+                      }}
+                    />
+                  ) : (
+                    <button
+                      className="session-select"
+                      disabled={isStreaming}
+                      type="button"
+                      onClick={() => setActiveSessionId(session.id)}
+                    >
+                      <span>{session.title}</span>
+                      <small>{session.messages.length} messages</small>
+                    </button>
+                  )}
+
+                  <div className="session-row-actions">
+                    <button
+                      disabled={isStreaming}
+                      type="button"
+                      onClick={() => beginRenameSession(session)}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      disabled={isStreaming}
+                      type="button"
+                      onClick={() => archiveSession(session.id)}
+                    >
+                      Archive
+                    </button>
+                  </div>
+                </div>
               ))}
-            </select>
-          </label>
+            </div>
 
-          <label className="field">
-            <span>System prompt</span>
-            <textarea
-              value={systemPrompt}
-              rows={7}
-              onChange={(event) => setSystemPrompt(event.target.value)}
-            />
-          </label>
-
-          <button className="secondary-button" type="button" onClick={clearConversation}>
-            Clear conversation
-          </button>
+            {archivedSessions.length > 0 ? (
+              <div className="archived-sessions">
+                <div className="session-section-heading">
+                  <span>Archived</span>
+                  <small>{archivedSessions.length}</small>
+                </div>
+                {archivedSessions.map((session) => (
+                  <div className="session-row session-row-archived" key={session.id}>
+                    <button
+                      className="session-select"
+                      disabled={isStreaming}
+                      type="button"
+                      onClick={() => restoreSession(session.id)}
+                    >
+                      <span>{session.title}</span>
+                      <small>Archived · restore</small>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
 
           <div className="status-panel">
             <span className="status-dot" />
@@ -470,9 +673,14 @@ export default function App() {
           <header className="chat-header">
             <div>
               <p className="eyebrow">Session</p>
-              <h2>Agent dialogue</h2>
+              <h2>{activeSession?.title || "Agent dialogue"}</h2>
             </div>
-            <span className={isStreaming ? "pill pill-live" : "pill"}>{isStreaming ? "Streaming" : "Ready"}</span>
+            <div className="chat-header-actions">
+              <button className="ghost-button" type="button" onClick={clearConversation}>
+                Clear
+              </button>
+              <span className={isStreaming ? "pill pill-live" : "pill"}>{isStreaming ? "Streaming" : "Ready"}</span>
+            </div>
           </header>
 
           {bubbleItems.length === 0 ? (
@@ -564,6 +772,35 @@ export default function App() {
           </div>
         </section>
       </main>
+      <Modal
+        centered
+        open={isSettingsOpen}
+        title="Settings"
+        footer={null}
+        onCancel={() => setIsSettingsOpen(false)}
+      >
+        <div className="settings-modal-content">
+          <label className="field">
+            <span>Model</span>
+            <select value={modelKey} onChange={(event) => setModelKey(event.target.value)}>
+              {modelOptions.map((preset) => (
+                <option key={getModelKey(preset.provider, preset.model)} value={getModelKey(preset.provider, preset.model)}>
+                  {preset.label}{preset.supportsImages ? " · vision" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>System prompt</span>
+            <textarea
+              value={systemPrompt}
+              rows={7}
+              onChange={(event) => setSystemPrompt(event.target.value)}
+            />
+          </label>
+        </div>
+      </Modal>
     </XProvider>
   );
 }
