@@ -335,6 +335,46 @@ h2 {
   background: var(--card-tint-lavender);
 }
 
+.message-content {
+  display: grid;
+  gap: 12px;
+}
+
+.message-content p {
+  margin: 0;
+}
+
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.message-image {
+  display: grid;
+  width: min(240px, 100%);
+  gap: 6px;
+  margin: 0;
+}
+
+.message-image img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.message-image figcaption {
+  overflow: hidden;
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .message-meta {
   display: flex;
   align-items: center;
@@ -368,6 +408,90 @@ h2 {
   padding: 20px 32px 28px;
   border-top: 1px solid var(--hairline);
   background: var(--surface-soft);
+}
+
+.attachment-preview {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--canvas);
+}
+
+.attachment-preview img {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.attachment-preview div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.attachment-preview strong,
+.attachment-preview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-preview strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.attachment-preview span {
+  color: var(--steel);
+  font-size: 12px;
+}
+
+.attachment-preview button,
+.composer-footer button {
+  min-height: 32px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  background: var(--canvas);
+  color: var(--charcoal);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.attachment-preview button {
+  padding: 0 12px;
+}
+
+.attachment-preview button:hover,
+.composer-footer button:not(:disabled):hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.composer-footer {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 8px;
+}
+
+.composer-footer input {
+  display: none;
+}
+
+.composer-footer button {
+  padding: 0 10px;
+}
+
+.composer-footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
 }
 
 .chat-sender {
@@ -445,5 +569,14 @@ h2 {
   .composer {
     padding-left: 18px;
     padding-right: 18px;
+  }
+
+  .attachment-preview {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .attachment-preview button {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 }

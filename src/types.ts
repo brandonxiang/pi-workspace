@@ -1,6 +1,15 @@
+export type ImageAttachment = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  data: string;
+};
+
 export type UserMessage = {
   role: "user";
   content: string;
+  images?: ImageAttachment[];
   timestamp: number;
 };
 

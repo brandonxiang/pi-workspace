@@ -1,18 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import Bubble, { type BubbleItemType, type BubbleListProps } from "@ant-design/x/es/bubble";
 import Sender from "@ant-design/x/es/sender";
 import Suggestion, { type SuggestionItem } from "@ant-design/x/es/suggestion";
 import XProvider from "@ant-design/x/es/x-provider";
-import type { AssistantMessage, ChatMessage, StreamEvent, UserMessage } from "./types";
+import type { AssistantMessage, ChatMessage, ImageAttachment, StreamEvent, UserMessage } from "./types";
 
 const STORAGE_KEY = "my-pi-chat-session";
+const supportedImageMimeTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const maxImageBytes = 5 * 1024 * 1024;
 
 const modelPresets = [
-  { provider: "openai", model: "gpt-4o-mini", label: "OpenAI GPT-4o mini" },
-  { provider: "openai", model: "gpt-4.1-mini", label: "OpenAI GPT-4.1 mini" },
-  { provider: "anthropic", model: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
-  { provider: "google", model: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  { provider: "mistral", model: "mistral-small-latest", label: "Mistral Small" }
+  { provider: "openai", model: "gpt-4o-mini", label: "OpenAI GPT-4o mini", supportsImages: true },
+  { provider: "openai", model: "gpt-4.1-mini", label: "OpenAI GPT-4.1 mini", supportsImages: true },
+  {
+    provider: "anthropic",
+    model: "claude-3-5-haiku-20241022",
+    label: "Claude 3.5 Haiku",
+    supportsImages: true
+  },
+  { provider: "google", model: "gemini-2.5-flash", label: "Gemini 2.5 Flash", supportsImages: true },
+  { provider: "mistral", model: "mistral-small-latest", label: "Mistral Small", supportsImages: false }
 ];
 
 type ModelOption = (typeof modelPresets)[number];
@@ -81,6 +88,10 @@ function getMessageText(message: ChatMessage) {
   return message.content;
 }
 
+function getImageDataUrl(image: ImageAttachment) {
+  return `data:${image.mimeType};base64,${image.data}`;
+}
+
 function getModelKey(provider: string, model: string) {
   return `${provider}:${model}`;
 }
@@ -104,13 +115,31 @@ function MessageHeader({ label, meta }: { label: string; meta: string }) {
   );
 }
 
+function UserMessageContent({ message }: { message: UserMessage }) {
+  return (
+    <div className="message-content">
+      {message.images?.length ? (
+        <div className="message-images">
+          {message.images.map((image) => (
+            <figure className="message-image" key={image.id}>
+              <img alt={image.name} src={getImageDataUrl(image)} />
+              <figcaption>{image.name}</figcaption>
+            </figure>
+          ))}
+        </div>
+      ) : null}
+      <p>{getMessageText(message)}</p>
+    </div>
+  );
+}
+
 function createBubbleItem(message: ChatMessage, index: number): BubbleItemType {
   const isAssistant = message.role === "assistant";
 
   return {
     key: `${message.role}-${message.timestamp}-${index}`,
     role: isAssistant ? "assistant" : "user",
-    content: getMessageText(message),
+    content: isAssistant ? getMessageText(message) : <UserMessageContent message={message} />,
     header: (
       <MessageHeader
         label={isAssistant ? "My Pi" : "You"}
@@ -118,6 +147,19 @@ function createBubbleItem(message: ChatMessage, index: number): BubbleItemType {
       />
     )
   };
+}
+
+function readFileAsBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error("Failed to read image file"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function shouldShowSlashSuggestions(value: string) {
@@ -179,6 +221,7 @@ async function readEventStream(response: Response, onEvent: (event: StreamEvent)
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>(readStoredMessages);
   const [input, setInput] = useState("");
+  const [selectedImage, setSelectedImage] = useState<ImageAttachment | null>(null);
   const [systemPrompt, setSystemPrompt] = useState(defaultSystemPrompt);
   const [modelKey, setModelKey] = useState("openai:gpt-4o-mini");
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(modelPresets);
@@ -186,10 +229,19 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const sessionIdRef = useRef<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedModel = useMemo(() => {
     return parseModelKey(modelKey);
   }, [modelKey]);
+
+  const selectedModelOption = useMemo(() => {
+    return modelOptions.find(
+      (option) => getModelKey(option.provider, option.model) === modelKey
+    );
+  }, [modelKey, modelOptions]);
+
+  const selectedModelSupportsImages = selectedModelOption?.supportsImages ?? false;
 
   const bubbleItems = useMemo<BubbleItemType[]>(() => {
     const storedItems = messages.map(createBubbleItem);
@@ -245,19 +297,33 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
 
+  useEffect(() => {
+    if (selectedImage && !selectedModelSupportsImages) {
+      setSelectedImage(null);
+      setError("Removed the attached image because the selected model does not support image input.");
+    }
+  }, [selectedImage, selectedModelSupportsImages]);
+
   async function submitMessage(messageText: string) {
     const trimmed = messageText.trim();
-    if (!trimmed || isStreaming) return;
+    if ((!trimmed && !selectedImage) || isStreaming) return;
+
+    if (selectedImage && !selectedModelSupportsImages) {
+      setError("The selected model does not support image input. Choose a vision-capable model.");
+      return;
+    }
 
     const userMessage: UserMessage = {
       role: "user",
-      content: trimmed,
+      content: trimmed || "Please analyze this image.",
+      images: selectedImage ? [selectedImage] : undefined,
       timestamp: Date.now()
     };
     const nextMessages = [...messages, userMessage];
 
     setMessages(nextMessages);
     setInput("");
+    setSelectedImage(null);
     setDraftAssistant("");
     setError(null);
     setIsStreaming(true);
@@ -272,7 +338,13 @@ export default function App() {
         body: JSON.stringify({
           ...selectedModel,
           systemPrompt,
-          prompt: trimmed
+          prompt: userMessage.content,
+          images: userMessage.images?.map((image) => ({
+            name: image.name,
+            mimeType: image.mimeType,
+            size: image.size,
+            data: image.data
+          }))
         })
       });
 
@@ -319,6 +391,39 @@ export default function App() {
     setInput(`${value} `);
   }
 
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!selectedModelSupportsImages) {
+      setError("The selected model does not support image input. Choose a vision-capable model.");
+      return;
+    }
+    if (!supportedImageMimeTypes.includes(file.type)) {
+      setError("Upload a PNG, JPEG, WebP, or GIF image.");
+      return;
+    }
+    if (file.size > maxImageBytes) {
+      setError("Image must be smaller than 5 MB.");
+      return;
+    }
+
+    try {
+      const data = await readFileAsBase64(file);
+      setSelectedImage({
+        id: crypto.randomUUID(),
+        name: file.name,
+        mimeType: file.type,
+        size: file.size,
+        data
+      });
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to read image file");
+    }
+  }
+
   return (
     <XProvider theme={xTheme}>
       <main className="app-shell">
@@ -336,7 +441,7 @@ export default function App() {
             <select value={modelKey} onChange={(event) => setModelKey(event.target.value)}>
               {modelOptions.map((preset) => (
                 <option key={getModelKey(preset.provider, preset.model)} value={getModelKey(preset.provider, preset.model)}>
-                  {preset.label}
+                  {preset.label}{preset.supportsImages ? " · vision" : ""}
                 </option>
               ))}
             </select>
@@ -394,6 +499,18 @@ export default function App() {
           )}
 
           <div className="composer">
+            {selectedImage ? (
+              <div className="attachment-preview">
+                <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
+                <div>
+                  <strong>{selectedImage.name}</strong>
+                  <span>{Math.ceil(selectedImage.size / 1024)} KB · image analysis</span>
+                </div>
+                <button type="button" onClick={() => setSelectedImage(null)}>
+                  Remove
+                </button>
+              </div>
+            ) : null}
             <Suggestion<SlashSuggestionInfo>
               block
               className="slash-command-suggestion"
@@ -405,6 +522,28 @@ export default function App() {
                   autoSize={{ minRows: 2, maxRows: 8 }}
                   className="chat-sender"
                   disabled={isStreaming}
+                  footer={
+                    <div className="composer-footer">
+                      <input
+                        ref={fileInputRef}
+                        accept={supportedImageMimeTypes.join(",")}
+                        onChange={handleImageChange}
+                        type="file"
+                      />
+                      <button
+                        disabled={isStreaming || !selectedModelSupportsImages}
+                        title={
+                          selectedModelSupportsImages
+                            ? "Upload image"
+                            : "Selected model does not support image input"
+                        }
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Upload image
+                      </button>
+                    </div>
+                  }
                   loading={isStreaming}
                   onChange={(value) => {
                     setInput(value);

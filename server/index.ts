@@ -14,11 +14,29 @@ import {
   type ResourceLoader
 } from "@earendil-works/pi-coding-agent";
 
+const supportedImageMimeTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
+const maxImageBytes = 5 * 1024 * 1024;
+const maxImagesPerMessage = 1;
+
+interface ChatImage {
+  name?: string;
+  mimeType?: string;
+  data?: string;
+  size?: number;
+}
+
 interface ChatRequest {
   provider?: string;
   model?: string;
   systemPrompt?: string;
   prompt?: string;
+  images?: ChatImage[];
+}
+
+interface ImageContent {
+  type: "image";
+  data: string;
+  mimeType: string;
 }
 
 interface AgentSessionRecord {
@@ -55,7 +73,7 @@ const app = express();
 const port = Number(process.env.PORT || 8787);
 const sessions = new Map<string, AgentSessionRecord>();
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "8mb" }));
 
 function sendEvent(res: express.Response, event: unknown) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -173,6 +191,49 @@ function parseCommandCodeModels(value: unknown) {
     });
 }
 
+function getModelSupportsImages(model: { input?: string[] }) {
+  return Array.isArray(model.input) && model.input.includes("image");
+}
+
+function parseImages(value: unknown): ImageContent[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new Error("images must be an array");
+  }
+  if (value.length > maxImagesPerMessage) {
+    throw new Error(`Only ${maxImagesPerMessage} image can be uploaded per message`);
+  }
+
+  return value.map((image) => {
+    if (!isRecord(image)) throw new Error("Invalid image attachment");
+
+    const mimeType = readStringField(image, "mimeType");
+    const data = readStringField(image, "data");
+    const size = typeof image.size === "number" ? image.size : undefined;
+
+    if (!mimeType || !supportedImageMimeTypes.includes(mimeType as (typeof supportedImageMimeTypes)[number])) {
+      throw new Error("Unsupported image type. Upload PNG, JPEG, WebP, or GIF.");
+    }
+    if (!data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
+      throw new Error("Invalid image data");
+    }
+
+    const byteLength = Buffer.byteLength(data, "base64");
+    if (byteLength === 0 || byteLength > maxImageBytes) {
+      throw new Error("Image must be smaller than 5 MB");
+    }
+    if (size && size > maxImageBytes) {
+      throw new Error("Image must be smaller than 5 MB");
+    }
+
+    return {
+      type: "image",
+      mimeType,
+      data
+    };
+  });
+}
+
 async function registerCommandCodeProvider(authStorage: AuthStorage, modelRegistry: ModelRegistry) {
   if (!authStorage.hasAuth("commandcode")) return;
 
@@ -217,7 +278,8 @@ app.get("/api/models", async (_req, res) => {
     const models = modelRegistry.getAvailable().map((model) => ({
       provider: model.provider,
       model: model.id,
-      label: `${model.name || model.id} (${model.provider})`
+      label: `${model.name || model.id} (${model.provider})`,
+      supportsImages: getModelSupportsImages(model)
     }));
 
     res.json({ models });
@@ -288,7 +350,16 @@ app.post("/api/chat", async (req, res) => {
   const body = req.body as ChatRequest;
   const provider = body.provider || "openai";
   const modelId = body.model || "gpt-4o-mini";
-  const prompt = body.prompt?.trim();
+  let images: ImageContent[];
+  try {
+    images = parseImages(body.images);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : "Invalid image attachment"
+    });
+    return;
+  }
+  const prompt = body.prompt?.trim() || (images.length > 0 ? "Please analyze this image." : "");
   const sessionId = req.headers["x-session-id"]?.toString() || "default";
   const systemPrompt =
     body.systemPrompt?.trim() ||
@@ -297,6 +368,22 @@ app.post("/api/chat", async (req, res) => {
   if (!prompt) {
     res.status(400).json({ error: "prompt is required" });
     return;
+  }
+
+  if (images.length > 0) {
+    try {
+      const { modelRegistry } = await createLocalModelRegistry();
+      const model = modelRegistry.find(provider, modelId);
+      if (!model || !getModelSupportsImages(model)) {
+        res.status(400).json({ error: `Model ${provider}/${modelId} does not support image input` });
+        return;
+      }
+    } catch (error) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to validate image model support"
+      });
+      return;
+    }
   }
 
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
@@ -332,7 +419,7 @@ app.post("/api/chat", async (req, res) => {
     });
 
     try {
-      await session.prompt(prompt);
+      await session.prompt(prompt, images.length > 0 ? { images } : undefined);
     } finally {
       unsubscribe();
     }
