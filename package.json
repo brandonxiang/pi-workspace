@@ -1,0 +1,32 @@
+{
+  "name": "my-pi",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:web": "vite --host 127.0.0.1",
+    "dev:server": "tsx watch server/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build": "npm run typecheck && vite build && npm run build:server",
+    "start": "NODE_ENV=production node dist-server/index.js"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.75.5",
+    "@vitejs/plugin-react": "latest",
+    "express": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "concurrently": "latest",
+    "tsx": "latest"
+  }
+}
