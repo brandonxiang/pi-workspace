@@ -13,17 +13,13 @@ import {
   type AgentSession,
   type ResourceLoader
 } from "@earendil-works/pi-coding-agent";
-
-const supportedImageMimeTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
-const maxImageBytes = 5 * 1024 * 1024;
-const maxImagesPerMessage = 1;
-
-interface ChatImage {
-  name?: string;
-  mimeType?: string;
-  data?: string;
-  size?: number;
-}
+import {
+  getModelSupportsImages,
+  getPromptOrDefault,
+  parseImages,
+  type ChatImage,
+  type ImageContent
+} from "./chat-validation.js";
 
 interface ChatRequest {
   provider?: string;
@@ -31,12 +27,6 @@ interface ChatRequest {
   systemPrompt?: string;
   prompt?: string;
   images?: ChatImage[];
-}
-
-interface ImageContent {
-  type: "image";
-  data: string;
-  mimeType: string;
 }
 
 interface AgentSessionRecord {
@@ -191,49 +181,6 @@ function parseCommandCodeModels(value: unknown) {
     });
 }
 
-function getModelSupportsImages(model: { input?: string[] }) {
-  return Array.isArray(model.input) && model.input.includes("image");
-}
-
-function parseImages(value: unknown): ImageContent[] {
-  if (value === undefined) return [];
-  if (!Array.isArray(value)) {
-    throw new Error("images must be an array");
-  }
-  if (value.length > maxImagesPerMessage) {
-    throw new Error(`Only ${maxImagesPerMessage} image can be uploaded per message`);
-  }
-
-  return value.map((image) => {
-    if (!isRecord(image)) throw new Error("Invalid image attachment");
-
-    const mimeType = readStringField(image, "mimeType");
-    const data = readStringField(image, "data");
-    const size = typeof image.size === "number" ? image.size : undefined;
-
-    if (!mimeType || !supportedImageMimeTypes.includes(mimeType as (typeof supportedImageMimeTypes)[number])) {
-      throw new Error("Unsupported image type. Upload PNG, JPEG, WebP, or GIF.");
-    }
-    if (!data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
-      throw new Error("Invalid image data");
-    }
-
-    const byteLength = Buffer.byteLength(data, "base64");
-    if (byteLength === 0 || byteLength > maxImageBytes) {
-      throw new Error("Image must be smaller than 5 MB");
-    }
-    if (size && size > maxImageBytes) {
-      throw new Error("Image must be smaller than 5 MB");
-    }
-
-    return {
-      type: "image",
-      mimeType,
-      data
-    };
-  });
-}
-
 async function registerCommandCodeProvider(authStorage: AuthStorage, modelRegistry: ModelRegistry) {
   if (!authStorage.hasAuth("commandcode")) return;
 
@@ -359,7 +306,7 @@ app.post("/api/chat", async (req, res) => {
     });
     return;
   }
-  const prompt = body.prompt?.trim() || (images.length > 0 ? "Please analyze this image." : "");
+  const prompt = getPromptOrDefault(body.prompt, images);
   const sessionId = req.headers["x-session-id"]?.toString() || "default";
   const systemPrompt =
     body.systemPrompt?.trim() ||
