@@ -26,6 +26,9 @@ export type ChatMessage = UserMessage | AssistantMessage;
 export type StreamEvent =
   | { type: "delta"; delta: string }
   | { type: "thinking"; delta: string }
+  | { type: "tool_start"; toolName: string; toolCallId: string; args?: string }
+  | { type: "tool_delta"; toolName: string; toolCallId: string; delta: string }
+  | { type: "tool_end"; toolName: string; toolCallId: string; content: string; isError: boolean }
   | { type: "done"; message: AssistantMessage }
   | { type: "error"; message?: AssistantMessage; error: string };
 

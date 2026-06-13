@@ -102,14 +102,7 @@ export function PiSessionSection({
   }
 
   if (loading) {
-    return (
-      <div className="pi-sessions-section">
-        <div className="session-section-heading">
-          <span>Pi Sessions</span>
-        </div>
-        <div className="pi-sessions-loading">Loading…</div>
-      </div>
-    );
+    return null;
   }
 
   if (error) {

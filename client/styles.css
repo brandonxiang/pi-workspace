@@ -1012,6 +1012,13 @@ h2 {
 
 .chat-sender .ant-sender-content {
   min-height: 64px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.chat-sender .ant-sender-actions-list {
+  align-self: flex-end;
+  padding-bottom: 4px;
 }
 
 .chat-sender .ant-sender-input {

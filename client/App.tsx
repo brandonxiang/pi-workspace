@@ -377,7 +377,13 @@ export default function App() {
   const [input, setInput] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageAttachment | null>(null);
   const [systemPrompt, setSystemPrompt] = useState(defaultSystemPrompt);
-  const [modelKey, setModelKey] = useState("openai:gpt-4o-mini");
+  const [modelKey, setModelKey] = useState(() => {
+    try {
+      return localStorage.getItem("my-pi-model") || "openai:gpt-4o-mini";
+    } catch {
+      return "openai:gpt-4o-mini";
+    }
+  });
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(modelPresets);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [renameSessionId, setRenameSessionId] = useState<string | null>(null);
@@ -391,6 +397,7 @@ export default function App() {
   const [piPendingMessages, setPiPendingMessages] = useState<PiHistoryMessage[]>([]);
   const [piSessionError, setPiSessionError] = useState<string | null>(null);
   const [piSessionLoading, setPiSessionLoading] = useState(false);
+  const [draftToolMessages, setDraftToolMessages] = useState<Map<string, { toolName: string; content: string; isError: boolean }>>(new Map());
   const sessionIdRef = useRef<string>("");
   const piSessionRequestIdRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -426,42 +433,60 @@ export default function App() {
 
   const selectedModelSupportsImages = selectedModelOption?.supportsImages ?? false;
 
+  const draftToolBubbleItems = useMemo<BubbleItemType[]>(() => {
+    if (draftToolMessages.size === 0) return [];
+
+    return Array.from(draftToolMessages.entries()).map(([toolCallId, entry]) => ({
+      key: `tool-streaming-${toolCallId}`,
+      role: "assistant" as const,
+      content: (
+        <details className="pi-tool-card" open>
+          <summary>
+            <span>{entry.toolName}</span>
+            <small>Running…</small>
+          </summary>
+          <pre>{entry.content || "(waiting for output…)"}</pre>
+        </details>
+      ),
+      header: <MessageHeader label="Tool" meta={entry.toolName} />
+    }));
+  }, [draftToolMessages]);
+
+  const streamingBubbleItem = useMemo<BubbleItemType | null>(() => {
+    if (!draftAssistant && draftToolMessages.size === 0) return null;
+    if (!draftAssistant) return null;
+
+    return {
+      key: "assistant-streaming",
+      role: "assistant",
+      content: draftAssistant,
+      streaming: isStreaming,
+      status: "updating",
+      header: <MessageHeader label="My Pi" meta="streaming" />
+    };
+  }, [draftAssistant, draftToolMessages, isStreaming]);
+
   const localBubbleItems = useMemo<BubbleItemType[]>(() => {
     const storedItems = messages.map(createBubbleItem);
-    if (!draftAssistant) return storedItems;
+    if (!streamingBubbleItem && draftToolBubbleItems.length === 0) return storedItems;
 
     return [
       ...storedItems,
-      {
-        key: "assistant-streaming",
-        role: "assistant",
-        content: draftAssistant,
-        streaming: isStreaming,
-        status: "updating",
-        header: <MessageHeader label="My Pi" meta="streaming" />
-      }
+      ...draftToolBubbleItems,
+      ...(streamingBubbleItem ? [streamingBubbleItem] : [])
     ];
-  }, [draftAssistant, isStreaming, messages]);
+  }, [draftToolBubbleItems, messages, streamingBubbleItem]);
 
   const piHistoryBubbleItems = useMemo<BubbleItemType[]>(() => {
     const items = [...piHistoryMessages, ...piPendingMessages].map(createPiHistoryBubbleItem);
-    if (!draftAssistant) return items;
+    if (!streamingBubbleItem && draftToolBubbleItems.length === 0) return items;
 
     return [
       ...items,
-      createPiHistoryBubbleItem(
-        {
-          id: "pi-assistant-streaming",
-          role: "assistant",
-          content: draftAssistant,
-          provider: piSessionDetail?.session.projectName ? undefined : undefined,
-          model: undefined,
-          timestamp: Date.now()
-        },
-        items.length
-      )
+      ...draftToolBubbleItems,
+      ...(streamingBubbleItem ? [streamingBubbleItem] : [])
     ];
-  }, [draftAssistant, piHistoryMessages, piPendingMessages, piSessionDetail?.session.projectName]);
+  }, [draftToolBubbleItems, piHistoryMessages, piPendingMessages, streamingBubbleItem]);
 
   const isPiHistoryView = activePanelView.kind === "pi";
   const panelTitle = isPiHistoryView
@@ -476,6 +501,11 @@ export default function App() {
     sessionIdRef.current = activeSessionId;
     localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
   }, [activeSessionId]);
+
+  // Persist model selection
+  useEffect(() => {
+    localStorage.setItem("my-pi-model", modelKey);
+  }, [modelKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -492,7 +522,9 @@ export default function App() {
           const currentExists = body.models?.some(
             (option) => `${option.provider}:${option.model}` === current
           );
-          return currentExists ? current : getModelKey(body.models![0].provider, body.models![0].model);
+          return currentExists
+            ? current
+            : getModelKey(body.models![0].provider, body.models![0].model);
         });
       } catch {
         // Keep static presets when the model registry endpoint is unavailable.
@@ -596,7 +628,6 @@ export default function App() {
     setActivePanelView({ kind: "pi", sessionId });
     setPiSessionLoading(true);
     setPiSessionError(null);
-    setPiSessionDetail(null);
     setError(null);
     setDraftAssistant("");
     setPiPendingMessages([]);
@@ -666,6 +697,7 @@ export default function App() {
     setInput("");
     setSelectedImage(null);
     setDraftAssistant("");
+    setDraftToolMessages(new Map());
     setError(null);
     setIsStreaming(true);
 
@@ -679,7 +711,7 @@ export default function App() {
             : { "x-pi-session-id": activePanelView.sessionId })
         },
         body: JSON.stringify({
-          ...(activePanelView.kind === "local" ? selectedModel : {}),
+          ...selectedModel,
           ...(activePanelView.kind === "local" ? { systemPrompt } : {}),
           prompt: userMessage.content,
           images: userMessage.images?.map((image) => ({
@@ -696,10 +728,41 @@ export default function App() {
         throw new Error(body?.error || `Request failed with ${response.status}`);
       }
 
-      let finalMessage: AssistantMessage | null = null;
+      let finalMessage: (AssistantMessage & { content: string; provider: string; model: string; timestamp: number }) | null = null;
+      // Collect intermediate tool messages that appeared during streaming.
+      const intermediateToolMessages: Array<{ toolName: string; content: string; isError: boolean }> = [];
       await readEventStream(response, (streamEvent) => {
         if (streamEvent.type === "delta") {
           setDraftAssistant((current) => current + streamEvent.delta);
+        }
+
+        if (streamEvent.type === "tool_start") {
+          setDraftToolMessages((prev) => {
+            const next = new Map(prev);
+            next.set(streamEvent.toolCallId, { toolName: streamEvent.toolName, content: "", isError: false });
+            return next;
+          });
+        }
+
+        if (streamEvent.type === "tool_delta") {
+          setDraftToolMessages((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(streamEvent.toolCallId);
+            if (existing) {
+              next.set(streamEvent.toolCallId, { ...existing, content: existing.content + streamEvent.delta });
+            }
+            return next;
+          });
+        }
+
+        if (streamEvent.type === "tool_end") {
+          const entry = { toolName: streamEvent.toolName, content: streamEvent.content, isError: streamEvent.isError };
+          intermediateToolMessages.push(entry);
+          setDraftToolMessages((prev) => {
+            const next = new Map(prev);
+            next.delete(streamEvent.toolCallId);
+            return next;
+          });
         }
 
         if (streamEvent.type === "done") {
@@ -713,24 +776,75 @@ export default function App() {
       });
 
       if (finalMessage) {
+        // Build the assistant message with intermediate tool results embedded.
+        const fm = finalMessage! as AssistantMessage;
+        const finalAssistantMsg: AssistantMessage = {
+          role: "assistant",
+          content: fm.content,
+          provider: fm.provider,
+          model: fm.model,
+          timestamp: fm.timestamp
+        };
+
         if (activePanelView.kind === "local") {
           updateSession(activeSession!.id, (session) => ({
             ...session,
-            messages: [...session.messages, finalMessage as AssistantMessage]
+            messages: [
+              ...session.messages,
+              ...intermediateToolMessages.map(
+                (t, i) =>
+                  ({
+                    role: "tool" as const,
+                    toolName: t.toolName,
+                    content: t.content,
+                    isError: t.isError,
+                    expandable: true as const,
+                    timestamp: finalAssistantMsg.timestamp + i
+                  }) as unknown as ChatMessage
+              ),
+              finalAssistantMsg
+            ]
           }));
         } else {
+          const pendingUserMsg: PiHistoryMessage = {
+            id: `pi-user-${Date.now()}`,
+            role: "user",
+            content: userMessage.content,
+            images: userMessage.images,
+            timestamp: userMessage.timestamp
+          };
+          const toolMsgs: Extract<PiHistoryMessage, { role: "tool" }>[] = intermediateToolMessages.map(
+            (t, i) =>
+              ({
+                id: `tool-${Date.now()}-${i}`,
+                role: "tool",
+                toolName: t.toolName,
+                content: t.content,
+                isError: t.isError,
+                expandable: true,
+                timestamp: finalAssistantMsg.timestamp + i
+              }) as Extract<PiHistoryMessage, { role: "tool" }>
+          );
           setPiSessionDetail((current) =>
             current
               ? {
                   ...current,
                   session: {
                     ...current.session,
-                    modified: new Date((finalMessage as AssistantMessage).timestamp).toISOString()
+                    modified: new Date(finalAssistantMsg.timestamp).toISOString()
                   },
                   messages: [
                     ...current.messages,
-                    ...piPendingMessages,
-                    finalMessage as Extract<PiHistoryMessage, { role: "assistant" }>
+                    pendingUserMsg,
+                    ...toolMsgs,
+                    {
+                      id: finalAssistantMsg.content.slice(0, 32),
+                      role: "assistant",
+                      content: finalAssistantMsg.content,
+                      provider: finalAssistantMsg.provider,
+                      model: finalAssistantMsg.model,
+                      timestamp: finalAssistantMsg.timestamp
+                    } as Extract<PiHistoryMessage, { role: "assistant" }>
                   ]
                 }
               : current
@@ -936,14 +1050,7 @@ export default function App() {
           </header>
 
           {isPiHistoryView ? (
-            piSessionLoading ? (
-              <div className="messages messages-empty">
-                <div className="empty-state">
-                  <h3>Loading Pi session history…</h3>
-                  <p>Fetching the active branch from your local Pi session store.</p>
-                </div>
-              </div>
-            ) : piSessionError ? (
+            piSessionError ? (
               <div className="messages messages-empty">
                 <div className="error-banner">
                   <p>{piSessionError}</p>
@@ -958,6 +1065,13 @@ export default function App() {
                       Retry
                     </button>
                   ) : null}
+                </div>
+              </div>
+            ) : !piSessionDetail ? (
+              <div className="messages messages-empty">
+                <div className="empty-state">
+                  <h3>Loading Pi session history…</h3>
+                  <p>Fetching the active branch from your local Pi session store.</p>
                 </div>
               </div>
             ) : piHistoryBubbleItems.length === 0 ? (
@@ -1058,7 +1172,12 @@ export default function App() {
                             : false
                         );
                       }}
-                      onKeyDown={onKeyDown}
+                      onKeyDown={(e) => {
+                        // Stop propagation to prevent parent BaseSelect
+                        // from intercepting space key (and others)
+                        e.stopPropagation();
+                        onKeyDown(e);
+                      }}
                       onSubmit={submitMessage}
                       placeholder="Continue this Pi session..."
                       submitType="enter"
@@ -1124,7 +1243,12 @@ export default function App() {
                           : false
                       );
                     }}
-                    onKeyDown={onKeyDown}
+                    onKeyDown={(e) => {
+                      // Stop propagation to prevent parent BaseSelect
+                      // from intercepting space key (and others)
+                      e.stopPropagation();
+                      onKeyDown(e);
+                    }}
                     onSubmit={submitMessage}
                     placeholder="Ask the agent to reason, plan, or draft..."
                     submitType="enter"

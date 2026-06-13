@@ -40,6 +40,12 @@ interface AgentSessionRecord {
   systemPrompt: string;
 }
 
+interface PiAgentSessionRecord {
+  session: AgentSession;
+  provider: string;
+  modelId: string;
+}
+
 interface ChatImage {
   name?: string;
   mimeType?: string;
@@ -72,6 +78,8 @@ interface CommandCodeApiModel {
 
 const port = Number(process.env.PORT || 8787);
 const sessions = new Map<string, AgentSessionRecord>();
+// Cache Pi agent sessions keyed by Pi session ID so they persist across requests.
+const piSessions = new Map<string, PiAgentSessionRecord>();
 
 function sendEvent(res: import("node:http").ServerResponse, event: unknown) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -284,6 +292,10 @@ async function createPersistedPiSession(
   provider?: string,
   modelId?: string
 ) {
+  // Reuse a cached Pi agent session if available.
+  const cached = piSessions.get(piSessionId);
+  if (cached) return cached;
+
   const context = await loadPiSessionContextById(piSessionId);
   if (!context) return null;
 
@@ -307,7 +319,6 @@ async function createPersistedPiSession(
     modelRegistry,
     model,
     thinkingLevel: "off",
-    noTools: "all",
     sessionManager: context.sessionManager,
     settingsManager: SettingsManager.inMemory({
       compaction: { enabled: false },
@@ -315,11 +326,14 @@ async function createPersistedPiSession(
     })
   });
 
-  return {
+  const record: PiAgentSessionRecord = {
     session,
     provider: model?.provider || resolvedProvider || "unknown",
     modelId: model?.id || resolvedModelId || "unknown"
   };
+
+  piSessions.set(piSessionId, record);
+  return record;
 }
 
 async function buildServer() {
@@ -545,6 +559,34 @@ async function buildServer() {
           sendEvent(raw, { type: "thinking", delta: event.assistantMessageEvent.delta });
         }
 
+        if (event.type === "tool_execution_start") {
+          sendEvent(raw, {
+            type: "tool_start",
+            toolName: event.toolName,
+            toolCallId: event.toolCallId,
+            args: typeof event.args === "string" ? event.args : JSON.stringify(event.args ?? {})
+          });
+        }
+
+        if (event.type === "tool_execution_update") {
+          sendEvent(raw, {
+            type: "tool_delta",
+            toolName: event.toolName,
+            toolCallId: event.toolCallId,
+            delta: typeof event.partialResult === "string" ? event.partialResult : JSON.stringify(event.partialResult ?? "")
+          });
+        }
+
+        if (event.type === "tool_execution_end") {
+          sendEvent(raw, {
+            type: "tool_end",
+            toolName: event.toolName,
+            toolCallId: event.toolCallId,
+            content: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? ""),
+            isError: event.isError
+          });
+        }
+
         if (event.type === "agent_end") {
           sendEvent(raw, {
             type: "done",
@@ -563,7 +605,11 @@ async function buildServer() {
         await session.prompt(prompt, images.length > 0 ? { images } : undefined);
       } finally {
         unsubscribe();
-        persistedSession?.session.dispose();
+        // Pi sessions are cached in piSessions map, so do NOT dispose() here.
+        // Only dispose in-memory (local) sessions that were created per-request.
+        if (!piSessionId) {
+          persistedSession?.session.dispose();
+        }
       }
     } catch (error) {
       sendEvent(raw, {
