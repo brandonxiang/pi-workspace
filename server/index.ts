@@ -19,7 +19,11 @@ import {
   parseImages,
   type ImageContent
 } from "./chat-validation.js";
-import { groupSessionsByProject } from "./pi-sessions.js";
+import {
+  groupSessionsByProject,
+  loadPiSessionContextById,
+  loadPiSessionDetailById
+} from "./pi-sessions.js";
 
 interface ChatRequest {
   provider?: string;
@@ -275,6 +279,49 @@ async function getOrCreateSession(
   return session;
 }
 
+async function createPersistedPiSession(
+  piSessionId: string,
+  provider?: string,
+  modelId?: string
+) {
+  const context = await loadPiSessionContextById(piSessionId);
+  if (!context) return null;
+
+  const { authStorage, modelRegistry } = await createLocalModelRegistry();
+  const resolvedProvider = provider || context.model?.provider;
+  const resolvedModelId = modelId || context.model?.modelId;
+  const model =
+    resolvedProvider && resolvedModelId
+      ? modelRegistry.find(resolvedProvider, resolvedModelId)
+      : undefined;
+
+  if (model && !modelRegistry.hasConfiguredAuth(model)) {
+    const envName =
+      providerApiKeyEnv[model.provider] || `${model.provider.toUpperCase()}_API_KEY`;
+    throw new Error(`Missing ${envName}`);
+  }
+
+  const { session } = await createAgentSession({
+    cwd: context.session.cwd,
+    authStorage,
+    modelRegistry,
+    model,
+    thinkingLevel: "off",
+    noTools: "all",
+    sessionManager: context.sessionManager,
+    settingsManager: SettingsManager.inMemory({
+      compaction: { enabled: false },
+      retry: { enabled: true, maxRetries: 1 }
+    })
+  });
+
+  return {
+    session,
+    provider: model?.provider || resolvedProvider || "unknown",
+    modelId: model?.id || resolvedModelId || "unknown"
+  };
+}
+
 async function buildServer() {
   const server = Fastify({
     bodyLimit: 8 * 1024 * 1024
@@ -292,6 +339,29 @@ async function buildServer() {
     return { ok: true };
   });
 
+  server.post("/api/pi-sessions", async (request, reply) => {
+    const { cwd } = request.body as { cwd?: string };
+    if (!cwd?.trim()) {
+      reply.code(400);
+      return { error: "cwd is required" };
+    }
+
+    try {
+      const sm = SessionManager.create(cwd.trim());
+      // Force-write the session header to disk so listAll() finds it.
+      // SessionManager.create() defers writes until an assistant message appears.
+      (sm as unknown as { _rewriteFile(): void })._rewriteFile();
+      const sessions = await SessionManager.listAll();
+      const projects = groupSessionsByProject(sessions);
+      return { projects };
+    } catch (error) {
+      reply.code(500);
+      return {
+        error: error instanceof Error ? error.message : "Failed to create Pi session"
+      };
+    }
+  });
+
   server.get("/api/pi-sessions", async (_request, reply) => {
     try {
       const sessions = await SessionManager.listAll();
@@ -301,6 +371,29 @@ async function buildServer() {
       reply.code(500);
       return {
         error: error instanceof Error ? error.message : "Failed to list Pi sessions"
+      };
+    }
+  });
+
+  server.get("/api/pi-sessions/:sessionId", async (request, reply) => {
+    const { sessionId } = request.params as { sessionId?: string };
+    if (!sessionId?.trim()) {
+      reply.code(400);
+      return { error: "sessionId is required" };
+    }
+
+    try {
+      const detail = await loadPiSessionDetailById(sessionId);
+      if (!detail) {
+        reply.code(404);
+        return { error: "Pi session not found" };
+      }
+
+      return detail;
+    } catch (error) {
+      reply.code(500);
+      return {
+        error: error instanceof Error ? error.message : "Failed to load Pi session"
       };
     }
   });
@@ -326,8 +419,8 @@ async function buildServer() {
 
   server.post("/api/chat", async (request, reply) => {
     const body = request.body as ChatRequest;
-    const provider = body.provider || "openai";
-    const modelId = body.model || "gpt-4o-mini";
+    const requestedProvider = body.provider;
+    const requestedModelId = body.model;
     let images: ImageContent[];
     try {
       images = parseImages(body.images);
@@ -340,6 +433,7 @@ async function buildServer() {
     const prompt = getPromptOrDefault(body.prompt, images);
     const sessionId =
       (request.headers["x-session-id"] as string | undefined) || "default";
+    const piSessionId = request.headers["x-pi-session-id"] as string | undefined;
     const systemPrompt =
       body.systemPrompt?.trim() ||
       "You are My Pi, a concise online agent assistant. Ask clarifying questions when requirements are incomplete.";
@@ -351,13 +445,46 @@ async function buildServer() {
 
     if (images.length > 0) {
       try {
-        const { modelRegistry } = await createLocalModelRegistry();
-        const model = modelRegistry.find(provider, modelId);
-        if (!model || !getModelSupportsImages(model)) {
-          reply.code(400);
-          return {
-            error: `Model ${provider}/${modelId} does not support image input`
-          };
+        if (piSessionId) {
+          const persistedSession = await createPersistedPiSession(
+            piSessionId,
+            requestedProvider,
+            requestedModelId
+          );
+          persistedSession?.session.dispose();
+
+          if (!persistedSession) {
+            reply.code(404);
+            return { error: "Pi session not found" };
+          }
+
+          if (
+            persistedSession.provider !== "unknown" &&
+            persistedSession.modelId !== "unknown"
+          ) {
+            const { modelRegistry } = await createLocalModelRegistry();
+            const model = modelRegistry.find(
+              persistedSession.provider,
+              persistedSession.modelId
+            );
+            if (!model || !getModelSupportsImages(model)) {
+              reply.code(400);
+              return {
+                error: `Model ${persistedSession.provider}/${persistedSession.modelId} does not support image input`
+              };
+            }
+          }
+        } else {
+          const provider = requestedProvider || "openai";
+          const modelId = requestedModelId || "gpt-4o-mini";
+          const { modelRegistry } = await createLocalModelRegistry();
+          const model = modelRegistry.find(provider, modelId);
+          if (!model || !getModelSupportsImages(model)) {
+            reply.code(400);
+            return {
+              error: `Model ${provider}/${modelId} does not support image input`
+            };
+          }
         }
       } catch (error) {
         reply.code(500);
@@ -378,12 +505,28 @@ async function buildServer() {
     });
 
     try {
-      const session = await getOrCreateSession(
-        sessionId,
-        provider,
-        modelId,
-        systemPrompt
-      );
+      const persistedSession = piSessionId
+        ? await createPersistedPiSession(piSessionId, requestedProvider, requestedModelId)
+        : null;
+
+      if (piSessionId && !persistedSession) {
+        sendEvent(raw, {
+          type: "error",
+          error: "Pi session not found"
+        });
+        return;
+      }
+
+      const provider = persistedSession?.provider || requestedProvider || "openai";
+      const modelId = persistedSession?.modelId || requestedModelId || "gpt-4o-mini";
+      const session =
+        persistedSession?.session ||
+        (await getOrCreateSession(
+          sessionId,
+          provider,
+          modelId,
+          systemPrompt
+        ));
       let finalText = "";
 
       const unsubscribe = session.subscribe((event) => {
@@ -420,6 +563,7 @@ async function buildServer() {
         await session.prompt(prompt, images.length > 0 ? { images } : undefined);
       } finally {
         unsubscribe();
+        persistedSession?.session.dispose();
       }
     } catch (error) {
       sendEvent(raw, {
@@ -440,12 +584,45 @@ async function buildServer() {
   return server;
 }
 
+async function startWithRetry(
+  fastify: Awaited<ReturnType<typeof buildServer>>,
+  retries: number,
+): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const address = await new Promise<string>((resolve, reject) => {
+        fastify.listen({ port, host: "127.0.0.1" }, (err, addr) => {
+          if (err) reject(err);
+          else resolve(addr);
+        });
+      });
+      console.log(`My Pi server listening on ${address}`);
+      return;
+    } catch (error) {
+      const isPortInUse =
+        error instanceof Error &&
+        (error as NodeJS.ErrnoException).code === "EADDRINUSE";
+
+      if (isPortInUse && attempt < retries) {
+        console.log(`Port ${port} is in use, retrying in 1s (attempt ${attempt}/${retries - 1})…`);
+        await new Promise((r) => setTimeout(r, 1000));
+      } else {
+        console.error("Failed to start server:", error);
+        process.exit(1);
+      }
+    }
+  }
+}
+
 const server = await buildServer();
 
-server.listen({ port, host: "127.0.0.1" }, (error, address) => {
-  if (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-  }
-  console.log(`My Pi server listening on ${address}`);
+// Graceful shutdown on SIGTERM (from node --watch or dev.mjs)
+// so the port is released promptly for the next process.
+process.on("SIGTERM", async () => {
+  try {
+    await server.close();
+  } catch {}
+  process.exit(0);
 });
+
+await startWithRetry(server, 5);

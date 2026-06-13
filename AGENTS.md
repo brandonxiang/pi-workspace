@@ -8,11 +8,16 @@ Build and maintain a browser-based agent dialogue tool backed by
 ## Development Commands
 
 - Install dependencies: `pnpm install`
-- Start local dev server (Fastify + Vite HMR): `pnpm run dev`
+- Start local dev server (rolldown watch + node --watch): `pnpm run dev`
 - Run tests: `pnpm run test`
-- Typecheck: `pnpm run typecheck`
+- Typecheck (client + server): `pnpm run typecheck`
 - Build client + server: `pnpm run build`
 - Production start after build: `pnpm start`
+
+## Key Files
+
+- `dev.mjs` — Dev server launcher (rolldown --watch + node --watch)
+- `rolldown.server.config.mjs` — rolldown configuration for server bundling
 
 ## Implementation Rules
 

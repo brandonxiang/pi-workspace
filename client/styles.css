@@ -2,8 +2,8 @@
   color-scheme: light;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --primary: #5645d4;
-  --primary-pressed: #4534b3;
+  --primary: #0075de;
+  --primary-pressed: #005bab;
   --brand-navy: #0a1530;
   --brand-navy-deep: #070f24;
   --brand-navy-mid: #1a2a52;
@@ -14,16 +14,16 @@
   --canvas: #ffffff;
   --surface: #f6f5f4;
   --surface-soft: #fafaf9;
-  --hairline: #e5e3df;
+  --hairline: #e6e6e6;
   --hairline-soft: #ede9e4;
   --hairline-strong: #c8c4be;
-  --ink: #1a1a1a;
-  --charcoal: #37352f;
-  --slate: #5d5b54;
-  --steel: #787671;
+  --ink: #000000;
+  --charcoal: #31302e;
+  --slate: #615d59;
+  --steel: #a39e98;
   --muted: #bbb8b1;
   --on-dark: #ffffff;
-  --on-dark-muted: #a4a097;
+  --on-dark-muted: rgba(255, 255, 255, 0.55);
   --card-tint-mint: #d9f3e1;
   --card-tint-lavender: #e6e0f5;
   --card-tint-sky: #dcecfa;
@@ -56,34 +56,24 @@ textarea {
   grid-template-columns: 372px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--surface);
+  transition: grid-template-columns 0.2s;
+}
+
+.app-shell-collapsed {
+  grid-template-columns: 0 1fr;
 }
 
 .sidebar {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 32px;
+  gap: 12px;
+  padding: 16px;
+  height: 100vh;
   overflow: hidden;
   border-right: 1px solid var(--brand-navy-mid);
   background: var(--brand-navy);
   color: var(--on-dark);
-}
-
-.sidebar::before {
-  position: absolute;
-  top: 28px;
-  right: 28px;
-  width: 120px;
-  height: 96px;
-  background:
-    radial-gradient(circle at 12px 12px, var(--brand-yellow) 0 5px, transparent 6px),
-    radial-gradient(circle at 58px 22px, var(--brand-pink) 0 5px, transparent 6px),
-    radial-gradient(circle at 100px 54px, var(--brand-teal) 0 5px, transparent 6px),
-    radial-gradient(circle at 32px 72px, var(--primary) 0 5px, transparent 6px);
-  content: "";
-  opacity: 0.9;
-  pointer-events: none;
 }
 
 .sidebar > * {
@@ -207,9 +197,78 @@ h2 {
 }
 
 .sidebar-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--on-dark-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  align-self: center;
+}
+
+.sidebar-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--on-dark);
+}
+
+.sidebar-expand-btn {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 48px;
+  border: 1px solid var(--hairline);
+  border-right: none;
+  border-radius: 0 6px 6px 0;
+  background: var(--canvas);
+  color: var(--slate);
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.12s, color 0.12s;
+}
+
+.sidebar-expand-btn:hover {
+  background: var(--surface);
+  color: var(--primary);
+}
+
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--on-dark-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--on-dark);
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .secondary-button:disabled {
@@ -334,50 +393,98 @@ h2 {
   padding: 0 10px;
 }
 
-/* ───── Pi Session Section ───── */
+/* ───── Pi Session Section (Notion-inspired) ─────
+ *
+ * Applies the DESIGN.md language within the dark navy sidebar:
+ *   - Typography: body-sm (15px/400) for content, caption (14px/400) for meta,
+ *                 eyebrow (12px/600/+0.125px tracking) for section headings
+ *   - Spacing: Notion's base rhythm (4/8/12/16/24)
+ *   - Radius: md (8px) for headers, sm (5px) for rows, full for badges
+ *   - Accent: --link-blue (#0075de) as the single structural accent in active states
+ *   - Elevation: hairline borders + micro-opacity shifts, no heavy shadows
+ */
 
 .pi-sessions-section {
-  display: grid;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  flex: 1;
 }
 
 .pi-sessions-list {
   display: grid;
-  gap: 8px;
-  max-height: min(32vh, 320px);
+  gap: 4px;
   overflow-y: auto;
   padding-right: 4px;
+  min-height: 0;
+  flex: 1;
 }
 
 .pi-project-group {
   display: grid;
-  gap: 6px;
+  gap: 2px;
+}
+
+.pi-project-header-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .pi-project-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  min-height: 36px;
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
   padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;               /* rounded.md = 8px */
+  background: rgba(255, 255, 255, 0.05);
   color: var(--on-dark);
   cursor: pointer;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;                  /* title-weight, not chunky 650 */
+  letter-spacing: -0.125px;          /* title tracking */
   text-align: left;
+  transition: background 0.12s;
 }
 
 .pi-project-header:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 .pi-project-header:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pi-new-session-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--on-dark-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.pi-new-session-btn:hover:not(:disabled) {
+  background: rgba(0, 117, 222, 0.15);
+  border-color: rgba(0, 117, 222, 0.35);
+  color: #4da8f0;
+}
+
+.pi-new-session-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .pi-project-name {
@@ -389,66 +496,86 @@ h2 {
 
 .pi-project-count {
   flex-shrink: 0;
-  min-width: 22px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  min-width: 24px;
+  padding: 0 8px;
+  border-radius: 9999px;            /* rounded.full */
+  background: rgba(255, 255, 255, 0.08);
   color: var(--on-dark-muted);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 20px;
+  font-size: 12px;                   /* eyebrow size */
+  font-weight: 600;                  /* eyebrow weight */
+  letter-spacing: 0.125px;           /* eyebrow tracking */
+  line-height: 22px;
   text-align: center;
 }
 
 .pi-session-list {
   display: grid;
-  gap: 4px;
-  padding-left: 8px;
+  gap: 2px;
+  padding-left: 12px;
 }
 
 .pi-session-row {
   display: grid;
+  width: 100%;
   padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 0;
+  border: none;
+  border-radius: 5px;               /* rounded.sm = 5px */
+  background: transparent;
   cursor: pointer;
+  text-align: left;
   transition: background 0.12s;
 }
 
 .pi-session-row:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pi-session-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+/* Active session gets the single blue accent — Notion's principle:
+ * only one thing on the page gets painted in --link-blue. */
+.pi-session-row-active {
+  background: rgba(0, 117, 222, 0.1);   /* --link-blue at 10% */
+  border-left: 2px solid var(--link-blue);
 }
 
 .pi-session-info {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: 3px;
 }
 
 .pi-session-first-msg {
   overflow: hidden;
   color: var(--on-dark);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.4;
+  font-size: 14px;                   /* caption size on dark bg */
+  font-weight: 400;
+  line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
-  opacity: 0.9;
+  opacity: 0.88;
 }
 
 .pi-session-meta {
-  color: var(--on-dark-muted);
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.45);  /* softer than --on-dark-muted */
+  font-size: 12px;                   /* eyebrow size */
+  font-weight: 400;                  /* normal weight for readable meta */
+  letter-spacing: 0;
 }
 
 .pi-sessions-loading,
 .pi-sessions-error,
 .pi-sessions-empty {
-  padding: 10px;
-  color: var(--on-dark-muted);
-  font-size: 13px;
-  font-style: italic;
+  padding: 8px 10px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 14px;
 }
 
 .status-panel {
@@ -489,54 +616,52 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 28px 32px;
+  padding: 10px 32px;
   border-bottom: 1px solid var(--hairline);
   background: rgba(250, 250, 249, 0.86);
   backdrop-filter: blur(14px);
 }
 
-.chat-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.chat-header-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
 }
 
-.ghost-button {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  background: var(--canvas);
-  color: var(--slate);
-  cursor: pointer;
-  font-size: 13px;
+.chat-header-title {
+  font-size: 14px;
   font-weight: 600;
+  color: var(--charcoal);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ghost-button:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+.chat-header-meta {
+  overflow: hidden;
+  color: var(--steel);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.pill {
+.chat-mode-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 86px;
-  min-height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--hairline);
+  min-height: 28px;
+  padding: 0 10px;
   border-radius: 999px;
-  background: var(--canvas);
-  color: var(--slate);
-  font-size: 13px;
-  font-weight: 600;
+  background: var(--card-tint-sky);
+  color: var(--brand-navy);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.pill-live {
-  border-color: var(--primary);
-  color: var(--primary);
-}
+/* .ghost-button and .pill removed — now inline compact header */
 
 .messages {
   min-height: 0;
@@ -676,10 +801,123 @@ h2 {
   font-weight: 600;
 }
 
+.error-banner p {
+  margin: 0 0 10px;
+}
+
+.inline-action-button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.inline-action-button:hover {
+  background: rgba(224, 49, 49, 0.08);
+}
+
+.pi-tool-card {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.pi-tool-card summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--charcoal);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pi-tool-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.pi-tool-card summary small {
+  color: var(--steel);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pi-tool-card pre {
+  margin: 0;
+  padding: 0 14px 14px;
+  overflow-x: auto;
+  color: var(--charcoal);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pi-tool-card-error {
+  border-color: rgba(224, 49, 49, 0.26);
+  background: #fff4f2;
+}
+
+.pi-summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.pi-summary-card strong {
+  color: var(--charcoal);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.pi-summary-card p {
+  margin: 0;
+  color: var(--slate);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pi-summary-card-compaction {
+  background: var(--card-tint-sky);
+}
+
+.pi-summary-card-branch {
+  background: var(--card-tint-yellow);
+}
+
+.pi-summary-card-custom {
+  background: var(--card-tint-mint);
+}
+
 .composer {
   padding: 20px 32px 28px;
   border-top: 1px solid var(--hairline);
   background: var(--surface-soft);
+}
+
+.pi-history-footer {
+  display: flex;
+  align-items: center;
+  padding: 18px 32px 24px;
+  border-top: 1px solid var(--hairline);
+  background: var(--surface-soft);
+  color: var(--steel);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .attachment-preview {
@@ -845,7 +1083,6 @@ h2 {
 
 @media (max-width: 560px) {
   .sidebar,
-  .chat-header,
   .messages-empty,
   .chat-bubble-list .ant-bubble-list-scroll-box,
   .composer {
@@ -863,12 +1100,6 @@ h2 {
   }
 
   .chat-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .chat-header-actions {
-    width: 100%;
-    justify-content: space-between;
+    padding: 8px 18px;
   }
 }

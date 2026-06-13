@@ -48,3 +48,58 @@ export interface PiSessionProject {
 export interface PiSessionsResponse {
   projects: PiSessionProject[];
 }
+
+export interface PiHistoryImage {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string;
+}
+
+export type PiHistoryMessage =
+  | {
+      id: string;
+      role: "user";
+      content: string;
+      images?: PiHistoryImage[];
+      timestamp: number;
+    }
+  | {
+      id: string;
+      role: "assistant";
+      content: string;
+      provider?: string;
+      model?: string;
+      timestamp: number;
+    }
+  | {
+      id: string;
+      role: "tool";
+      toolName: string;
+      content: string;
+      isError: boolean;
+      expandable: true;
+      timestamp: number;
+    }
+  | {
+      id: string;
+      role: "summary";
+      summaryType: "compaction" | "branch" | "custom";
+      title: string;
+      content: string;
+      timestamp: number;
+    };
+
+export interface PiSessionDetail {
+  id: string;
+  name: string;
+  cwd: string;
+  projectName: string;
+  created: string;
+  modified: string;
+}
+
+export interface PiSessionDetailResponse {
+  session: PiSessionDetail;
+  messages: PiHistoryMessage[];
+}

@@ -18,9 +18,15 @@ function relativeTime(isoString: string): string {
 
 interface PiSessionSectionProps {
   isStreaming: boolean;
+  selectedSessionId: string | null;
+  onSelectSession: (sessionId: string) => void;
 }
 
-export function PiSessionSection({ isStreaming }: PiSessionSectionProps) {
+export function PiSessionSection({
+  isStreaming,
+  selectedSessionId,
+  onSelectSession
+}: PiSessionSectionProps) {
   const [projects, setProjects] = useState<PiSessionProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +73,32 @@ export function PiSessionSection({ isStreaming }: PiSessionSectionProps) {
       }
       return next;
     });
+  }
+
+  async function handleNewSession(projectPath: string) {
+    if (isStreaming) return;
+    try {
+      const response = await fetch("/api/pi-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: projectPath })
+      });
+      if (!response.ok) {
+        const err = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(err?.error || `Request failed with ${response.status}`);
+      }
+      const body = (await response.json()) as { projects: PiSessionProject[] };
+      setProjects(body.projects);
+      // Expand all projects
+      setExpandedProjects(new Set(body.projects.map((p) => p.path)));
+      // Select the newly created session (first session of the target project)
+      const targetProject = body.projects.find((p) => p.path === projectPath);
+      if (targetProject && targetProject.sessions.length > 0) {
+        onSelectSession(targetProject.sessions[0].id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create session");
+    }
   }
 
   if (loading) {
@@ -117,20 +149,48 @@ export function PiSessionSection({ isStreaming }: PiSessionSectionProps) {
 
           return (
             <div className="pi-project-group" key={project.path}>
-              <button
-                className="pi-project-header"
-                disabled={isStreaming}
-                type="button"
-                onClick={() => toggleProject(project.path)}
-              >
-                <span className="pi-project-name">{project.name}</span>
-                <small className="pi-project-count">{project.sessions.length}</small>
-              </button>
+              <div className="pi-project-header-row">
+                <button
+                  className="pi-project-header"
+                  disabled={isStreaming}
+                  type="button"
+                  onClick={() => toggleProject(project.path)}
+                >
+                  <span className="pi-project-name">{project.name}</span>
+                  <small className="pi-project-count">{project.sessions.length}</small>
+                </button>
+                <button
+                  className="pi-new-session-btn"
+                  disabled={isStreaming}
+                  type="button"
+                  title="New Pi session in this project"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleNewSession(project.path);
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </button>
+              </div>
 
               {isExpanded && (
                 <div className="pi-session-list">
                   {project.sessions.map((session) => (
-                    <div className="pi-session-row" key={session.id}>
+                    <button
+                      className={
+                        "pi-session-row" +
+                        (selectedSessionId === session.id
+                          ? " pi-session-row-active"
+                          : "")
+                      }
+                      key={session.id}
+                      disabled={isStreaming}
+                      type="button"
+                      onClick={() => onSelectSession(session.id)}
+                    >
                       <div className="pi-session-info">
                         <span className="pi-session-first-msg">
                           {session.firstMessage}
@@ -139,7 +199,7 @@ export function PiSessionSection({ isStreaming }: PiSessionSectionProps) {
                           {session.messageCount} messages · {relativeTime(session.modified)}
                         </small>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

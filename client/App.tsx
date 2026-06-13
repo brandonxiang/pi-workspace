@@ -4,7 +4,15 @@ import Bubble, { type BubbleItemType, type BubbleListProps } from "@ant-design/x
 import Sender from "@ant-design/x/es/sender";
 import Suggestion, { type SuggestionItem } from "@ant-design/x/es/suggestion";
 import XProvider from "@ant-design/x/es/x-provider";
-import type { AssistantMessage, ChatMessage, ImageAttachment, StreamEvent, UserMessage } from "./types";
+import type {
+  AssistantMessage,
+  ChatMessage,
+  ImageAttachment,
+  PiHistoryMessage,
+  PiSessionDetailResponse,
+  StreamEvent,
+  UserMessage
+} from "./types";
 import { PiSessionSection } from "./PiSessionSection";
 
 const STORAGE_KEY = "my-pi-chat-session";
@@ -36,6 +44,7 @@ type ChatSession = {
   updatedAt: number;
   messages: ChatMessage[];
 };
+type ActivePanelView = { kind: "local" } | { kind: "pi"; sessionId: string };
 
 const defaultSystemPrompt =
   "You are My Pi, an online agent conversation assistant. Be concise, practical, and explicit about assumptions.";
@@ -81,7 +90,7 @@ const bubbleRoles: BubbleListProps["role"] = {
 
 const xTheme = {
   token: {
-    colorPrimary: "#5645d4",
+    colorPrimary: "#0075de",
     borderRadius: 8,
     fontFamily:
       "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
@@ -136,7 +145,7 @@ function getMessageText(message: ChatMessage) {
   return message.content;
 }
 
-function getImageDataUrl(image: ImageAttachment) {
+function getImageDataUrl(image: { mimeType: string; data: string }) {
   return `data:${image.mimeType};base64,${image.data}`;
 }
 
@@ -181,6 +190,57 @@ function UserMessageContent({ message }: { message: UserMessage }) {
   );
 }
 
+function PiHistoryUserMessageContent({
+  message
+}: {
+  message: Extract<PiHistoryMessage, { role: "user" }>;
+}) {
+  return (
+    <div className="message-content">
+      {message.images?.length ? (
+        <div className="message-images">
+          {message.images.map((image) => (
+            <figure className="message-image" key={image.id}>
+              <img alt={image.name} src={getImageDataUrl(image)} />
+              <figcaption>{image.name}</figcaption>
+            </figure>
+          ))}
+        </div>
+      ) : null}
+      {message.content ? <p>{message.content}</p> : null}
+    </div>
+  );
+}
+
+function PiToolMessageContent({
+  message
+}: {
+  message: Extract<PiHistoryMessage, { role: "tool" }>;
+}) {
+  return (
+    <details className={message.isError ? "pi-tool-card pi-tool-card-error" : "pi-tool-card"}>
+      <summary>
+        <span>{message.toolName}</span>
+        <small>Click to expand</small>
+      </summary>
+      <pre>{message.content}</pre>
+    </details>
+  );
+}
+
+function PiSummaryMessageContent({
+  message
+}: {
+  message: Extract<PiHistoryMessage, { role: "summary" }>;
+}) {
+  return (
+    <div className={`pi-summary-card pi-summary-card-${message.summaryType}`}>
+      <strong>{message.title}</strong>
+      <p>{message.content}</p>
+    </div>
+  );
+}
+
 function createBubbleItem(message: ChatMessage, index: number): BubbleItemType {
   const isAssistant = message.role === "assistant";
 
@@ -194,6 +254,47 @@ function createBubbleItem(message: ChatMessage, index: number): BubbleItemType {
         meta={isAssistant ? `${message.provider}/${message.model}` : "You"}
       />
     )
+  };
+}
+
+function createPiHistoryBubbleItem(message: PiHistoryMessage, index: number): BubbleItemType {
+  if (message.role === "user") {
+    return {
+      key: `${message.role}-${message.timestamp}-${index}`,
+      role: "user",
+      content: <PiHistoryUserMessageContent message={message} />,
+      header: <MessageHeader label="Pi Session" meta="User" />
+    };
+  }
+
+  if (message.role === "assistant") {
+    return {
+      key: `${message.role}-${message.timestamp}-${index}`,
+      role: "assistant",
+      content: message.content,
+      header: (
+        <MessageHeader
+          label="Pi Session"
+          meta={message.provider && message.model ? `${message.provider}/${message.model}` : "Assistant"}
+        />
+      )
+    };
+  }
+
+  if (message.role === "tool") {
+    return {
+      key: `${message.role}-${message.timestamp}-${index}`,
+      role: "assistant",
+      content: <PiToolMessageContent message={message} />,
+      header: <MessageHeader label="Tool" meta={message.toolName} />
+    };
+  }
+
+  return {
+    key: `${message.role}-${message.timestamp}-${index}`,
+    role: "assistant",
+    content: <PiSummaryMessageContent message={message} />,
+    header: <MessageHeader label={message.title} meta="Pi session summary" />
   };
 }
 
@@ -284,7 +385,14 @@ export default function App() {
   const [draftAssistant, setDraftAssistant] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activePanelView, setActivePanelView] = useState<ActivePanelView>({ kind: "local" });
+  const [piSessionDetail, setPiSessionDetail] = useState<PiSessionDetailResponse | null>(null);
+  const [piPendingMessages, setPiPendingMessages] = useState<PiHistoryMessage[]>([]);
+  const [piSessionError, setPiSessionError] = useState<string | null>(null);
+  const [piSessionLoading, setPiSessionLoading] = useState(false);
   const sessionIdRef = useRef<string>("");
+  const piSessionRequestIdRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeSession = useMemo(() => {
@@ -292,6 +400,7 @@ export default function App() {
   }, [activeSessionId, sessions]);
 
   const messages = activeSession?.messages ?? [];
+  const piHistoryMessages = piSessionDetail?.messages ?? [];
 
   const visibleSessions = useMemo(() => {
     return sessions
@@ -317,7 +426,7 @@ export default function App() {
 
   const selectedModelSupportsImages = selectedModelOption?.supportsImages ?? false;
 
-  const bubbleItems = useMemo<BubbleItemType[]>(() => {
+  const localBubbleItems = useMemo<BubbleItemType[]>(() => {
     const storedItems = messages.map(createBubbleItem);
     if (!draftAssistant) return storedItems;
 
@@ -333,6 +442,35 @@ export default function App() {
       }
     ];
   }, [draftAssistant, isStreaming, messages]);
+
+  const piHistoryBubbleItems = useMemo<BubbleItemType[]>(() => {
+    const items = [...piHistoryMessages, ...piPendingMessages].map(createPiHistoryBubbleItem);
+    if (!draftAssistant) return items;
+
+    return [
+      ...items,
+      createPiHistoryBubbleItem(
+        {
+          id: "pi-assistant-streaming",
+          role: "assistant",
+          content: draftAssistant,
+          provider: piSessionDetail?.session.projectName ? undefined : undefined,
+          model: undefined,
+          timestamp: Date.now()
+        },
+        items.length
+      )
+    ];
+  }, [draftAssistant, piHistoryMessages, piPendingMessages, piSessionDetail?.session.projectName]);
+
+  const isPiHistoryView = activePanelView.kind === "pi";
+  const panelTitle = isPiHistoryView
+    ? piSessionDetail?.session.name || "Pi session"
+    : activeSession?.title || "Agent dialogue";
+  const panelMeta =
+    isPiHistoryView && piSessionDetail
+      ? `${piSessionDetail.session.projectName} · ${piSessionDetail.session.cwd}`
+      : null;
 
   useEffect(() => {
     sessionIdRef.current = activeSessionId;
@@ -396,10 +534,12 @@ export default function App() {
     const nextSession = createSession();
     setSessions((current) => [nextSession, ...current]);
     setActiveSessionId(nextSession.id);
+    setActivePanelView({ kind: "local" });
     setInput("");
     setSelectedImage(null);
     setDraftAssistant("");
     setError(null);
+    setPiPendingMessages([]);
   }
 
   function beginRenameSession(session: ChatSession) {
@@ -416,26 +556,77 @@ export default function App() {
 
   function archiveSession(sessionId: string) {
     updateSession(sessionId, (session) => ({ ...session, archived: true }));
-    if (activeSessionId === sessionId) {
+    if (activePanelView.kind === "local" && activeSessionId === sessionId) {
       const nextActive = visibleSessions.find((session) => session.id !== sessionId) || createSession();
       if (!sessions.some((session) => session.id === nextActive.id)) {
         setSessions((current) => [nextActive, ...current]);
       }
       setActiveSessionId(nextActive.id);
+      setActivePanelView({ kind: "local" });
       setDraftAssistant("");
       setInput("");
       setSelectedImage(null);
+      setPiPendingMessages([]);
     }
   }
 
   function restoreSession(sessionId: string) {
     updateSession(sessionId, (session) => ({ ...session, archived: false }));
     setActiveSessionId(sessionId);
+    setActivePanelView({ kind: "local" });
+    setPiPendingMessages([]);
+  }
+
+  function selectLocalSession(sessionId: string) {
+    piSessionRequestIdRef.current += 1;
+    setActiveSessionId(sessionId);
+    setActivePanelView({ kind: "local" });
+    setPiSessionLoading(false);
+    setPiSessionError(null);
+    setError(null);
+    setDraftAssistant("");
+    setPiPendingMessages([]);
+  }
+
+  async function selectPiSession(sessionId: string) {
+    if (isStreaming) return;
+
+    const requestId = piSessionRequestIdRef.current + 1;
+    piSessionRequestIdRef.current = requestId;
+    setActivePanelView({ kind: "pi", sessionId });
+    setPiSessionLoading(true);
+    setPiSessionError(null);
+    setPiSessionDetail(null);
+    setError(null);
+    setDraftAssistant("");
+    setPiPendingMessages([]);
+
+    try {
+      const response = await fetch(`/api/pi-sessions/${encodeURIComponent(sessionId)}`);
+      const body = (await response.json().catch(() => null)) as
+        | PiSessionDetailResponse
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(body && "error" in body && body.error ? body.error : `Request failed with ${response.status}`);
+      }
+
+      if (piSessionRequestIdRef.current !== requestId) return;
+      setPiSessionDetail(body as PiSessionDetailResponse);
+    } catch (err) {
+      if (piSessionRequestIdRef.current !== requestId) return;
+      setPiSessionError(err instanceof Error ? err.message : "Failed to load Pi session");
+    } finally {
+      if (piSessionRequestIdRef.current === requestId) {
+        setPiSessionLoading(false);
+      }
+    }
   }
 
   async function submitMessage(messageText: string) {
     const trimmed = messageText.trim();
-    if ((!trimmed && !selectedImage) || isStreaming || !activeSession) return;
+    if ((!trimmed && !selectedImage) || isStreaming) return;
 
     if (selectedImage && !selectedModelSupportsImages) {
       setError("The selected model does not support image input. Choose a vision-capable model.");
@@ -448,14 +639,30 @@ export default function App() {
       images: selectedImage ? [selectedImage] : undefined,
       timestamp: Date.now()
     };
-    const conversationId = activeSession.id;
-    const nextMessages = [...activeSession.messages, userMessage];
 
-    updateSession(conversationId, (session) => ({
-      ...session,
-      title: session.messages.length === 0 ? getSessionTitleFromMessages([userMessage]) : session.title,
-      messages: nextMessages
-    }));
+    if (activePanelView.kind === "local") {
+      if (!activeSession) return;
+
+      const conversationId = activeSession.id;
+      const nextMessages = [...activeSession.messages, userMessage];
+
+      updateSession(conversationId, (session) => ({
+        ...session,
+        title: session.messages.length === 0 ? getSessionTitleFromMessages([userMessage]) : session.title,
+        messages: nextMessages
+      }));
+    } else {
+      setPiPendingMessages([
+        {
+          id: `pi-user-${userMessage.timestamp}`,
+          role: "user",
+          content: userMessage.content,
+          images: userMessage.images,
+          timestamp: userMessage.timestamp
+        }
+      ]);
+    }
+
     setInput("");
     setSelectedImage(null);
     setDraftAssistant("");
@@ -467,11 +674,13 @@ export default function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-session-id": conversationId
+          ...(activePanelView.kind === "local"
+            ? { "x-session-id": activeSession!.id }
+            : { "x-pi-session-id": activePanelView.sessionId })
         },
         body: JSON.stringify({
-          ...selectedModel,
-          systemPrompt,
+          ...(activePanelView.kind === "local" ? selectedModel : {}),
+          ...(activePanelView.kind === "local" ? { systemPrompt } : {}),
           prompt: userMessage.content,
           images: userMessage.images?.map((image) => ({
             name: image.name,
@@ -504,24 +713,42 @@ export default function App() {
       });
 
       if (finalMessage) {
-        updateSession(conversationId, (session) => ({
-          ...session,
-          messages: [...session.messages, finalMessage as AssistantMessage]
-        }));
+        if (activePanelView.kind === "local") {
+          updateSession(activeSession!.id, (session) => ({
+            ...session,
+            messages: [...session.messages, finalMessage as AssistantMessage]
+          }));
+        } else {
+          setPiSessionDetail((current) =>
+            current
+              ? {
+                  ...current,
+                  session: {
+                    ...current.session,
+                    modified: new Date((finalMessage as AssistantMessage).timestamp).toISOString()
+                  },
+                  messages: [
+                    ...current.messages,
+                    ...piPendingMessages,
+                    finalMessage as Extract<PiHistoryMessage, { role: "assistant" }>
+                  ]
+                }
+              : current
+          );
+          setPiPendingMessages([]);
+        }
+      } else if (activePanelView.kind === "pi") {
+        setPiPendingMessages([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected chat error");
+      if (activePanelView.kind === "pi") {
+        setPiPendingMessages([]);
+      }
     } finally {
       setDraftAssistant("");
       setIsStreaming(false);
     }
-  }
-
-  function clearConversation() {
-    if (!activeSession) return;
-    updateSession(activeSession.id, (session) => ({ ...session, messages: [] }));
-    setDraftAssistant("");
-    setError(null);
   }
 
   function handleSlashSelect(value: string) {
@@ -563,22 +790,20 @@ export default function App() {
 
   return (
     <XProvider theme={xTheme}>
-      <main className="app-shell">
+      <main className={`app-shell${sidebarCollapsed ? " app-shell-collapsed" : ""}`}>
         <aside className="sidebar">
-          <div className="brand-block">
-            <p className="eyebrow">Online agent console</p>
-            <h1>My Pi Agent</h1>
-            <p className="sidebar-copy">
-              A browser-based conversation layer powered by the pi AI provider runtime.
-            </p>
-          </div>
-
           <div className="sidebar-actions">
-            <button className="secondary-button" disabled={isStreaming} type="button" onClick={createNewSession}>
-              New session
+            <button className="icon-button" disabled={isStreaming} type="button" onClick={createNewSession} title="New session">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
             </button>
-            <button className="secondary-button" type="button" onClick={() => setIsSettingsOpen(true)}>
-              Settings
+            <button className="icon-button" type="button" onClick={() => setIsSettingsOpen(true)} title="Settings">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
             </button>
           </div>
 
@@ -591,7 +816,11 @@ export default function App() {
             <div className="session-list">
               {visibleSessions.map((session) => (
                 <div
-                  className={session.id === activeSessionId ? "session-row session-row-active" : "session-row"}
+                  className={
+                    activePanelView.kind === "local" && session.id === activeSessionId
+                      ? "session-row session-row-active"
+                      : "session-row"
+                  }
                   key={session.id}
                 >
                   {renameSessionId === session.id ? (
@@ -614,7 +843,7 @@ export default function App() {
                       className="session-select"
                       disabled={isStreaming}
                       type="button"
-                      onClick={() => setActiveSessionId(session.id)}
+                      onClick={() => selectLocalSession(session.id)}
                     >
                       <span>{session.title}</span>
                       <small>{session.messages.length} messages</small>
@@ -664,29 +893,92 @@ export default function App() {
             ) : null}
           </div>
 
-          <PiSessionSection isStreaming={isStreaming} />
+          <PiSessionSection
+            isStreaming={isStreaming}
+            selectedSessionId={activePanelView.kind === "pi" ? activePanelView.sessionId : null}
+            onSelectSession={(sessionId) => {
+              void selectPiSession(sessionId);
+            }}
+          />
 
-          <div className="status-panel">
-            <span className="status-dot" />
-            <p>Backend streams through `@earendil-works/pi-coding-agent`; API keys stay server-side.</p>
-          </div>
+          <button
+            className="sidebar-collapse-btn"
+            type="button"
+            onClick={() => setSidebarCollapsed(true)}
+            title="Collapse sidebar"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
         </aside>
+
+        {sidebarCollapsed && (
+          <button
+            className="sidebar-expand-btn"
+            type="button"
+            onClick={() => setSidebarCollapsed(false)}
+            title="Expand sidebar"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        )}
 
         <section className="chat-panel" aria-label="Agent conversation">
           <header className="chat-header">
-            <div>
-              <p className="eyebrow">Session</p>
-              <h2>{activeSession?.title || "Agent dialogue"}</h2>
+            <div className="chat-header-copy">
+              <span className="chat-header-title">{panelTitle}</span>
+              {panelMeta ? <small className="chat-header-meta">{panelMeta}</small> : null}
             </div>
-            <div className="chat-header-actions">
-              <button className="ghost-button" type="button" onClick={clearConversation}>
-                Clear
-              </button>
-              <span className={isStreaming ? "pill pill-live" : "pill"}>{isStreaming ? "Streaming" : "Ready"}</span>
-            </div>
+            {isPiHistoryView ? <span className="chat-mode-pill">Pi Session</span> : null}
           </header>
 
-          {bubbleItems.length === 0 ? (
+          {isPiHistoryView ? (
+            piSessionLoading ? (
+              <div className="messages messages-empty">
+                <div className="empty-state">
+                  <h3>Loading Pi session history…</h3>
+                  <p>Fetching the active branch from your local Pi session store.</p>
+                </div>
+              </div>
+            ) : piSessionError ? (
+              <div className="messages messages-empty">
+                <div className="error-banner">
+                  <p>{piSessionError}</p>
+                  {activePanelView.kind === "pi" ? (
+                    <button
+                      className="inline-action-button"
+                      type="button"
+                      onClick={() => {
+                        void selectPiSession(activePanelView.sessionId);
+                      }}
+                    >
+                      Retry
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : piHistoryBubbleItems.length === 0 ? (
+              <div className="messages messages-empty">
+                <div className="empty-state">
+                  <h3>New Pi session.</h3>
+                  <p>Start a new conversation in this project by typing a message below.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="messages">
+                <Bubble.List
+                  autoScroll
+                  className="chat-bubble-list"
+                  items={piHistoryBubbleItems}
+                  role={bubbleRoles}
+                />
+                {error && <div className="error-banner">{error}</div>}
+              </div>
+            )
+          ) : localBubbleItems.length === 0 ? (
             <div className="messages messages-empty">
               <div className="empty-state">
                 <h3>Start with a task or question.</h3>
@@ -702,77 +994,146 @@ export default function App() {
               <Bubble.List
                 autoScroll
                 className="chat-bubble-list"
-                items={bubbleItems}
+                items={localBubbleItems}
                 role={bubbleRoles}
               />
               {error && <div className="error-banner">{error}</div>}
             </div>
           )}
 
-          <div className="composer">
-            {selectedImage ? (
-              <div className="attachment-preview">
-                <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
-                <div>
-                  <strong>{selectedImage.name}</strong>
-                  <span>{Math.ceil(selectedImage.size / 1024)} KB · image analysis</span>
-                </div>
-                <button type="button" onClick={() => setSelectedImage(null)}>
-                  Remove
-                </button>
-              </div>
-            ) : null}
-            <Suggestion<SlashSuggestionInfo>
-              block
-              className="slash-command-suggestion"
-              items={getSlashSuggestionItems}
-              onSelect={handleSlashSelect}
-            >
-              {({ onKeyDown, onTrigger }) => (
-                <Sender
-                  autoSize={{ minRows: 2, maxRows: 8 }}
-                  className="chat-sender"
-                  disabled={isStreaming}
-                  footer={
-                    <div className="composer-footer">
-                      <input
-                        ref={fileInputRef}
-                        accept={supportedImageMimeTypes.join(",")}
-                        onChange={handleImageChange}
-                        type="file"
-                      />
-                      <button
-                        disabled={isStreaming || !selectedModelSupportsImages}
-                        title={
-                          selectedModelSupportsImages
-                            ? "Upload image"
-                            : "Selected model does not support image input"
-                        }
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        Upload image
-                      </button>
+          {isPiHistoryView ? (
+            !piSessionLoading && !piSessionError ? (
+              <div className="composer">
+                {selectedImage ? (
+                  <div className="attachment-preview">
+                    <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
+                    <div>
+                      <strong>{selectedImage.name}</strong>
+                      <span>{Math.ceil(selectedImage.size / 1024)} KB · image analysis</span>
                     </div>
-                  }
-                  loading={isStreaming}
-                  onChange={(value) => {
-                    setInput(value);
-                    onTrigger(
-                      shouldShowSlashSuggestions(value)
-                        ? { query: value.slice(1) }
-                        : false
-                    );
-                  }}
-                  onKeyDown={onKeyDown}
-                  onSubmit={submitMessage}
-                  placeholder="Ask the agent to reason, plan, or draft..."
-                  submitType="enter"
-                  value={input}
-                />
-              )}
-            </Suggestion>
-          </div>
+                    <button type="button" onClick={() => setSelectedImage(null)}>
+                      Remove
+                    </button>
+                  </div>
+                ) : null}
+                <Suggestion<SlashSuggestionInfo>
+                  block
+                  className="slash-command-suggestion"
+                  items={getSlashSuggestionItems}
+                  onSelect={handleSlashSelect}
+                >
+                  {({ onKeyDown, onTrigger }) => (
+                    <Sender
+                      autoSize={{ minRows: 2, maxRows: 8 }}
+                      className="chat-sender"
+                      disabled={isStreaming}
+                      footer={
+                        <div className="composer-footer">
+                          <input
+                            ref={fileInputRef}
+                            accept={supportedImageMimeTypes.join(",")}
+                            onChange={handleImageChange}
+                            type="file"
+                          />
+                          <button
+                            disabled={isStreaming || !selectedModelSupportsImages}
+                            title={
+                              selectedModelSupportsImages
+                                ? "Upload image"
+                                : "Selected model does not support image input"
+                            }
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            Upload image
+                          </button>
+                        </div>
+                      }
+                      loading={isStreaming}
+                      onChange={(value) => {
+                        setInput(value);
+                        onTrigger(
+                          shouldShowSlashSuggestions(value)
+                            ? { query: value.slice(1) }
+                            : false
+                        );
+                      }}
+                      onKeyDown={onKeyDown}
+                      onSubmit={submitMessage}
+                      placeholder="Continue this Pi session..."
+                      submitType="enter"
+                      value={input}
+                    />
+                  )}
+                </Suggestion>
+              </div>
+            ) : null
+          ) : (
+            <div className="composer">
+              {selectedImage ? (
+                <div className="attachment-preview">
+                  <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
+                  <div>
+                    <strong>{selectedImage.name}</strong>
+                    <span>{Math.ceil(selectedImage.size / 1024)} KB · image analysis</span>
+                  </div>
+                  <button type="button" onClick={() => setSelectedImage(null)}>
+                    Remove
+                  </button>
+                </div>
+              ) : null}
+              <Suggestion<SlashSuggestionInfo>
+                block
+                className="slash-command-suggestion"
+                items={getSlashSuggestionItems}
+                onSelect={handleSlashSelect}
+              >
+                {({ onKeyDown, onTrigger }) => (
+                  <Sender
+                    autoSize={{ minRows: 2, maxRows: 8 }}
+                    className="chat-sender"
+                    disabled={isStreaming}
+                    footer={
+                      <div className="composer-footer">
+                        <input
+                          ref={fileInputRef}
+                          accept={supportedImageMimeTypes.join(",")}
+                          onChange={handleImageChange}
+                          type="file"
+                        />
+                        <button
+                          disabled={isStreaming || !selectedModelSupportsImages}
+                          title={
+                            selectedModelSupportsImages
+                              ? "Upload image"
+                              : "Selected model does not support image input"
+                          }
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Upload image
+                        </button>
+                      </div>
+                    }
+                    loading={isStreaming}
+                    onChange={(value) => {
+                      setInput(value);
+                      onTrigger(
+                        shouldShowSlashSuggestions(value)
+                          ? { query: value.slice(1) }
+                          : false
+                      );
+                    }}
+                    onKeyDown={onKeyDown}
+                    onSubmit={submitMessage}
+                    placeholder="Ask the agent to reason, plan, or draft..."
+                    submitType="enter"
+                    value={input}
+                  />
+                )}
+              </Suggestion>
+            </div>
+          )}
         </section>
       </main>
       <Modal

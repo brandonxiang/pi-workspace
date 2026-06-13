@@ -3,17 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "@google/genai", "protobufjs"]
+    "onlyBuiltDependencies": ["esbuild", "@google/genai", "protobufjs", "rolldown"]
   },
   "type": "module",
   "scripts": {
-    "dev": "tsx watch server/index.ts --dev",
+    "dev": "node dev.mjs",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "build:server": "tsc -p tsconfig.server.json",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "build:server": "rolldown -c rolldown.server.config.mjs",
     "build:client": "vite build",
     "build": "pnpm run typecheck && pnpm run build:client && pnpm run build:server",
-    "start": "NODE_ENV=production node dist-server/index.js"
+    "start": "NODE_ENV=production node dist-server/index.mjs"
   },
   "dependencies": {
     "@ant-design/x": "^2.7.0",
@@ -31,7 +31,7 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "tsx": "latest",
+    "rolldown": "^1.1.1",
     "vitest": "^4.1.7"
   }
 }
