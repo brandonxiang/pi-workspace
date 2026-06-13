@@ -334,6 +334,123 @@ h2 {
   padding: 0 10px;
 }
 
+/* ───── Pi Session Section ───── */
+
+.pi-sessions-section {
+  display: grid;
+  gap: 14px;
+}
+
+.pi-sessions-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(32vh, 320px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pi-project-group {
+  display: grid;
+  gap: 6px;
+}
+
+.pi-project-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--on-dark);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.pi-project-header:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.pi-project-header:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pi-project-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-project-count {
+  flex-shrink: 0;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--on-dark-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.pi-session-list {
+  display: grid;
+  gap: 4px;
+  padding-left: 8px;
+}
+
+.pi-session-row {
+  display: grid;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.pi-session-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pi-session-info {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.pi-session-first-msg {
+  overflow: hidden;
+  color: var(--on-dark);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.pi-session-meta {
+  color: var(--on-dark-muted);
+  font-size: 11px;
+}
+
+.pi-sessions-loading,
+.pi-sessions-error,
+.pi-sessions-empty {
+  padding: 10px;
+  color: var(--on-dark-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
 .status-panel {
   display: flex;
   gap: 12px;

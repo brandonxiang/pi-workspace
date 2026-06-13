@@ -7,10 +7,12 @@ Build and maintain a browser-based agent dialogue tool backed by
 
 ## Development Commands
 
-- Install dependencies: `npm install`
-- Start local app: `npm run dev`
-- Typecheck and build: `npm run build`
-- Production start after build: `npm start`
+- Install dependencies: `pnpm install`
+- Start local dev server (Fastify + Vite HMR): `pnpm run dev`
+- Run tests: `pnpm run test`
+- Typecheck: `pnpm run typecheck`
+- Build client + server: `pnpm run build`
+- Production start after build: `pnpm start`
 
 ## Implementation Rules
 

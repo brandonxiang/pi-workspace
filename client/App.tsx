@@ -5,6 +5,7 @@ import Sender from "@ant-design/x/es/sender";
 import Suggestion, { type SuggestionItem } from "@ant-design/x/es/suggestion";
 import XProvider from "@ant-design/x/es/x-provider";
 import type { AssistantMessage, ChatMessage, ImageAttachment, StreamEvent, UserMessage } from "./types";
+import { PiSessionSection } from "./PiSessionSection";
 
 const STORAGE_KEY = "my-pi-chat-session";
 const SESSIONS_STORAGE_KEY = "my-pi-chat-sessions";
@@ -662,6 +663,8 @@ export default function App() {
               </div>
             ) : null}
           </div>
+
+          <PiSessionSection isStreaming={isStreaming} />
 
           <div className="status-panel">
             <span className="status-dot" />

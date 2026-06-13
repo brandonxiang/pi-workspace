@@ -1,8 +1,8 @@
-import express from "express";
+import Fastify from "fastify";
+import FastifyVite from "@fastify/vite";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   AuthStorage,
   createAgentSession,
@@ -17,9 +17,9 @@ import {
   getModelSupportsImages,
   getPromptOrDefault,
   parseImages,
-  type ChatImage,
   type ImageContent
 } from "./chat-validation.js";
+import { groupSessionsByProject } from "./pi-sessions.js";
 
 interface ChatRequest {
   provider?: string;
@@ -34,6 +34,13 @@ interface AgentSessionRecord {
   provider: string;
   model: string;
   systemPrompt: string;
+}
+
+interface ChatImage {
+  name?: string;
+  mimeType?: string;
+  data?: string;
+  size?: number;
 }
 
 const providerApiKeyEnv: Record<string, string> = {
@@ -59,19 +66,12 @@ interface CommandCodeApiModel {
   context_length: number;
 }
 
-const app = express();
 const port = Number(process.env.PORT || 8787);
 const sessions = new Map<string, AgentSessionRecord>();
 
-app.use(express.json({ limit: "8mb" }));
-
-function sendEvent(res: express.Response, event: unknown) {
+function sendEvent(res: import("node:http").ServerResponse, event: unknown) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
-
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
-});
 
 function buildResourceLoader(systemPrompt: string): ResourceLoader {
   return {
@@ -219,24 +219,6 @@ async function createLocalModelRegistry() {
   };
 }
 
-app.get("/api/models", async (_req, res) => {
-  try {
-    const { modelRegistry } = await createLocalModelRegistry();
-    const models = modelRegistry.getAvailable().map((model) => ({
-      provider: model.provider,
-      model: model.id,
-      label: `${model.name || model.id} (${model.provider})`,
-      supportsImages: getModelSupportsImages(model)
-    }));
-
-    res.json({ models });
-  } catch (error) {
-    res.status(500).json({
-      error: error instanceof Error ? error.message : "Failed to load models"
-    });
-  }
-});
-
 async function getOrCreateSession(
   sessionId: string,
   provider: string,
@@ -293,104 +275,177 @@ async function getOrCreateSession(
   return session;
 }
 
-app.post("/api/chat", async (req, res) => {
-  const body = req.body as ChatRequest;
-  const provider = body.provider || "openai";
-  const modelId = body.model || "gpt-4o-mini";
-  let images: ImageContent[];
-  try {
-    images = parseImages(body.images);
-  } catch (error) {
-    res.status(400).json({
-      error: error instanceof Error ? error.message : "Invalid image attachment"
-    });
-    return;
-  }
-  const prompt = getPromptOrDefault(body.prompt, images);
-  const sessionId = req.headers["x-session-id"]?.toString() || "default";
-  const systemPrompt =
-    body.systemPrompt?.trim() ||
-    "You are My Pi, a concise online agent assistant. Ask clarifying questions when requirements are incomplete.";
+async function buildServer() {
+  const server = Fastify({
+    bodyLimit: 8 * 1024 * 1024
+  });
 
-  if (!prompt) {
-    res.status(400).json({ error: "prompt is required" });
-    return;
-  }
+  await server.register(FastifyVite, {
+    root: path.resolve(import.meta.dirname, ".."),
+    dev: process.argv.includes("--dev"),
+    spa: true
+  });
 
-  if (images.length > 0) {
+  // ──────── API routes ────────
+
+  server.get("/api/health", async (_request, _reply) => {
+    return { ok: true };
+  });
+
+  server.get("/api/pi-sessions", async (_request, reply) => {
+    try {
+      const sessions = await SessionManager.listAll();
+      const projects = groupSessionsByProject(sessions);
+      return { projects };
+    } catch (error) {
+      reply.code(500);
+      return {
+        error: error instanceof Error ? error.message : "Failed to list Pi sessions"
+      };
+    }
+  });
+
+  server.get("/api/models", async (_request, reply) => {
     try {
       const { modelRegistry } = await createLocalModelRegistry();
-      const model = modelRegistry.find(provider, modelId);
-      if (!model || !getModelSupportsImages(model)) {
-        res.status(400).json({ error: `Model ${provider}/${modelId} does not support image input` });
-        return;
-      }
+      const models = modelRegistry.getAvailable().map((model) => ({
+        provider: model.provider,
+        model: model.id,
+        label: `${model.name || model.id} (${model.provider})`,
+        supportsImages: getModelSupportsImages(model)
+      }));
+
+      return { models };
     } catch (error) {
-      res.status(500).json({
-        error: error instanceof Error ? error.message : "Failed to validate image model support"
-      });
-      return;
+      reply.code(500);
+      return {
+        error: error instanceof Error ? error.message : "Failed to load models"
+      };
     }
-  }
+  });
 
-  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
+  server.post("/api/chat", async (request, reply) => {
+    const body = request.body as ChatRequest;
+    const provider = body.provider || "openai";
+    const modelId = body.model || "gpt-4o-mini";
+    let images: ImageContent[];
+    try {
+      images = parseImages(body.images);
+    } catch (error) {
+      reply.code(400);
+      return {
+        error: error instanceof Error ? error.message : "Invalid image attachment"
+      };
+    }
+    const prompt = getPromptOrDefault(body.prompt, images);
+    const sessionId =
+      (request.headers["x-session-id"] as string | undefined) || "default";
+    const systemPrompt =
+      body.systemPrompt?.trim() ||
+      "You are My Pi, a concise online agent assistant. Ask clarifying questions when requirements are incomplete.";
 
-  try {
-    const session = await getOrCreateSession(sessionId, provider, modelId, systemPrompt);
-    let finalText = "";
+    if (!prompt) {
+      reply.code(400);
+      return { error: "prompt is required" };
+    }
 
-    const unsubscribe = session.subscribe((event) => {
-      if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
-        finalText += event.assistantMessageEvent.delta;
-        sendEvent(res, { type: "delta", delta: event.assistantMessageEvent.delta });
+    if (images.length > 0) {
+      try {
+        const { modelRegistry } = await createLocalModelRegistry();
+        const model = modelRegistry.find(provider, modelId);
+        if (!model || !getModelSupportsImages(model)) {
+          reply.code(400);
+          return {
+            error: `Model ${provider}/${modelId} does not support image input`
+          };
+        }
+      } catch (error) {
+        reply.code(500);
+        return {
+          error:
+            error instanceof Error ? error.message : "Failed to validate image model support"
+        };
       }
+    }
 
-      if (event.type === "message_update" && event.assistantMessageEvent.type === "thinking_delta") {
-        sendEvent(res, { type: "thinking", delta: event.assistantMessageEvent.delta });
-      }
-
-      if (event.type === "agent_end") {
-        sendEvent(res, {
-          type: "done",
-          message: {
-            role: "assistant",
-            content: finalText,
-            provider,
-            model: modelId,
-            timestamp: Date.now()
-          }
-        });
-      }
+    // ── SSE streaming via raw response ──
+    reply.hijack();
+    const raw = reply.raw;
+    raw.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive"
     });
 
     try {
-      await session.prompt(prompt, images.length > 0 ? { images } : undefined);
+      const session = await getOrCreateSession(
+        sessionId,
+        provider,
+        modelId,
+        systemPrompt
+      );
+      let finalText = "";
+
+      const unsubscribe = session.subscribe((event) => {
+        if (
+          event.type === "message_update" &&
+          event.assistantMessageEvent.type === "text_delta"
+        ) {
+          finalText += event.assistantMessageEvent.delta;
+          sendEvent(raw, { type: "delta", delta: event.assistantMessageEvent.delta });
+        }
+
+        if (
+          event.type === "message_update" &&
+          event.assistantMessageEvent.type === "thinking_delta"
+        ) {
+          sendEvent(raw, { type: "thinking", delta: event.assistantMessageEvent.delta });
+        }
+
+        if (event.type === "agent_end") {
+          sendEvent(raw, {
+            type: "done",
+            message: {
+              role: "assistant",
+              content: finalText,
+              provider,
+              model: modelId,
+              timestamp: Date.now()
+            }
+          });
+        }
+      });
+
+      try {
+        await session.prompt(prompt, images.length > 0 ? { images } : undefined);
+      } finally {
+        unsubscribe();
+      }
+    } catch (error) {
+      sendEvent(raw, {
+        type: "error",
+        error: error instanceof Error ? error.message : "Unexpected server error"
+      });
     } finally {
-      unsubscribe();
+      raw.end();
     }
-  } catch (error) {
-    sendEvent(res, {
-      type: "error",
-      error: error instanceof Error ? error.message : "Unexpected server error"
-    });
-  } finally {
-    res.end();
-  }
-});
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const clientDist = path.resolve(__dirname, "../dist");
-
-if (process.env.NODE_ENV === "production" && existsSync(clientDist)) {
-  app.use(express.static(clientDist));
-  app.get("*", (_req, res) => {
-    res.sendFile(path.join(clientDist, "index.html"));
   });
+
+  // SPA catch-all: serve index.html for any non-API route
+  server.setNotFoundHandler((_request, reply) => {
+    return reply.html();
+  });
+
+  await server.vite.ready();
+  return server;
 }
 
-app.listen(port, () => {
-  console.log(`My Pi server listening on http://127.0.0.1:${port}`);
+const server = await buildServer();
+
+server.listen({ port, host: "127.0.0.1" }, (error, address) => {
+  if (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+  console.log(`My Pi server listening on ${address}`);
 });
