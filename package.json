@@ -1,7 +1,17 @@
 {
-  "name": "my-pi",
+  "name": "pi-workspace",
   "version": "0.1.0",
-  "private": true,
+  "description": "CLI-launched browser UI for pi-coding-agent sessions",
+  "bin": {
+    "pi-gui": "./bin/pi-gui.mjs"
+  },
+  "files": [
+    "bin",
+    "dist-server",
+    "dist/client",
+    "README.md",
+    ".env.example"
+  ],
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
@@ -12,13 +22,15 @@
   },
   "type": "module",
   "scripts": {
+    "cli": "node bin/pi-gui.mjs",
     "dev": "node dev.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "build:server": "rolldown -c rolldown.server.config.mjs",
     "build:client": "vite build",
-    "build": "pnpm run typecheck && pnpm run build:client && pnpm run build:server",
-    "start": "NODE_ENV=production node dist-server/index.mjs"
+    "build": "npm run typecheck && npm run build:client && npm run build:server",
+    "start": "NODE_ENV=production node dist-server/index.mjs",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@ant-design/x": "^2.7.0",
@@ -40,5 +52,6 @@
     "@types/react-dom": "latest",
     "rolldown": "^1.1.1",
     "vitest": "^4.1.7"
-  }
+  },
+  "packageManager": "pnpm@11.7.0"
 }

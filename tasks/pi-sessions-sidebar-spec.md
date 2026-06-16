@@ -51,7 +51,7 @@ pnpm run test
 ## Project Structure
 
 ```
-my-pi/
+pi-gui/
 ├── client/                  # React frontend
 │   ├── App.tsx              # Main app with sidebar + chat panel
 │   ├── index.html           # SPA entry
@@ -154,8 +154,8 @@ Key conventions:
    {
      "projects": [
        {
-         "name": "my-pi",
-         "path": "/Users/me/github/my-pi",
+        "name": "pi-gui",
+        "path": "/Users/me/github/pi-gui",
          "sessions": [
            {
              "id": "019ec12b-...",

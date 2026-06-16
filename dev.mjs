@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = resolve(fileURLToPath(import.meta.url), "..");
 const rolldownBin = resolve(__dirname, "node_modules", "rolldown", "bin", "cli.mjs");
-const PORT = 8787;
+const PORT = Number(process.env.PORT || 8787);
 
 let child = null;
 let timer = null;

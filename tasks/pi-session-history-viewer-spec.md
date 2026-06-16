@@ -149,8 +149,8 @@ GET /api/pi-sessions/:sessionId
   "session": {
     "id": "019ec12b-...",
     "name": "Implement session viewer",
-    "cwd": "/Users/me/github/my-pi",
-    "projectName": "my-pi",
+    "cwd": "/Users/me/github/pi-gui",
+    "projectName": "pi-gui",
     "created": "2026-06-13T10:00:00.000Z",
     "modified": "2026-06-13T11:30:00.000Z"
   },

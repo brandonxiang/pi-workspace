@@ -53,15 +53,6 @@ interface ChatImage {
   size?: number;
 }
 
-const providerApiKeyEnv: Record<string, string> = {
-  openai: "OPENAI_API_KEY",
-  anthropic: "ANTHROPIC_API_KEY",
-  google: "GOOGLE_API_KEY",
-  mistral: "MISTRAL_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-  commandcode: "COMMANDCODE_API_KEY"
-};
-
 const commandCodeProviderBaseUrl =
   process.env.COMMANDCODE_API_BASE || "https://api.commandcode.ai/provider";
 const commandCodeModelsUrl =
@@ -100,11 +91,6 @@ function buildResourceLoader(systemPrompt: string): ResourceLoader {
 }
 
 function configureRuntimeAuth(authStorage: AuthStorage) {
-  for (const [provider, envName] of Object.entries(providerApiKeyEnv)) {
-    const value = process.env[envName];
-    if (value) authStorage.setRuntimeApiKey(provider, value);
-  }
-
   const commandCodeApiKey = readCommandCodeApiKey();
   if (commandCodeApiKey) authStorage.setRuntimeApiKey("commandcode", commandCodeApiKey);
 }
@@ -127,8 +113,6 @@ function readCommandCodeCredential(value: unknown) {
 }
 
 function readCommandCodeApiKey() {
-  if (process.env.COMMANDCODE_API_KEY) return process.env.COMMANDCODE_API_KEY;
-
   const authPaths = [
     path.join(homedir(), ".commandcode", "auth.json"),
     path.join(homedir(), ".pi", "agent", "auth.json")
@@ -153,6 +137,14 @@ function readCommandCodeApiKey() {
   }
 
   return undefined;
+}
+
+function getMissingAuthMessage(provider: string) {
+  if (provider === "commandcode") {
+    return "Missing local Command Code auth. Sign in with Command Code CLI or add ~/.commandcode/auth.json.";
+  }
+
+  return `Missing local ${provider} auth. Sign in with Pi CLI or add credentials to ~/.pi/agent/auth.json.`;
 }
 
 function parseCommandCodeModels(value: unknown) {
@@ -209,7 +201,7 @@ async function registerCommandCodeProvider(authStorage: AuthStorage, modelRegist
   modelRegistry.registerProvider("commandcode", {
     name: "Command Code",
     baseUrl: commandCodeOpenAiBaseUrl,
-    apiKey: "COMMANDCODE_API_KEY",
+    apiKey: "local-commandcode-auth",
     authHeader: true,
     api: "openai-completions",
     headers: {
@@ -257,8 +249,7 @@ async function getOrCreateSession(
   }
 
   if (!modelRegistry.hasConfiguredAuth(model)) {
-    const envName = providerApiKeyEnv[provider] || `${provider.toUpperCase()}_API_KEY`;
-    throw new Error(`Missing ${envName}`);
+    throw new Error(getMissingAuthMessage(provider));
   }
 
   const { session } = await createAgentSession({
@@ -308,9 +299,7 @@ async function createPersistedPiSession(
       : undefined;
 
   if (model && !modelRegistry.hasConfiguredAuth(model)) {
-    const envName =
-      providerApiKeyEnv[model.provider] || `${model.provider.toUpperCase()}_API_KEY`;
-    throw new Error(`Missing ${envName}`);
+    throw new Error(getMissingAuthMessage(model.provider));
   }
 
   const { session } = await createAgentSession({

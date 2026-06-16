@@ -1,6 +1,6 @@
-# My Pi Agent
+# pi-gui
 
-My Pi Agent is a web-based agent conversation console built on the
+`pi-gui` is a web-based agent conversation console built on the
 `@earendil-works/pi-coding-agent` SDK. It provides a browser UI while keeping
 model credentials and the Pi agent session runtime on the server.
 
@@ -12,13 +12,13 @@ model credentials and the Pi agent session runtime on the server.
 - Model selector for common OpenAI, Anthropic, Google, Mistral, and Command Code models
 - Editable system prompt
 - Browser-side conversation transcript persistence
-- Server-side API key handling through local Pi auth plus optional `.env` overrides
+- Server-side model auth through local Pi and Command Code login state
 
 ## Quick Start
 
 ```bash
 npm install
-cp .env.example .env
+npm exec -- pi-gui
 ```
 
 If you already use Pi locally, the server reads your existing Pi auth from
@@ -26,24 +26,36 @@ If you already use Pi locally, the server reads your existing Pi auth from
 It also detects Command Code CLI login credentials from
 `~/.commandcode/auth.json`.
 
-You can also set a provider key in `.env` to override local auth at runtime:
-
-```bash
-OPENAI_API_KEY=sk-...
-COMMANDCODE_API_KEY=user_...
-```
-
 When Command Code auth is present, the server fetches live models from
 `https://api.commandcode.ai/provider/v1/models` and registers them under the
 `commandcode` provider.
 
-Start the app:
+If you want to customize the server port, you can still create a local `.env`
+from `.env.example` and change `PORT`.
+
+Start the packaged service:
 
 ```bash
-npm run dev
+npm exec -- pi-gui
 ```
 
-Open <http://127.0.0.1:5173>.
+Open <http://127.0.0.1:8787>.
+
+Useful CLI commands:
+
+```bash
+npm exec -- pi-gui        # start the built service
+npm exec -- pi-gui build  # build client + server bundles
+npm exec -- pi-gui --help # show all options
+```
+
+## npm Packaging
+
+`pi-gui` is set up as a publishable npm CLI package:
+
+- `npm publish` runs `prepack`, which builds `dist/client` and `dist-server`
+- the published tarball includes only the CLI entrypoint and built runtime assets
+- `pi-gui` starts the bundled production server directly from `dist-server/index.mjs`
 
 ## Production
 
