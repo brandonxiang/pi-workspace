@@ -7,13 +7,13 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
-const cliName = "pi-gui";
+const cliName = "pi-workspace";
 const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function printHelp() {
   console.log(
     [
-      `${cliName} - start the bundled pi-gui service`,
+      `${cliName} - start the bundled pi-workspace service`,
       "",
       "Usage:",
       `  ${cliName}             Start the built service`,

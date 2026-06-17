@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "CLI-launched browser UI for pi-coding-agent sessions",
   "bin": {
-    "pi-workspace": "./bin/pi-gui.mjs"
+    "pi-workspace": "./bin/pi-workspace.mjs"
   },
   "files": [
     "bin",
@@ -23,7 +23,7 @@
   },
   "type": "module",
   "scripts": {
-    "cli": "node bin/pi-gui.mjs",
+    "cli": "node bin/pi-workspace.mjs",
     "dev": "node dev.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
