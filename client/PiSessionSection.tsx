@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Dropdown from "antd/es/dropdown";
+import Modal from "antd/es/modal";
 import type { MenuProps } from "antd";
 import type { PiSessionProject } from "./types";
 
@@ -98,6 +99,13 @@ export function PiSessionSection({
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [dragOverProjectPath, setDragOverProjectPath] = useState<string | null>(null);
   const dragProjectPathRef = useRef<string | null>(null);
+
+  /* ───── Add workspace modal ───── */
+  const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
+  const [workspaceBrowseName, setWorkspaceBrowseName] = useState<string | null>(null);
+  const [workspaceResolvedPath, setWorkspaceResolvedPath] = useState<string | null>(null);
+  const [workspaceResolving, setWorkspaceResolving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +225,97 @@ export function PiSessionSection({
     setDragOverProjectPath(null);
   }
 
+  /* ───── Add workspace handlers ───── */
+
+  function openWorkspaceModal() {
+    setWorkspaceBrowseName(null);
+    setWorkspaceResolvedPath(null);
+    setWorkspaceResolving(false);
+    setError(null);
+    setWorkspaceModalOpen(true);
+  }
+
+  function closeWorkspaceModal() {
+    setWorkspaceModalOpen(false);
+    setWorkspaceBrowseName(null);
+    setWorkspaceResolvedPath(null);
+    setWorkspaceResolving(false);
+  }
+
+  function handleBrowseClick() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleBrowseChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const path = files[0].webkitRelativePath;
+    const folderName = path.split("/")[0];
+    setWorkspaceBrowseName(folderName);
+    setWorkspaceResolvedPath(null);
+    setError(null);
+    // Reset so the same folder can be re-selected
+    event.target.value = "";
+
+    // Resolve the folder name to a full path on the server
+    setWorkspaceResolving(true);
+    try {
+      const response = await fetch("/api/resolve-workspace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: folderName })
+      });
+      const body = (await response.json()) as {
+        found: boolean;
+        path?: string;
+        error?: string;
+      };
+
+      if (body.found && body.path) {
+        setWorkspaceResolvedPath(body.path);
+        // Auto-create workspace immediately
+        await createWorkspace(body.path);
+      } else {
+        setError(body.error || `Could not find directory "${folderName}"`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resolve directory");
+    } finally {
+      setWorkspaceResolving(false);
+    }
+  }
+
+  async function createWorkspace(cwd: string) {
+    try {
+      const response = await fetch("/api/pi-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd })
+      });
+      if (!response.ok) {
+        const err = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(err?.error || `Request failed with ${response.status}`);
+      }
+      const body = (await response.json()) as { projects: PiSessionProject[] };
+      const order = readStoredProjectOrder();
+      const orderedProjects = sortProjectsByOrder(body.projects, order);
+      setProjects(orderedProjects);
+
+      // Auto-expand the new project and select the new session
+      setExpandedProjects((prev) => new Set(prev).add(cwd));
+
+      const targetProject = orderedProjects.find((p) => p.path === cwd);
+      if (targetProject && targetProject.sessions.length > 0) {
+        onSelectSession(targetProject.sessions[0].id);
+      }
+
+      closeWorkspaceModal();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create workspace");
+    }
+  }
+
   if (loading) {
     return null;
   }
@@ -246,9 +345,23 @@ export function PiSessionSection({
   const totalSessions = projects.reduce((sum, p) => sum + p.sessions.length, 0);
 
   return (
-    <div className="pi-sessions-section">
+    <>
+      <div className="pi-sessions-section">
       <div className="session-section-heading">
         <span>Pi Sessions</span>
+        <div className="sidebar-actions">
+          <button
+            className="icon-button"
+            disabled={isStreaming}
+            type="button"
+            title="Add workspace"
+            onClick={openWorkspaceModal}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+          </button>
+        </div>
         <small>{totalSessions}</small>
       </div>
 
@@ -359,5 +472,58 @@ export function PiSessionSection({
         })}
       </div>
     </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="workspace-file-input"
+        {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+        onChange={handleBrowseChange}
+      />
+
+      <Modal
+        centered
+        open={workspaceModalOpen}
+        title="Add workspace"
+        footer={
+          <div className="workspace-modal-footer">
+            <button className="settings-btn settings-btn-cancel" type="button" onClick={closeWorkspaceModal}>
+              Cancel
+            </button>
+          </div>
+        }
+        onCancel={closeWorkspaceModal}
+      >
+        <div className="workspace-modal-body">
+          <p className="workspace-description">
+            Select a project folder to create a new workspace in it.
+          </p>
+
+          <div className="workspace-browse-row">
+            <button
+              className="workspace-browse-btn"
+              type="button"
+              onClick={handleBrowseClick}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              Browse…
+            </button>
+            {workspaceResolving && (
+              <span className="workspace-resolving-label">Resolving path…</span>
+            )}
+            {workspaceResolvedPath && !workspaceResolving && (
+              <span className="workspace-resolved-label">
+                ✓ <strong>{workspaceBrowseName}</strong>
+                <small>{workspaceResolvedPath}</small>
+              </span>
+            )}
+          </div>
+
+          {error && <div className="workspace-error">{error}</div>}
+        </div>
+        </Modal>
+    </>
   );
 }

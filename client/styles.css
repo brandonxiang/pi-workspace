@@ -63,6 +63,13 @@ textarea {
   grid-template-columns: 0 1fr;
 }
 
+.app-shell-collapsed .sidebar {
+  padding: 0;
+  border-right: none;
+  overflow: hidden;
+  min-width: 0;
+}
+
 .sidebar {
   position: relative;
   display: flex;
@@ -220,16 +227,14 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-top: auto;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--sidebar-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--sidebar-text-muted);
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
-  align-self: center;
 }
 
 .sidebar-collapse-btn:hover {
@@ -239,17 +244,15 @@ h2 {
 
 .sidebar-expand-btn {
   position: fixed;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 12px;
+  top: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--hairline);
-  border-right: none;
-  border-radius: 0 6px 6px 0;
+  border-radius: 8px;
   background: var(--canvas);
   color: var(--ink-muted);
   cursor: pointer;
@@ -663,17 +666,18 @@ h2 {
 .chat-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 16px;
   padding: 10px 32px;
   border-bottom: 1px solid var(--hairline);
   background: var(--canvas);
+  position: relative;
+  height: 64px;
 }
 
 .chat-header-copy {
-  display: grid;
+  text-align: center;
   min-width: 0;
-  gap: 3px;
 }
 
 .chat-header-title {
@@ -681,9 +685,10 @@ h2 {
   font-weight: 600;
   color: var(--ink-secondary);
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .chat-header-meta {
@@ -699,6 +704,8 @@ h2 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: absolute;
+  right: 32px;
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
@@ -1285,6 +1292,91 @@ h2 {
 .settings-btn-cancel:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+.workspace-file-input {
+  display: none;
+}
+
+.workspace-modal-body {
+  display: grid;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.workspace-description {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.workspace-browse-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.workspace-browse-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--canvas);
+  color: var(--ink-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.workspace-browse-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.workspace-resolving-label {
+  font-size: 13px;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.workspace-resolved-label {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.workspace-resolved-label strong {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.workspace-resolved-label small {
+  color: var(--ink-tertiary);
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.workspace-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.workspace-error {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 @media (max-width: 860px) {
