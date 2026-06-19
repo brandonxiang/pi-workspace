@@ -13,10 +13,22 @@ Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all op
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
+## Pull requests as a triage surface
+
+**PRs as a request surface: yes.**
+
+External PRs are part of this repo's intake queue. When a skill triages incoming requests, it should include external PRs in the same label/state model as issues. Collaborators' in-flight PRs are not part of that intake flow unless explicitly requested.
+
+- **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>` for the diff.
+- **List external PRs for triage**: `gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
+- **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
+
+GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view 42` and fall back to `gh issue view 42`.
+
 ## When a skill says "publish to the issue tracker"
 
 Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Run `gh issue view <number> --comments`, or `gh pr view <number> --comments` if the request is an external PR.

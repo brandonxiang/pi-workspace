@@ -36,7 +36,7 @@ Build and maintain a browser-based agent dialogue tool backed by
 
 ### Issue tracker
 
-Issues are tracked as GitHub issues. See `docs/agents/issue-tracker.md`.
+Issues are tracked as GitHub issues, and external PRs are also treated as a triage surface. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
