@@ -1154,6 +1154,71 @@ h2 {
   background: #fff4f2;
 }
 
+.pi-tool-group-card {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--canvas-soft);
+  overflow: hidden;
+}
+
+.pi-tool-group-card summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink-secondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pi-tool-group-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.pi-tool-group-card summary small {
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pi-tool-group-list {
+  display: grid;
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+
+.pi-tool-group-item {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+}
+
+.pi-tool-group-item header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pi-tool-group-item pre {
+  margin: 0;
+  overflow-x: auto;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pi-tool-group-card-error {
+  border-color: rgba(224, 49, 49, 0.26);
+  background: #fff4f2;
+}
+
 .pi-summary-card {
   display: grid;
   gap: 8px;
@@ -1371,11 +1436,25 @@ h2 {
 }
 
 .slash-command-source {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  min-height: 14px;
+  padding: 1px 5px;
+  border-radius: 4px;
   color: var(--ink-faint);
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.slash-command-badge-skill {
+  color: #5b21b6;
+  background: rgba(91, 33, 182, 0.08);
+  border: 1px solid rgba(91, 33, 182, 0.12);
 }
 
 .settings-modal-content {

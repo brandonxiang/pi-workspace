@@ -9,6 +9,8 @@ import {
   AuthStorage,
   createAgentSession,
   createExtensionRuntime,
+  getAgentDir,
+  loadSkills,
   ModelRegistry,
   SessionManager,
   SettingsManager,
@@ -79,8 +81,120 @@ const piSessions = new Map<string, PiAgentSessionRecord>();
 const terminalPtyMap = new Map<import("ws").WebSocket, import("node-pty").IPty>();
 let terminalWss: WebSocketServer | null = null;
 
+/* ───── Cached resources ───── */
+let skillsCache: { skills: Array<{ name: string; description: string; disableModelInvocation: boolean }> } | null = null;
+let skillsCacheTime = 0;
+const SKILLS_CACHE_TTL_MS = 60_000; // 1 minute
+
 function sendEvent(res: import("node:http").ServerResponse, event: unknown) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+/**
+ * Handle a pi slash command (e.g. /compact, /model, /copy).
+ * Emits events via SSE and ends the response.
+ */
+async function handlePiSlashCommand(
+  session: AgentSession,
+  command: string,
+  raw: import("node:http").ServerResponse,
+  provider: string,
+  modelId: string
+) {
+  const parts = command.slice(1).trim().split(/\s+/);
+  const cmd = parts[0]?.toLowerCase();
+  const args = parts.slice(1).join(" ");
+
+  try {
+    switch (cmd) {
+      case "compact": {
+        const result = await session.compact(args || undefined);
+        const summary = result?.summary
+          ? `. Summary: ${result.summary.slice(0, 200)}`
+          : "";
+        sendEvent(raw, {
+          type: "delta",
+          delta: `✓ Compacted (tokens before: ${result?.tokensBefore ?? "?"})${summary}`
+        });
+        break;
+      }
+
+      case "copy": {
+        const text = session.getLastAssistantText();
+        sendEvent(raw, {
+          type: "delta",
+          delta: text ? `Copied last message (${text.length} chars):\n\n${text}` : "No assistant message to copy."
+        });
+        break;
+      }
+
+      case "session": {
+        const stats = session.getSessionStats();
+        sendEvent(raw, {
+          type: "delta",
+          delta: [
+            `Session ID: ${stats.sessionId}`,
+            `File: ${stats.sessionFile || "(in-memory)"}`,
+            `Messages: ${stats.totalMessages} (${stats.userMessages} user / ${stats.assistantMessages} assistant)`,
+            `Tool calls: ${stats.toolCalls} / Tool results: ${stats.toolResults}`,
+            `Tokens: ${stats.tokens.input} in / ${stats.tokens.output} out / ${stats.tokens.cacheRead} cache / ${stats.tokens.cacheWrite} cache write`,
+            `Cost: $${stats.cost.toFixed(6)}`
+          ].join("\n")
+        });
+        break;
+      }
+
+      case "export": {
+        const format = args.toLowerCase() === "jsonl" ? "jsonl" : "html";
+        const filePath =
+          format === "html"
+            ? await session.exportToHtml()
+            : session.exportToJsonl();
+        sendEvent(raw, {
+          type: "delta",
+          delta: `✓ Exported as ${format}: ${filePath}`
+        });
+        break;
+      }
+
+      case "name": {
+        const name = args.trim();
+        if (name) {
+          session.setSessionName(name);
+          sendEvent(raw, { type: "delta", delta: `✓ Session renamed to: ${name}` });
+        } else {
+          sendEvent(raw, { type: "delta", delta: `Current session name: ${session.sessionName || "(unnamed)"}` });
+        }
+        break;
+      }
+
+      default: {
+        // Unknown slash command — pass through to agent as a normal prompt
+        sendEvent(raw, {
+          type: "delta",
+          delta: `Unknown slash command "${cmd}". Treating as a regular message.`
+        });
+        break;
+      }
+    }
+  } catch (error) {
+    sendEvent(raw, {
+      type: "error",
+      error: error instanceof Error ? error.message : "Slash command failed"
+    });
+    return;
+  }
+
+  sendEvent(raw, {
+    type: "done",
+    message: {
+      role: "assistant",
+      content: "",
+      provider,
+      model: modelId,
+      timestamp: Date.now()
+    }
+  });
 }
 
 function buildResourceLoader(systemPrompt: string): ResourceLoader {
@@ -348,6 +462,38 @@ async function buildServer() {
 
   server.get("/api/cwd", async (_request, _reply) => {
     return { cwd: process.cwd() };
+  });
+
+  server.get("/api/skills", async (_request, reply) => {
+    const now = Date.now();
+    if (skillsCache && now - skillsCacheTime < SKILLS_CACHE_TTL_MS) {
+      return skillsCache;
+    }
+
+    try {
+      const result = loadSkills({
+        cwd: process.cwd(),
+        agentDir: getAgentDir(),
+        skillPaths: [],
+        includeDefaults: true
+      });
+
+      skillsCache = {
+        skills: result.skills.map((skill) => ({
+          name: skill.name,
+          description: skill.description,
+          disableModelInvocation: skill.disableModelInvocation
+        }))
+      };
+      skillsCacheTime = now;
+
+      return skillsCache;
+    } catch (error) {
+      reply.code(500);
+      return {
+        error: error instanceof Error ? error.message : "Failed to load skills"
+      };
+    }
   });
 
   server.post("/api/resolve-workspace", async (request, reply) => {
@@ -680,7 +826,11 @@ async function buildServer() {
       });
 
       try {
-        await session.prompt(prompt, images.length > 0 ? { images } : undefined);
+        if (prompt.startsWith("/")) {
+          await handlePiSlashCommand(session, prompt, raw, provider, modelId);
+        } else {
+          await session.prompt(prompt, images.length > 0 ? { images } : undefined);
+        }
       } finally {
         unsubscribe();
         // Pi sessions are cached in piSessions map, so do NOT dispose() here.

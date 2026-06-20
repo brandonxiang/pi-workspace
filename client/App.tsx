@@ -37,6 +37,10 @@ import {
   createPiSessionStreamingState,
   flushPiSessionThinking
 } from "./pi-session-streaming";
+import {
+  groupPiHistoryMessages,
+  type PiHistoryTranscriptEntry
+} from "./pi-session-transcript";
 
 const MarkdownContent = lazy(() => import("./MarkdownContent"));
 const TerminalPanel = lazy(async () => {
@@ -71,6 +75,7 @@ const modelPresets = [
 type ModelOption = (typeof modelPresets)[number];
 type SlashSuggestionInfo = { query: string };
 type ProjectSuggestionInfo = { query: string };
+type Skill = { name: string; description: string; disableModelInvocation: boolean };
 type ChatSession = {
   id: string;
   title: string;
@@ -293,6 +298,35 @@ function PiToolMessageContent({
   );
 }
 
+function PiToolGroupContent({
+  t,
+  messages
+}: {
+  t: Translator;
+  messages: Extract<PiHistoryTranscriptEntry, { role: "tool-group" }>["messages"];
+}) {
+  const hasError = messages.some((message) => message.isError);
+
+  return (
+    <details className={hasError ? "pi-tool-group-card pi-tool-group-card-error" : "pi-tool-group-card"}>
+      <summary>
+        <span>{t("chat.toolHistory")}</span>
+        <small>{t("chat.clickToExpand")}</small>
+      </summary>
+      <div className="pi-tool-group-list">
+        {messages.map((message) => (
+          <section className="pi-tool-group-item" key={message.id}>
+            <header>
+              <strong>{message.toolName}</strong>
+            </header>
+            <pre>{message.content}</pre>
+          </section>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function PiSummaryMessageContent({
   message
 }: {
@@ -331,44 +365,53 @@ function createBubbleItem(
   };
 }
 
-function createPiHistoryBubbleItem(message: PiHistoryMessage, index: number, t: Translator): BubbleItemType {
-  if (message.role === "user") {
+function createPiHistoryBubbleItem(entry: PiHistoryTranscriptEntry, index: number, t: Translator): BubbleItemType {
+  if (entry.role === "tool-group") {
     return {
-      key: `${message.role}-${message.timestamp}-${index}`,
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "assistant",
+      content: <PiToolGroupContent t={t} messages={entry.messages} />,
+      header: <MessageHeader label={t("chat.tool")} meta={t("chat.toolSummary", { count: entry.messages.length })} />
+    };
+  }
+
+  if (entry.role === "user") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
       role: "user",
-      content: <PiHistoryUserMessageContent message={message} />,
+      content: <PiHistoryUserMessageContent message={entry} />,
       header: <MessageHeader label={t("chat.piSession")} meta={t("chat.user")} />
     };
   }
 
-  if (message.role === "assistant") {
+  if (entry.role === "assistant") {
     return {
-      key: `${message.role}-${message.timestamp}-${index}`,
+      key: `${entry.role}-${entry.timestamp}-${index}`,
       role: "assistant",
-      content: message.content,
+      content: entry.content,
       header: (
         <MessageHeader
           label={t("chat.piSession")}
-          meta={message.provider && message.model ? `${message.provider}/${message.model}` : t("chat.assistant")}
+          meta={entry.provider && entry.model ? `${entry.provider}/${entry.model}` : t("chat.assistant")}
         />
       )
     };
   }
 
-  if (message.role === "tool") {
+  if (entry.role === "tool") {
     return {
-      key: `${message.role}-${message.timestamp}-${index}`,
+      key: `${entry.role}-${entry.timestamp}-${index}`,
       role: "assistant",
-      content: <PiToolMessageContent t={t} message={message} />,
-      header: <MessageHeader label={t("chat.tool")} meta={message.toolName} />
+      content: <PiToolMessageContent t={t} message={entry} />,
+      header: <MessageHeader label={t("chat.tool")} meta={entry.toolName} />
     };
   }
 
   return {
-    key: `${message.role}-${message.timestamp}-${index}`,
+    key: `${entry.role}-${entry.timestamp}-${index}`,
     role: "assistant",
-    content: <PiSummaryMessageContent message={message} />,
-    header: <MessageHeader label={message.title} meta={t("chat.piSessionSummary")} />
+    content: <PiSummaryMessageContent message={entry} />,
+    header: <MessageHeader label={entry.title} meta={t("chat.piSessionSummary")} />
   };
 }
 
@@ -389,22 +432,41 @@ function shouldShowSlashSuggestions(value: string) {
   return /^\/[\w-]*$/.test(value);
 }
 
-function getSlashSuggestionItems(t: Translator, info?: SlashSuggestionInfo): SuggestionItem[] {
+function getSlashSuggestionItems(
+  t: Translator,
+  skills: Skill[],
+  info?: SlashSuggestionInfo
+): SuggestionItem[] {
   const query = info?.query.toLowerCase() || "";
   const matchedCommands = slashCommands.filter((command) =>
     command.name.toLowerCase().includes(query)
   );
+  const matchedSkills = skills.filter((skill) =>
+    skill.name.toLowerCase().includes(query)
+  );
 
-  return matchedCommands.map((command) => ({
-    label: (
-      <div className="slash-command-option">
-        <span>/{command.name}</span>
-        <small>{t(command.descriptionKey)}</small>
-      </div>
-    ),
-    value: `/${command.name}`,
-    extra: <span className="slash-command-source">pi</span>
-  }));
+  return [
+    ...matchedCommands.map((command) => ({
+      label: (
+        <div className="slash-command-option">
+          <span>/{command.name}</span>
+          <small>{t(command.descriptionKey)}</small>
+        </div>
+      ),
+      value: `/${command.name}`,
+      extra: <span className="slash-command-source">pi</span>
+    })),
+    ...matchedSkills.map((skill) => ({
+      label: (
+        <div className="slash-command-option">
+          <span>/{skill.name}</span>
+          <small>{skill.description}</small>
+        </div>
+      ),
+      value: `/${skill.name}`,
+      extra: <span className="slash-command-source slash-command-badge-skill">skill</span>
+    }))
+  ];
 }
 
 function getWorkspaceName(cwd: string) {
@@ -510,6 +572,7 @@ export default function App() {
   const [workspaceBrowseName, setWorkspaceBrowseName] = useState<string | null>(null);
   const [workspaceResolvedPath, setWorkspaceResolvedPath] = useState<string | null>(null);
   const [workspaceResolving, setWorkspaceResolving] = useState(false);
+  const [skills, setSkills] = useState<Skill[]>([]);
 
   const didHydrateSelectionRef = useRef(false);
   const piSessionRequestIdRef = useRef(0);
@@ -612,8 +675,8 @@ export default function App() {
   }, [draftAssistant, isStreaming, t]);
 
   const piHistoryBubbleItems = useMemo<BubbleItemType[]>(() => {
-    const items = [...piHistoryMessages, ...piPendingMessages].map((message, index) =>
-      createPiHistoryBubbleItem(message, index, t)
+    const items = groupPiHistoryMessages([...piHistoryMessages, ...piPendingMessages]).map((entry, index) =>
+      createPiHistoryBubbleItem(entry, index, t)
     );
     if (!thinkingBubbleItem && !streamingAssistantBubbleItem && draftToolBubbleItems.length === 0) return items;
 
@@ -794,6 +857,15 @@ export default function App() {
         // Keep static presets when the model registry endpoint is unavailable.
       }
     }
+
+    fetch("/api/skills")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.skills) {
+          setSkills(data.skills);
+        }
+      })
+      .catch(() => {});
 
     loadModels();
     fetch("/api/cwd")
@@ -1117,6 +1189,7 @@ export default function App() {
           images: userMessage.images,
           timestamp: userMessage.timestamp
         };
+        const toolBaseTimestamp = finalAssistantMsg.timestamp - streamState.completedToolMessages.length;
         const toolMsgs: Extract<PiHistoryMessage, { role: "tool" }>[] = streamState.completedToolMessages.map(
           (tool, index) =>
             ({
@@ -1126,7 +1199,7 @@ export default function App() {
               content: tool.content,
               isError: tool.isError,
               expandable: true,
-              timestamp: finalAssistantMsg.timestamp + index
+              timestamp: toolBaseTimestamp + index
             }) as Extract<PiHistoryMessage, { role: "tool" }>
         );
         setPiSessionDetail((current) =>
@@ -1140,6 +1213,7 @@ export default function App() {
                 messages: [
                   ...current.messages,
                   pendingUserMsg,
+                  ...toolMsgs,
                   {
                     id: finalAssistantMsg.content.slice(0, 32),
                     role: "assistant",
@@ -1147,8 +1221,7 @@ export default function App() {
                     provider: finalAssistantMsg.provider,
                     model: finalAssistantMsg.model,
                     timestamp: finalAssistantMsg.timestamp
-                  } as Extract<PiHistoryMessage, { role: "assistant" }>,
-                  ...toolMsgs
+                  } as Extract<PiHistoryMessage, { role: "assistant" }>
                 ]
               }
             : current
@@ -1431,7 +1504,7 @@ export default function App() {
                 <Suggestion<SlashSuggestionInfo>
                   block
                   className="slash-command-suggestion"
-                  items={(info) => getSlashSuggestionItems(t, info)}
+                  items={(info) => getSlashSuggestionItems(t, skills, info)}
                   onSelect={handleSlashSelect}
                 >
                   {({ onKeyDown, onTrigger }) => (
