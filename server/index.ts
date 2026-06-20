@@ -35,6 +35,7 @@ interface ChatRequest {
   model?: string;
   systemPrompt?: string;
   prompt?: string;
+  thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   images?: ChatImage[];
 }
 
@@ -824,6 +825,10 @@ async function buildServer() {
       });
 
       try {
+        if (body.thinkingLevel) {
+          session.setThinkingLevel(body.thinkingLevel);
+        }
+
         if (prompt.startsWith("/")) {
           await handlePiSlashCommand(session, prompt, raw, provider, modelId);
         } else {

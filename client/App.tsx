@@ -87,6 +87,10 @@ type ChatSession = {
 type ActivePanelView = { kind: "empty" } | { kind: "pi"; sessionId: string };
 type LauncherMode = "new" | "select" | null;
 
+type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+const THINKING_LEVEL_STORAGE_KEY = "my-pi-thinking-level";
+
 const defaultSystemPrompt =
   "You are My Pi, an online agent conversation assistant. Be concise, practical, and explicit about assumptions.";
 
@@ -531,7 +535,8 @@ export default function App() {
     modelKey: "",
     panelMode: "chat" as PanelMode,
     systemPrompt: "",
-    locale
+    locale,
+    thinkingLevel: "off" as ThinkingLevel
   });
   const [renameDraft, setRenameDraft] = useState("");
   const [archivedPiSessionIds, setArchivedPiSessionIds] = useState<Set<string>>(() => {
@@ -1063,6 +1068,7 @@ export default function App() {
     setPanelMode(settingsDraft.panelMode);
     setSystemPrompt(settingsDraft.systemPrompt);
     setLocale(settingsDraft.locale);
+    localStorage.setItem(THINKING_LEVEL_STORAGE_KEY, settingsDraft.thinkingLevel);
     setIsSettingsOpen(false);
   }
 
@@ -1136,6 +1142,9 @@ export default function App() {
         body: JSON.stringify({
           ...selectedModel,
           prompt: userMessage.content,
+          thinkingLevel:
+            (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) ||
+            "off",
           images: userMessage.images?.map((image) => ({
             name: image.name,
             mimeType: image.mimeType,
@@ -1323,7 +1332,10 @@ export default function App() {
                   type="button"
                   title={t("settings.title")}
                   onClick={() => {
-                    setSettingsDraft({ modelKey, panelMode, systemPrompt, locale });
+                    const storedThinkingLevel =
+                      (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) ||
+                      "off";
+                    setSettingsDraft({ modelKey, panelMode, systemPrompt, locale, thinkingLevel: storedThinkingLevel });
                     setIsSettingsOpen(true);
                   }}
                 >
@@ -1596,6 +1608,22 @@ export default function App() {
               <option value="chat">{t("settings.chatMode")}</option>
               <option value="terminal">{t("settings.terminalMode")}</option>
             </select>
+          </label>
+
+          <label className="field">
+            <span>{t("settings.thinkingLevel")}</span>
+            <select
+              value={settingsDraft.thinkingLevel}
+              onChange={(event) => setSettingsDraft((prev) => ({ ...prev, thinkingLevel: event.target.value as ThinkingLevel }))}
+            >
+              <option value="off">{t("settings.thinkingOff")}</option>
+              <option value="minimal">{t("settings.thinkingMinimal")}</option>
+              <option value="low">{t("settings.thinkingLow")}</option>
+              <option value="medium">{t("settings.thinkingMedium")}</option>
+              <option value="high">{t("settings.thinkingHigh")}</option>
+              <option value="xhigh">{t("settings.thinkingXhigh")}</option>
+            </select>
+            <small className="field-note">{t("settings.thinkingLevelHelp")}</small>
           </label>
 
           <label className="field">
