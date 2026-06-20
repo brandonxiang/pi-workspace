@@ -105,42 +105,44 @@ async function handlePiSlashCommand(
   const cmd = parts[0]?.toLowerCase();
   const args = parts.slice(1).join(" ");
 
+  let output = "";
+
   try {
     switch (cmd) {
       case "compact": {
         const result = await session.compact(args || undefined);
+        const tokensBefore = result?.tokensBefore ?? "?";
         const summary = result?.summary
-          ? `. Summary: ${result.summary.slice(0, 200)}`
+          ? `\n> ${result.summary.slice(0, 200)}`
           : "";
-        sendEvent(raw, {
-          type: "delta",
-          delta: `✓ Compacted (tokens before: ${result?.tokensBefore ?? "?"})${summary}`
-        });
+        output = `✅ **Compacted** — \`${tokensBefore}\` tokens before${summary}`;
+        sendEvent(raw, { type: "delta", delta: output });
         break;
       }
 
       case "copy": {
         const text = session.getLastAssistantText();
-        sendEvent(raw, {
-          type: "delta",
-          delta: text ? `Copied last message (${text.length} chars):\n\n${text}` : "No assistant message to copy."
-        });
+        output = text
+          ? `📋 **Copied** — ${text.length} chars\n\n\`\`\`\n${text}\n\`\`\``
+          : "No assistant message to copy.";
+        sendEvent(raw, { type: "delta", delta: output });
         break;
       }
 
       case "session": {
         const stats = session.getSessionStats();
-        sendEvent(raw, {
-          type: "delta",
-          delta: [
-            `Session ID: ${stats.sessionId}`,
-            `File: ${stats.sessionFile || "(in-memory)"}`,
-            `Messages: ${stats.totalMessages} (${stats.userMessages} user / ${stats.assistantMessages} assistant)`,
-            `Tool calls: ${stats.toolCalls} / Tool results: ${stats.toolResults}`,
-            `Tokens: ${stats.tokens.input} in / ${stats.tokens.output} out / ${stats.tokens.cacheRead} cache / ${stats.tokens.cacheWrite} cache write`,
-            `Cost: $${stats.cost.toFixed(6)}`
-          ].join("\n")
-        });
+        output = `📊 **Session Stats**\n\n`
+          + `| Metric | Value |\n`
+          + `|--------|-------|\n`
+          + `| ID | \`${stats.sessionId}\` |\n`
+          + `| File | \`${stats.sessionFile || "(in-memory)"}\` |\n`
+          + `| Messages | ${stats.totalMessages} (${stats.userMessages} user / ${stats.assistantMessages} assistant) |\n`
+          + `| Tool calls | ${stats.toolCalls} / results: ${stats.toolResults} |\n`
+          + `| Token in | ${stats.tokens.input} |\n`
+          + `| Token out | ${stats.tokens.output} |\n`
+          + `| Cache (r/w) | ${stats.tokens.cacheRead} / ${stats.tokens.cacheWrite} |\n`
+          + `| **Cost** | **$${stats.cost.toFixed(6)}** |`;
+        sendEvent(raw, { type: "delta", delta: output });
         break;
       }
 
@@ -150,10 +152,8 @@ async function handlePiSlashCommand(
           format === "html"
             ? await session.exportToHtml()
             : session.exportToJsonl();
-        sendEvent(raw, {
-          type: "delta",
-          delta: `✓ Exported as ${format}: ${filePath}`
-        });
+        output = `📦 **Exported** as \`${format}\`: \`${filePath}\``;
+        sendEvent(raw, { type: "delta", delta: output });
         break;
       }
 
@@ -161,19 +161,17 @@ async function handlePiSlashCommand(
         const name = args.trim();
         if (name) {
           session.setSessionName(name);
-          sendEvent(raw, { type: "delta", delta: `✓ Session renamed to: ${name}` });
+          output = `✏️ **Session renamed** to: \`${name}\``;
         } else {
-          sendEvent(raw, { type: "delta", delta: `Current session name: ${session.sessionName || "(unnamed)"}` });
+          output = `Current session name: **${session.sessionName || "(unnamed)"}**`;
         }
+        sendEvent(raw, { type: "delta", delta: output });
         break;
       }
 
       default: {
-        // Unknown slash command — pass through to agent as a normal prompt
-        sendEvent(raw, {
-          type: "delta",
-          delta: `Unknown slash command "${cmd}". Treating as a regular message.`
-        });
+        output = `⚠️ Unknown slash command **"/${cmd}"** — falling through to agent.`;
+        sendEvent(raw, { type: "delta", delta: output });
         break;
       }
     }
@@ -189,7 +187,7 @@ async function handlePiSlashCommand(
     type: "done",
     message: {
       role: "assistant",
-      content: "",
+      content: output,
       provider,
       model: modelId,
       timestamp: Date.now()
