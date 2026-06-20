@@ -329,6 +329,12 @@ h2 {
   font-size: 12px;
 }
 
+.pi-sessions-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .session-list,
 .archived-sessions {
   display: grid;
@@ -611,7 +617,7 @@ h2 {
 }
 
 .pi-session-info {
-  margin-bottom: 12px;
+  margin-right: 12px;
   display: grid;
   min-width: 0;
   gap: 3px;
@@ -760,6 +766,14 @@ h2 {
 
 .empty-state h3 {
   color: var(--ink-secondary);
+}
+
+.launcher-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
 }
 
 .chat-bubble-list {
@@ -1383,6 +1397,65 @@ h2 {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.launcher-modal-body {
+  display: grid;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.launcher-project-list {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.launcher-project-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--canvas);
+  color: var(--ink-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.launcher-project-button:hover {
+  border-color: var(--primary);
+  background: var(--canvas-soft);
+  color: var(--primary);
+}
+
+.launcher-project-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.launcher-project-button small {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.launcher-add-project {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .workspace-error {

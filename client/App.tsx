@@ -21,11 +21,17 @@ import type {
   ChatMessage,
   ImageAttachment,
   PiHistoryMessage,
+  PiSessionProject,
   PiSessionDetailResponse,
   StreamEvent,
   UserMessage
 } from "./types";
 import { PiSessionSection } from "./PiSessionSection";
+import {
+  findProjectBySessionId,
+  getNewestProjectSessionId,
+  resolveInitialPiSessionSelection
+} from "./pi-session-launch.js";
 
 const MarkdownContent = lazy(() => import("./MarkdownContent"));
 const TerminalPanel = lazy(async () => {
@@ -39,6 +45,7 @@ type PanelMode = "chat" | "terminal";
 const STORAGE_KEY = "my-pi-chat-session";
 const SESSIONS_STORAGE_KEY = "my-pi-chat-sessions";
 const ACTIVE_SESSION_KEY = "my-pi-active-session-id";
+const ACTIVE_PI_PROJECT_KEY = "my-pi-active-pi-project-path";
 const ARCHIVED_PI_SESSIONS_KEY = "my-pi-archived-pi-sessions";
 const supportedImageMimeTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const maxImageBytes = 5 * 1024 * 1024;
@@ -58,6 +65,7 @@ const modelPresets = [
 
 type ModelOption = (typeof modelPresets)[number];
 type SlashSuggestionInfo = { query: string };
+type ProjectSuggestionInfo = { query: string };
 type ChatSession = {
   id: string;
   title: string;
@@ -66,7 +74,8 @@ type ChatSession = {
   updatedAt: number;
   messages: ChatMessage[];
 };
-type ActivePanelView = { kind: "local" } | { kind: "pi"; sessionId: string };
+type ActivePanelView = { kind: "empty" } | { kind: "pi"; sessionId: string };
+type LauncherMode = "new" | "select" | null;
 
 const defaultSystemPrompt =
   "You are My Pi, an online agent conversation assistant. Be concise, practical, and explicit about assumptions.";
@@ -393,6 +402,14 @@ function getSlashSuggestionItems(t: Translator, info?: SlashSuggestionInfo): Sug
   }));
 }
 
+function getWorkspaceName(cwd: string) {
+  const normalized = cwd.replace(/\/$/, "");
+  if (!normalized) return "workspace";
+
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] || "workspace";
+}
+
 function readStoredMessages(): ChatMessage[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -430,12 +447,6 @@ async function readEventStream(response: Response, onEvent: (event: StreamEvent)
 export default function App() {
   const [locale, setLocale] = useState<Locale>(() => readStoredLocale());
   const t = useMemo(() => createTranslator(locale), [locale]);
-  const initialSessions = useMemo(() => readStoredSessions(locale), []);
-  const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
-  const [activeSessionId, setActiveSessionId] = useState(() => {
-    const stored = localStorage.getItem(ACTIVE_SESSION_KEY);
-    return initialSessions.some((session) => session.id === stored) ? stored! : initialSessions[0].id;
-  });
   const [input, setInput] = useState("");
   const [selectedImage, setSelectedImage] = useState<ImageAttachment | null>(null);
   const [systemPrompt, setSystemPrompt] = useState(defaultSystemPrompt);
@@ -455,7 +466,6 @@ export default function App() {
     systemPrompt: "",
     locale
   });
-  const [renameSessionId, setRenameSessionId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [archivedPiSessionIds, setArchivedPiSessionIds] = useState<Set<string>>(() => {
     try {
@@ -470,7 +480,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [piRefreshKey, setPiRefreshKey] = useState(0);
   const [panelMode, setPanelMode] = useState<PanelMode>(() => {
     try {
       const stored = localStorage.getItem(PANEL_MODE_STORAGE_KEY);
@@ -479,14 +488,29 @@ export default function App() {
     return "chat";
   });
   const [serverCwd, setServerCwd] = useState("");
-  const [activePanelView, setActivePanelView] = useState<ActivePanelView>({ kind: "local" });
+  const [projects, setProjects] = useState<PiSessionProject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [activePanelView, setActivePanelView] = useState<ActivePanelView>({ kind: "empty" });
   const [piSessionDetail, setPiSessionDetail] = useState<PiSessionDetailResponse | null>(null);
   const [piPendingMessages, setPiPendingMessages] = useState<PiHistoryMessage[]>([]);
   const [piSessionError, setPiSessionError] = useState<string | null>(null);
   const [piSessionLoading, setPiSessionLoading] = useState(false);
   const [draftToolMessages, setDraftToolMessages] = useState<Map<string, { toolName: string; content: string; isError: boolean }>>(new Map());
+  const [launcherMode, setLauncherMode] = useState<LauncherMode>(null);
+  const [newSessionQuery, setNewSessionQuery] = useState("");
+  const [selectSessionQuery, setSelectSessionQuery] = useState("");
+  const [launcherError, setLauncherError] = useState<string | null>(null);
+  const [workspaceBrowseName, setWorkspaceBrowseName] = useState<string | null>(null);
+  const [workspaceResolvedPath, setWorkspaceResolvedPath] = useState<string | null>(null);
+  const [workspaceResolving, setWorkspaceResolving] = useState(false);
 
-  /* ───── Resolve cwd for terminal panel ───── */
+  const didHydrateSelectionRef = useRef(false);
+  const piSessionRequestIdRef = useRef(0);
+  const projectFileInputRef = useRef<HTMLInputElement>(null);
+  const piHistoryMessages = piSessionDetail?.messages ?? [];
+  const selectedPiSessionId = activePanelView.kind === "pi" ? activePanelView.sessionId : null;
+
   const terminalCwd = useMemo(() => {
     if (activePanelView.kind === "pi" && piSessionDetail) {
       return piSessionDetail.session.cwd;
@@ -494,9 +518,6 @@ export default function App() {
     return serverCwd || "";
   }, [activePanelView, piSessionDetail, serverCwd]);
 
-  /* ───── Resolve initial command for terminal panel ───── */
-  // In terminal mode with a Pi session selected, auto-launch pi into that session.
-  // Uses activePanelView directly so it works immediately without waiting for piSessionDetail.
   const terminalInitialCommand = useMemo(() => {
     if (activePanelView.kind === "pi") {
       return `pi --session ${activePanelView.sessionId}`;
@@ -504,54 +525,20 @@ export default function App() {
     return undefined;
   }, [activePanelView]);
 
-  /* ───── Persist panel mode ───── */
-  useEffect(() => {
-    localStorage.setItem(PANEL_MODE_STORAGE_KEY, panelMode);
-  }, [panelMode]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-    } catch {
-      // Ignore storage errors and keep the current in-memory preference.
-    }
-    document.documentElement.lang = locale;
-  }, [locale]);
-
-  const sessionIdRef = useRef<string>("");
-  const piSessionRequestIdRef = useRef(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const activeSession = useMemo(() => {
-    return sessions.find((session) => session.id === activeSessionId) || sessions[0];
-  }, [activeSessionId, sessions]);
-
-  const messages = activeSession?.messages ?? [];
-  const piHistoryMessages = piSessionDetail?.messages ?? [];
-
-  const visibleSessions = useMemo(() => {
-    return sessions
-      .filter((session) => !session.archived)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [sessions]);
-
-  const archivedSessions = useMemo(() => {
-    return sessions
-      .filter((session) => session.archived)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [sessions]);
-
-  const selectedModel = useMemo(() => {
-    return parseModelKey(modelKey);
-  }, [modelKey]);
-
+  const selectedModel = useMemo(() => parseModelKey(modelKey), [modelKey]);
   const selectedModelOption = useMemo(() => {
     return modelOptions.find(
       (option) => getModelKey(option.provider, option.model) === modelKey
     );
   }, [modelKey, modelOptions]);
-
   const selectedModelSupportsImages = selectedModelOption?.supportsImages ?? false;
+  const launcherWorkspaceName = getWorkspaceName(serverCwd);
+  const filteredNewProjects = projects.filter((project) =>
+    project.name.toLowerCase().includes(newSessionQuery.trim().toLowerCase())
+  );
+  const filteredSelectableProjects = projects.filter((project) =>
+    project.name.toLowerCase().includes(selectSessionQuery.trim().toLowerCase())
+  );
 
   const draftToolBubbleItems = useMemo<BubbleItemType[]>(() => {
     if (draftToolMessages.size === 0) return [];
@@ -600,17 +587,6 @@ export default function App() {
     };
   }, [draftAssistant, draftThinking, draftToolMessages, isStreaming, t]);
 
-  const localBubbleItems = useMemo<BubbleItemType[]>(() => {
-    const storedItems = messages.map((message, index) => createBubbleItem(message, index, locale, t));
-    if (!streamingBubbleItem && draftToolBubbleItems.length === 0) return storedItems;
-
-    return [
-      ...storedItems,
-      ...draftToolBubbleItems,
-      ...(streamingBubbleItem ? [streamingBubbleItem] : [])
-    ];
-  }, [draftToolBubbleItems, locale, messages, streamingBubbleItem, t]);
-
   const piHistoryBubbleItems = useMemo<BubbleItemType[]>(() => {
     const items = [...piHistoryMessages, ...piPendingMessages].map((message, index) =>
       createPiHistoryBubbleItem(message, index, t)
@@ -624,24 +600,149 @@ export default function App() {
     ];
   }, [draftToolBubbleItems, piHistoryMessages, piPendingMessages, streamingBubbleItem, t]);
 
-  const isPiHistoryView = activePanelView.kind === "pi";
-  const panelTitle = isPiHistoryView
+  const panelTitle = selectedPiSessionId
     ? piSessionDetail?.session.name || t("chat.piSession")
-    : activeSession?.title || t("chat.agentDialogue");
+    : t("launcher.title", { workspace: launcherWorkspaceName });
   const panelMeta =
-    isPiHistoryView && piSessionDetail
+    selectedPiSessionId && piSessionDetail
       ? `${piSessionDetail.session.projectName} · ${piSessionDetail.session.cwd}`
       : null;
 
   useEffect(() => {
-    sessionIdRef.current = activeSessionId;
-    localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
-  }, [activeSessionId]);
+    localStorage.setItem(PANEL_MODE_STORAGE_KEY, panelMode);
+  }, [panelMode]);
 
-  // Persist model selection
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    } catch {
+      // Ignore storage errors and keep the current in-memory preference.
+    }
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   useEffect(() => {
     localStorage.setItem("my-pi-model", modelKey);
   }, [modelKey]);
+
+  function persistSelectedPiSession(sessionId: string, projectPath: string | null) {
+    localStorage.setItem(ACTIVE_SESSION_KEY, sessionId);
+    if (projectPath) {
+      localStorage.setItem(ACTIVE_PI_PROJECT_KEY, projectPath);
+    } else {
+      localStorage.removeItem(ACTIVE_PI_PROJECT_KEY);
+    }
+  }
+
+  function clearSelectedPiSession() {
+    piSessionRequestIdRef.current += 1;
+    setActivePanelView({ kind: "empty" });
+    setPiSessionDetail(null);
+    setPiSessionLoading(false);
+    setPiSessionError(null);
+    setPiPendingMessages([]);
+    setDraftAssistant("");
+    setDraftThinking("");
+    setDraftToolMessages(new Map());
+    setError(null);
+    localStorage.removeItem(ACTIVE_SESSION_KEY);
+    localStorage.removeItem(ACTIVE_PI_PROJECT_KEY);
+  }
+
+  async function selectPiSession(
+    sessionId: string,
+    options?: { persist?: boolean; projectPath?: string | null }
+  ) {
+    if (isStreaming) return;
+
+    const requestId = piSessionRequestIdRef.current + 1;
+    piSessionRequestIdRef.current = requestId;
+    setActivePanelView({ kind: "pi", sessionId });
+    setPiSessionDetail(null);
+    setPiSessionLoading(true);
+    setPiSessionError(null);
+    setError(null);
+    setDraftAssistant("");
+    setDraftThinking("");
+    setDraftToolMessages(new Map());
+    setPiPendingMessages([]);
+
+    if (options?.persist !== false) {
+      const projectPath =
+        options?.projectPath ?? findProjectBySessionId(projects, sessionId)?.path ?? null;
+      persistSelectedPiSession(sessionId, projectPath);
+    }
+
+    try {
+      const response = await fetch(`/api/pi-sessions/${encodeURIComponent(sessionId)}`);
+      const body = (await response.json().catch(() => null)) as
+        | PiSessionDetailResponse
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          body && "error" in body && body.error ? body.error : `Request failed with ${response.status}`
+        );
+      }
+
+      if (piSessionRequestIdRef.current !== requestId) return;
+      setPiSessionDetail(body as PiSessionDetailResponse);
+    } catch (err) {
+      if (piSessionRequestIdRef.current !== requestId) return;
+      setPiSessionError(err instanceof Error ? err.message : "Failed to load Pi session");
+    } finally {
+      if (piSessionRequestIdRef.current === requestId) {
+        setPiSessionLoading(false);
+      }
+    }
+  }
+
+  async function refreshPiProjects(options?: { hydrateSelection?: boolean }) {
+    setProjectsLoading(true);
+    setProjectsError(null);
+
+    try {
+      const response = await fetch("/api/pi-sessions");
+      if (!response.ok) {
+        throw new Error(`Failed to load Pi sessions: ${response.status}`);
+      }
+
+      const body = (await response.json()) as { projects: PiSessionProject[] };
+      setProjects(body.projects);
+
+      if (options?.hydrateSelection && !didHydrateSelectionRef.current) {
+        didHydrateSelectionRef.current = true;
+        const storedSessionId = localStorage.getItem(ACTIVE_SESSION_KEY);
+        const storedProjectPath = localStorage.getItem(ACTIVE_PI_PROJECT_KEY);
+        const initialSelection = resolveInitialPiSessionSelection({
+          storedSessionId,
+          storedProjectPath,
+          projects: body.projects
+        });
+
+        if (initialSelection.kind === "pi") {
+          const projectPath =
+            findProjectBySessionId(body.projects, initialSelection.sessionId)?.path ||
+            storedProjectPath;
+          await selectPiSession(initialSelection.sessionId, {
+            persist: true,
+            projectPath
+          });
+        } else {
+          clearSelectedPiSession();
+        }
+      }
+    } catch (err) {
+      setProjectsError(err instanceof Error ? err.message : t("sidebar.piCliUnavailable"));
+      if (options?.hydrateSelection && !didHydrateSelectionRef.current) {
+        didHydrateSelectionRef.current = true;
+        clearSelectedPiSession();
+      }
+    } finally {
+      setProjectsLoading(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -668,8 +769,6 @@ export default function App() {
     }
 
     loadModels();
-
-    // Load server cwd for terminal panel
     fetch("/api/cwd")
       .then((res) => res.json())
       .then((data) => {
@@ -677,16 +776,13 @@ export default function App() {
           setServerCwd(data.cwd);
         }
       })
-      .catch(() => {})
+      .catch(() => {});
+    void refreshPiProjects({ hydrateSelection: true });
 
     return () => {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
-  }, [sessions]);
 
   useEffect(() => {
     if (selectedImage && !selectedModelSupportsImages) {
@@ -695,40 +791,36 @@ export default function App() {
     }
   }, [selectedImage, selectedModelSupportsImages, t]);
 
-  function updateSession(sessionId: string, updater: (session: ChatSession) => ChatSession) {
-    setSessions((current) =>
-      current.map((session) =>
-        session.id === sessionId
-          ? {
-              ...updater(session),
-              updatedAt: Date.now()
-            }
-          : session
-      )
-    );
+  function openNewSessionLauncher() {
+    setLauncherMode("new");
+    setNewSessionQuery("");
+    setLauncherError(null);
+    setWorkspaceBrowseName(null);
+    setWorkspaceResolvedPath(null);
+    setWorkspaceResolving(false);
   }
 
-  function createNewSession() {
-    const nextSession = createSession(t("session.untitled"));
-    setSessions((current) => [nextSession, ...current]);
-    setActiveSessionId(nextSession.id);
-    setActivePanelView({ kind: "local" });
-    setInput("");
-    setSelectedImage(null);
-    setDraftAssistant("");
-    setDraftThinking("");
-    setError(null);
-    setPiPendingMessages([]);
+  function openSelectSessionLauncher() {
+    setLauncherMode("select");
+    setSelectSessionQuery("");
+    setLauncherError(null);
+  }
+
+  function closeLauncher() {
+    setLauncherMode(null);
+    setLauncherError(null);
+    setWorkspaceBrowseName(null);
+    setWorkspaceResolvedPath(null);
+    setWorkspaceResolving(false);
   }
 
   function openRenameModal(sessionId: string) {
-    const localSession = sessions.find((s) => s.id === sessionId);
     const piName =
       piSessionDetail && piSessionDetail.session.id === sessionId
         ? piSessionDetail.session.name
-        : undefined;
+        : findProjectBySessionId(projects, sessionId)?.sessions.find((session) => session.id === sessionId)?.name;
     setRenameTargetId(sessionId);
-    setRenameDraft(localSession?.title || piName || "");
+    setRenameDraft(piName || "");
   }
 
   function closeRenameModal() {
@@ -742,10 +834,6 @@ export default function App() {
 
     const newName = renameDraft.trim() || t("session.untitled");
 
-    // Update local session title immediately.
-    updateSession(targetId, (session) => ({ ...session, title: newName }));
-
-    // Update Pi session header immediately if this is the active Pi session.
     if (
       piSessionDetail &&
       activePanelView.kind === "pi" &&
@@ -757,7 +845,6 @@ export default function App() {
       });
     }
 
-    // Persist to disk via API.
     try {
       await fetch(`/api/sessions/${encodeURIComponent(targetId)}/name`, {
         method: "PUT",
@@ -765,39 +852,11 @@ export default function App() {
         body: JSON.stringify({ name: newName })
       });
     } catch {
-      // Ignore API errors for local-only sessions.
+      // Keep optimistic UI update when rename persistence fails.
     }
 
-    // Refresh Pi session sidebar after rename.
-    setPiRefreshKey((k) => k + 1);
-
+    await refreshPiProjects();
     closeRenameModal();
-  }
-
-  function archiveLocalSession(sessionId: string) {
-    updateSession(sessionId, (session) => ({ ...session, archived: true }));
-    if (activePanelView.kind === "local" && activeSessionId === sessionId) {
-      const nextActive =
-        visibleSessions.find((session) => session.id !== sessionId) ||
-        createSession(t("session.untitled"));
-      if (!sessions.some((session) => session.id === nextActive.id)) {
-        setSessions((current) => [nextActive, ...current]);
-      }
-      setActiveSessionId(nextActive.id);
-      setActivePanelView({ kind: "local" });
-      setDraftAssistant("");
-      setDraftThinking("");
-      setInput("");
-      setSelectedImage(null);
-      setPiPendingMessages([]);
-    }
-  }
-
-  function restoreLocalSession(sessionId: string) {
-    updateSession(sessionId, (session) => ({ ...session, archived: false }));
-    setActiveSessionId(sessionId);
-    setActivePanelView({ kind: "local" });
-    setPiPendingMessages([]);
   }
 
   function archivePiSession(sessionId: string) {
@@ -818,53 +877,86 @@ export default function App() {
     });
   }
 
-  function selectLocalSession(sessionId: string) {
-    piSessionRequestIdRef.current += 1;
-    setActiveSessionId(sessionId);
-    setActivePanelView({ kind: "local" });
-    setPiSessionLoading(false);
-    setPiSessionError(null);
-    setError(null);
-    setDraftAssistant("");
-    setDraftThinking("");
-    setPiPendingMessages([]);
-  }
-
-  async function selectPiSession(sessionId: string) {
+  async function createPiSessionInProject(projectPath: string) {
     if (isStreaming) return;
-
-    const requestId = piSessionRequestIdRef.current + 1;
-    piSessionRequestIdRef.current = requestId;
-    setActivePanelView({ kind: "pi", sessionId });
-    setPiSessionDetail(null);
-    setPiSessionLoading(true);
-    setPiSessionError(null);
-    setError(null);
-    setDraftAssistant("");
-    setDraftThinking("");
-    setPiPendingMessages([]);
+    setLauncherError(null);
 
     try {
-      const response = await fetch(`/api/pi-sessions/${encodeURIComponent(sessionId)}`);
-      const body = (await response.json().catch(() => null)) as
-        | PiSessionDetailResponse
-        | { error?: string }
-        | null;
-
+      const response = await fetch("/api/pi-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: projectPath })
+      });
       if (!response.ok) {
-        throw new Error(body && "error" in body && body.error ? body.error : `Request failed with ${response.status}`);
+        const err = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(err?.error || `Request failed with ${response.status}`);
       }
 
-      if (piSessionRequestIdRef.current !== requestId) return;
-      setPiSessionDetail(body as PiSessionDetailResponse);
-    } catch (err) {
-      if (piSessionRequestIdRef.current !== requestId) return;
-      setPiSessionError(err instanceof Error ? err.message : "Failed to load Pi session");
-    } finally {
-      if (piSessionRequestIdRef.current === requestId) {
-        setPiSessionLoading(false);
+      const body = (await response.json()) as { projects: PiSessionProject[] };
+      setProjects(body.projects);
+      const nextSessionId = getNewestProjectSessionId(body.projects, projectPath);
+      closeLauncher();
+
+      if (nextSessionId) {
+        await selectPiSession(nextSessionId, { projectPath });
+      } else {
+        clearSelectedPiSession();
       }
+    } catch (err) {
+      setLauncherError(err instanceof Error ? err.message : t("workspace.newPiSession"));
     }
+  }
+
+  function handleBrowseClick() {
+    projectFileInputRef.current?.click();
+  }
+
+  async function handleBrowseChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const path = files[0].webkitRelativePath;
+    const folderName = path.split("/")[0];
+    setWorkspaceBrowseName(folderName);
+    setWorkspaceResolvedPath(null);
+    setLauncherError(null);
+    event.target.value = "";
+
+    setWorkspaceResolving(true);
+    try {
+      const response = await fetch("/api/resolve-workspace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: folderName })
+      });
+      const body = (await response.json()) as {
+        found: boolean;
+        path?: string;
+        error?: string;
+      };
+
+      if (body.found && body.path) {
+        setWorkspaceResolvedPath(body.path);
+        await createPiSessionInProject(body.path);
+      } else {
+        setLauncherError(body.error || `Could not find directory "${folderName}"`);
+      }
+    } catch (err) {
+      setLauncherError(err instanceof Error ? err.message : t("workspace.resolving"));
+    } finally {
+      setWorkspaceResolving(false);
+    }
+  }
+
+  async function openNewestSessionForProject(projectPath: string) {
+    const sessionId = getNewestProjectSessionId(projects, projectPath);
+    if (!sessionId) {
+      setLauncherError(t("workspace.noneFound"));
+      return;
+    }
+
+    closeLauncher();
+    await selectPiSession(sessionId, { projectPath });
   }
 
   function handleSettingsConfirm() {
@@ -881,7 +973,7 @@ export default function App() {
 
   async function submitMessage(messageText: string) {
     const trimmed = messageText.trim();
-    if ((!trimmed && !selectedImage) || isStreaming) return;
+    if ((!trimmed && !selectedImage) || isStreaming || activePanelView.kind !== "pi") return;
 
     if (selectedImage && !selectedModelSupportsImages) {
       setError(t("errors.noImageSupport"));
@@ -895,31 +987,15 @@ export default function App() {
       timestamp: Date.now()
     };
 
-    if (activePanelView.kind === "local") {
-      if (!activeSession) return;
-
-      const conversationId = activeSession.id;
-      const nextMessages = [...activeSession.messages, userMessage];
-
-      updateSession(conversationId, (session) => ({
-        ...session,
-        title:
-          session.messages.length === 0
-            ? getSessionTitleFromMessages([userMessage], t("session.untitled"))
-            : session.title,
-        messages: nextMessages
-      }));
-    } else {
-      setPiPendingMessages([
-        {
-          id: `pi-user-${userMessage.timestamp}`,
-          role: "user",
-          content: userMessage.content,
-          images: userMessage.images,
-          timestamp: userMessage.timestamp
-        }
-      ]);
-    }
+    setPiPendingMessages([
+      {
+        id: `pi-user-${userMessage.timestamp}`,
+        role: "user",
+        content: userMessage.content,
+        images: userMessage.images,
+        timestamp: userMessage.timestamp
+      }
+    ]);
 
     setInput("");
     setSelectedImage(null);
@@ -934,13 +1010,10 @@ export default function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(activePanelView.kind === "local"
-            ? { "x-session-id": activeSession!.id }
-            : { "x-pi-session-id": activePanelView.sessionId })
+          "x-pi-session-id": activePanelView.sessionId
         },
         body: JSON.stringify({
           ...selectedModel,
-          ...(activePanelView.kind === "local" ? { systemPrompt } : {}),
           prompt: userMessage.content,
           images: userMessage.images?.map((image) => ({
             name: image.name,
@@ -1018,72 +1091,49 @@ export default function App() {
           timestamp: fm.timestamp
         };
 
-        if (activePanelView.kind === "local") {
-          updateSession(activeSession!.id, (session) => ({
-            ...session,
-            messages: [
-              ...session.messages,
-              ...intermediateToolMessages.map(
-                (t, i) =>
-                  ({
-                    role: "tool" as const,
-                    toolName: t.toolName,
-                    content: t.content,
-                    isError: t.isError,
-                    expandable: true as const,
-                    timestamp: finalAssistantMsg.timestamp + i
-                  }) as unknown as ChatMessage
-              ),
-              finalAssistantMsg
-            ]
-          }));
-        } else {
-          const pendingUserMsg: PiHistoryMessage = {
-            id: `pi-user-${Date.now()}`,
-            role: "user",
-            content: userMessage.content,
-            images: userMessage.images,
-            timestamp: userMessage.timestamp
-          };
-          const toolMsgs: Extract<PiHistoryMessage, { role: "tool" }>[] = intermediateToolMessages.map(
-            (t, i) =>
-              ({
-                id: `tool-${Date.now()}-${i}`,
-                role: "tool",
-                toolName: t.toolName,
-                content: t.content,
-                isError: t.isError,
-                expandable: true,
-                timestamp: finalAssistantMsg.timestamp + i
-              }) as Extract<PiHistoryMessage, { role: "tool" }>
-          );
-          setPiSessionDetail((current) =>
-            current
-              ? {
-                  ...current,
-                  session: {
-                    ...current.session,
-                    modified: new Date(finalAssistantMsg.timestamp).toISOString()
-                  },
-                  messages: [
-                    ...current.messages,
-                    pendingUserMsg,
-                    ...toolMsgs,
-                    {
-                      id: finalAssistantMsg.content.slice(0, 32),
-                      role: "assistant",
-                      content: finalAssistantMsg.content,
-                      provider: finalAssistantMsg.provider,
-                      model: finalAssistantMsg.model,
-                      timestamp: finalAssistantMsg.timestamp
-                    } as Extract<PiHistoryMessage, { role: "assistant" }>
-                  ]
-                }
-              : current
-          );
-          setPiPendingMessages([]);
-        }
-      } else if (activePanelView.kind === "pi") {
+        const pendingUserMsg: PiHistoryMessage = {
+          id: `pi-user-${Date.now()}`,
+          role: "user",
+          content: userMessage.content,
+          images: userMessage.images,
+          timestamp: userMessage.timestamp
+        };
+        const toolMsgs: Extract<PiHistoryMessage, { role: "tool" }>[] = intermediateToolMessages.map(
+          (tool, index) =>
+            ({
+              id: `tool-${Date.now()}-${index}`,
+              role: "tool",
+              toolName: tool.toolName,
+              content: tool.content,
+              isError: tool.isError,
+              expandable: true,
+              timestamp: finalAssistantMsg.timestamp + index
+            }) as Extract<PiHistoryMessage, { role: "tool" }>
+        );
+        setPiSessionDetail((current) =>
+          current
+            ? {
+                ...current,
+                session: {
+                  ...current.session,
+                  modified: new Date(finalAssistantMsg.timestamp).toISOString()
+                },
+                messages: [
+                  ...current.messages,
+                  pendingUserMsg,
+                  ...toolMsgs,
+                  {
+                    id: finalAssistantMsg.content.slice(0, 32),
+                    role: "assistant",
+                    content: finalAssistantMsg.content,
+                    provider: finalAssistantMsg.provider,
+                    model: finalAssistantMsg.model,
+                    timestamp: finalAssistantMsg.timestamp
+                  } as Extract<PiHistoryMessage, { role: "assistant" }>
+                ]
+              }
+            : current
+        );
         setPiPendingMessages([]);
       }
     } catch (err) {
@@ -1092,12 +1142,11 @@ export default function App() {
       } else {
         setError(err instanceof Error ? err.message : t("errors.unexpectedChat"));
       }
-      if (activePanelView.kind === "pi") {
-        setPiPendingMessages([]);
-      }
+      setPiPendingMessages([]);
     } finally {
       setDraftAssistant("");
       setDraftThinking("");
+      setDraftToolMessages(new Map());
       setIsStreaming(false);
     }
   }
@@ -1139,6 +1188,17 @@ export default function App() {
     }
   }
 
+  const launcherActions = (
+    <div className="launcher-actions">
+      <button className="settings-btn settings-btn-confirm" type="button" onClick={openNewSessionLauncher}>
+        {t("launcher.newPiSession")}
+      </button>
+      <button className="settings-btn settings-btn-cancel" type="button" onClick={openSelectSessionLauncher}>
+        {t("launcher.selectPiSession")}
+      </button>
+    </div>
+  );
+
   return (
     <XProvider theme={xTheme}>
       <main className={`app-shell${sidebarCollapsed ? " app-shell-collapsed" : ""}`}>
@@ -1159,12 +1219,12 @@ export default function App() {
                 className="icon-button"
                 disabled={isStreaming}
                 type="button"
-                title={t("sidebar.newSession")}
-                onClick={createNewSession}
+                title={t("sidebar.newPiSession")}
+                onClick={openNewSessionLauncher}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
               </button>
               <button
@@ -1176,99 +1236,32 @@ export default function App() {
                   setIsSettingsOpen(true);
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
               </button>
-            <button
-              className="sidebar-collapse-btn"
-              type="button"
-              onClick={() => setSidebarCollapsed(true)}
-              title={t("sidebar.collapse")}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-          </div>
-          </div>
-
-          <div className="session-manager">
-            <div className="session-section-heading">
-              <span>{t("sidebar.conversations")}</span>
-              <small>{visibleSessions.length}</small>
+              <button
+                className="sidebar-collapse-btn"
+                type="button"
+                onClick={() => setSidebarCollapsed(true)}
+                title={t("sidebar.collapse")}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
             </div>
-
-            <div className="session-list">
-              {visibleSessions.map((session) => (
-                <div
-                  className={
-                    activePanelView.kind === "local" && session.id === activeSessionId
-                      ? "session-row session-row-active"
-                      : "session-row"
-                  }
-                  key={session.id}
-                >
-                  <button
-                    className="session-select"
-                    disabled={isStreaming}
-                    type="button"
-                    onClick={() => selectLocalSession(session.id)}
-                  >
-                    <span>{session.title}</span>
-                    <small>{formatMessageCount(locale, session.messages.length)}</small>
-                  </button>
-
-                  <span className="session-menu-trigger" onClick={(e) => e.stopPropagation()}>
-                    <Dropdown
-                      menu={{
-                        items: [
-                          { key: "rename", label: t("actions.rename"), onClick: () => openRenameModal(session.id) },
-                          { key: "archive", label: t("actions.archive"), onClick: () => archiveLocalSession(session.id) }
-                        ]
-                      }}
-                      placement="bottomRight"
-                      trigger={["click"]}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="12" cy="5" r="2"/>
-                        <circle cx="12" cy="12" r="2"/>
-                        <circle cx="12" cy="19" r="2"/>
-                      </svg>
-                    </Dropdown>
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {archivedSessions.length > 0 ? (
-              <div className="archived-sessions">
-                <div className="session-section-heading">
-                  <span>{t("sidebar.archived")}</span>
-                  <small>{archivedSessions.length}</small>
-                </div>
-                {archivedSessions.map((session) => (
-                  <div className="session-row session-row-archived" key={session.id}>
-                    <button
-                      className="session-select"
-                      disabled={isStreaming}
-                      type="button"
-                      onClick={() => restoreLocalSession(session.id)}
-                    >
-                      <span>{session.title}</span>
-                      <small>{t("session.archivedRestore")}</small>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </div>
 
           <PiSessionSection
+            error={projectsError}
             isStreaming={isStreaming}
             locale={locale}
-            selectedSessionId={activePanelView.kind === "pi" ? activePanelView.sessionId : null}
+            loading={projectsLoading}
+            onOpenNewSession={openNewSessionLauncher}
+            projects={projects}
+            selectedSessionId={selectedPiSessionId}
             onSelectSession={(sessionId) => {
               void selectPiSession(sessionId);
             }}
@@ -1276,7 +1269,6 @@ export default function App() {
             archivedSessionIds={archivedPiSessionIds}
             onArchive={archivePiSession}
             onRestore={restorePiSession}
-            refreshKey={piRefreshKey}
           />
         </aside>
 
@@ -1287,8 +1279,8 @@ export default function App() {
             onClick={() => setSidebarCollapsed(false)}
             title={t("sidebar.expand")}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
         )}
@@ -1301,7 +1293,15 @@ export default function App() {
                 <small className="chat-header-meta">{terminalCwd}</small>
               </div>
             </header>
-            {activePanelView.kind === "pi" && !piSessionDetail ? (
+            {activePanelView.kind === "empty" ? (
+              <div className="messages messages-empty">
+                <div className="empty-state">
+                  <h3>{t("launcher.title", { workspace: launcherWorkspaceName })}</h3>
+                  <p>{t("launcher.body")}</p>
+                  {launcherActions}
+                </div>
+              </div>
+            ) : activePanelView.kind === "pi" && !piSessionDetail ? (
               <div className="messages messages-empty">
                 <div className="empty-state">
                   <h3>{t("panel.loadingTerminalTitle")}</h3>
@@ -1322,37 +1322,43 @@ export default function App() {
                   cwd={terminalCwd}
                   initialCommand={terminalInitialCommand}
                   locale={locale}
-                  sessionId={activePanelView.kind === "pi" ? activePanelView.sessionId : activeSessionId}
+                  sessionId={selectedPiSessionId ?? undefined}
                 />
               </Suspense>
             )}
           </section>
         ) : (
-        <section className="chat-panel" aria-label={t("chat.agentDialogue")}>
-          <header className="chat-header">
-            <div className="chat-header-copy">
-              <span className="chat-header-title">{panelTitle}</span>
-              {panelMeta ? <small className="chat-header-meta">{panelMeta}</small> : null}
-            </div>
-            {isPiHistoryView ? <span className="chat-mode-pill">{t("panel.piSessionPill")}</span> : null}
-          </header>
+          <section className="chat-panel" aria-label={t("chat.agentDialogue")}>
+            <header className="chat-header">
+              <div className="chat-header-copy">
+                <span className="chat-header-title">{panelTitle}</span>
+                {panelMeta ? <small className="chat-header-meta">{panelMeta}</small> : null}
+              </div>
+              {selectedPiSessionId ? <span className="chat-mode-pill">{t("panel.piSessionPill")}</span> : null}
+            </header>
 
-          {isPiHistoryView ? (
-            piSessionError ? (
+            {activePanelView.kind === "empty" ? (
+              <div className="messages messages-empty">
+                <div className="empty-state">
+                  <h3>{t("launcher.title", { workspace: launcherWorkspaceName })}</h3>
+                  <p>{t("launcher.body")}</p>
+                  {launcherActions}
+                  {projectsError ? <div className="error-banner">{projectsError}</div> : null}
+                </div>
+              </div>
+            ) : piSessionError ? (
               <div className="messages messages-empty">
                 <div className="error-banner">
                   <p>{piSessionError}</p>
-                  {activePanelView.kind === "pi" ? (
-                    <button
-                      className="inline-action-button"
-                      type="button"
-                      onClick={() => {
-                        void selectPiSession(activePanelView.sessionId);
-                      }}
-                    >
-                      {t("panel.retry")}
-                    </button>
-                  ) : null}
+                  <button
+                    className="inline-action-button"
+                    type="button"
+                    onClick={() => {
+                      void selectPiSession(activePanelView.sessionId);
+                    }}
+                  >
+                    {t("panel.retry")}
+                  </button>
                 </div>
               </div>
             ) : !piSessionDetail ? (
@@ -1379,91 +1385,71 @@ export default function App() {
                 />
                 {error && <div className="error-banner">{error}</div>}
               </div>
-            )
-          ) : localBubbleItems.length === 0 ? (
-            <div className="messages messages-empty">
-              <div className="empty-state">
-                <h3>{t("sidebar.startTitle")}</h3>
-                <p>{t("sidebar.startBody")}</p>
-              </div>
-              {error && <div className="error-banner">{error}</div>}
-            </div>
-          ) : (
-            <div className="messages">
-              <Bubble.List
-                autoScroll
-                className="chat-bubble-list"
-                items={localBubbleItems}
-                role={bubbleRoles}
-              />
-              {error && <div className="error-banner">{error}</div>}
-            </div>
-          )}
+            )}
 
-          <div className="composer">
-            {selectedImage ? (
-              <div className="attachment-preview">
-                <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
-                <div>
-                  <strong>{selectedImage.name}</strong>
-                  <span>{t("composer.attachmentMeta", { size: Math.ceil(selectedImage.size / 1024) })}</span>
-                </div>
-                <button type="button" onClick={() => setSelectedImage(null)}>
-                  {t("composer.remove")}
-                </button>
+            {activePanelView.kind === "pi" ? (
+              <div className="composer">
+                {selectedImage ? (
+                  <div className="attachment-preview">
+                    <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
+                    <div>
+                      <strong>{selectedImage.name}</strong>
+                      <span>{t("composer.attachmentMeta", { size: Math.ceil(selectedImage.size / 1024) })}</span>
+                    </div>
+                    <button type="button" onClick={() => setSelectedImage(null)}>
+                      {t("composer.remove")}
+                    </button>
+                  </div>
+                ) : null}
+                <input
+                  className="composer-upload-input"
+                  accept={supportedImageMimeTypes.join(",")}
+                  onChange={handleImageChange}
+                  type="file"
+                />
+                <Suggestion<SlashSuggestionInfo>
+                  block
+                  className="slash-command-suggestion"
+                  items={(info) => getSlashSuggestionItems(t, info)}
+                  onSelect={handleSlashSelect}
+                >
+                  {({ onKeyDown, onTrigger }) => (
+                    <Sender
+                      autoSize={{ minRows: 2, maxRows: 8 }}
+                      className="chat-sender"
+                      disabled={isStreaming || piSessionLoading || Boolean(piSessionError)}
+                      loading={isStreaming}
+                      onChange={(value) => {
+                        setInput(value);
+                        onTrigger(
+                          shouldShowSlashSuggestions(value)
+                            ? { query: value.slice(1) }
+                            : false
+                        );
+                      }}
+                      onKeyDown={(event) => {
+                        event.stopPropagation();
+                        onKeyDown(event);
+                      }}
+                      onSubmit={submitMessage}
+                      placeholder={t("composer.continuePiSession")}
+                      submitType="enter"
+                      value={input}
+                    />
+                  )}
+                </Suggestion>
               </div>
             ) : null}
-            <input
-              ref={fileInputRef}
-              className="composer-upload-input"
-              accept={supportedImageMimeTypes.join(",")}
-              onChange={handleImageChange}
-              type="file"
-            />
-            <Suggestion<SlashSuggestionInfo>
-              block
-              className="slash-command-suggestion"
-              items={(info) => getSlashSuggestionItems(t, info)}
-              onSelect={handleSlashSelect}
-            >
-              {({ onKeyDown, onTrigger }) => (
-                <Sender
-                  autoSize={{ minRows: 2, maxRows: 8 }}
-                  className="chat-sender"
-                  disabled={
-                    isStreaming ||
-                    (isPiHistoryView && (piSessionLoading || Boolean(piSessionError)))
-                  }
-                  loading={isStreaming}
-                  onChange={(value) => {
-                    setInput(value);
-                    onTrigger(
-                      shouldShowSlashSuggestions(value)
-                        ? { query: value.slice(1) }
-                        : false
-                    );
-                  }}
-                  onKeyDown={(e) => {
-                    // Stop propagation to prevent parent BaseSelect
-                    // from intercepting space key (and others)
-                    e.stopPropagation();
-                    onKeyDown(e);
-                  }}
-                  onSubmit={submitMessage}
-                  placeholder={
-                    isPiHistoryView
-                      ? t("composer.continuePiSession")
-                      : t("composer.placeholder")
-                  }
-                  submitType="enter"
-                  value={input}
-                />
-              )}
-            </Suggestion>
-          </div>
-        </section>
+          </section>
         )}
       </main>
+      <input
+        ref={projectFileInputRef}
+        type="file"
+        className="workspace-file-input"
+        {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+        onChange={handleBrowseChange}
+      />
       <Modal
         centered
         open={isSettingsOpen}
@@ -1548,6 +1534,97 @@ export default function App() {
             if (event.key === "Escape") closeRenameModal();
           }}
         />
+      </Modal>
+
+      <Modal
+        centered
+        open={launcherMode === "new"}
+        title={t("launcher.newPiSession")}
+        footer={null}
+        onCancel={closeLauncher}
+      >
+        <div className="launcher-modal-body">
+          <p className="workspace-description">{t("launcher.newPiSessionBody")}</p>
+          <Input
+            value={newSessionQuery}
+            placeholder={t("launcher.searchProjects")}
+            onChange={(event) => setNewSessionQuery(event.target.value)}
+          />
+
+          <div className="launcher-project-list">
+            {filteredNewProjects.map((project) => (
+              <button
+                className="launcher-project-button"
+                key={project.path}
+                type="button"
+                onClick={() => {
+                  void createPiSessionInProject(project.path);
+                }}
+              >
+                <span>{project.name}</span>
+                <small>{formatMessageCount(locale, project.sessions.length)}</small>
+              </button>
+            ))}
+            {filteredNewProjects.length === 0 ? (
+              <div className="pi-sessions-empty">{t("launcher.noProjectsFound")}</div>
+            ) : null}
+          </div>
+
+          <div className="launcher-add-project">
+            <button className="workspace-browse-btn" type="button" onClick={handleBrowseClick}>
+              {t("launcher.addProject")}
+            </button>
+            {workspaceResolving ? (
+              <span className="workspace-resolving-label">{t("workspace.resolving")}</span>
+            ) : null}
+            {workspaceResolvedPath && !workspaceResolving ? (
+              <span className="workspace-resolved-label">
+                ✓ <strong>{workspaceBrowseName}</strong>
+                <small>{workspaceResolvedPath}</small>
+              </span>
+            ) : null}
+          </div>
+
+          {launcherError ? <div className="workspace-error">{launcherError}</div> : null}
+        </div>
+      </Modal>
+
+      <Modal
+        centered
+        open={launcherMode === "select"}
+        title={t("launcher.selectPiSession")}
+        footer={null}
+        onCancel={closeLauncher}
+      >
+        <div className="launcher-modal-body">
+          <p className="workspace-description">{t("launcher.selectPiSessionBody")}</p>
+          <Input
+            value={selectSessionQuery}
+            placeholder={t("launcher.searchProjects")}
+            onChange={(event) => setSelectSessionQuery(event.target.value)}
+          />
+
+          <div className="launcher-project-list">
+            {filteredSelectableProjects.map((project) => (
+              <button
+                className="launcher-project-button"
+                key={project.path}
+                type="button"
+                onClick={() => {
+                  void openNewestSessionForProject(project.path);
+                }}
+              >
+                <span>{project.name}</span>
+                <small>{project.sessions[0]?.name || project.sessions[0]?.firstMessage || t("chat.piSession")}</small>
+              </button>
+            ))}
+            {filteredSelectableProjects.length === 0 ? (
+              <div className="pi-sessions-empty">{t("launcher.noProjectsFound")}</div>
+            ) : null}
+          </div>
+
+          {launcherError ? <div className="workspace-error">{launcherError}</div> : null}
+        </div>
       </Modal>
     </XProvider>
   );
