@@ -1534,6 +1534,17 @@ h2 {
   padding-top: 4px;
 }
 
+.settings-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 4px;
+}
+
+.field .ant-select {
+  width: 100%;
+}
+
 .settings-footer {
   display: flex;
   justify-content: flex-end;

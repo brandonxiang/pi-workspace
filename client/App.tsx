@@ -2,6 +2,8 @@ import { Suspense, lazy, type ChangeEvent, useEffect, useMemo, useRef, useState 
 import Dropdown from "antd/es/dropdown";
 import Input from "antd/es/input";
 import Modal from "antd/es/modal";
+import Select from "antd/es/select";
+import Tabs from "antd/es/tabs";
 import Bubble, { type BubbleItemType, type BubbleListProps } from "@ant-design/x/es/bubble";
 import Sender from "@ant-design/x/es/sender";
 import Suggestion, { type SuggestionItem } from "@ant-design/x/es/suggestion";
@@ -108,6 +110,7 @@ type LauncherMode = "new" | "select" | null;
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 const THINKING_LEVEL_STORAGE_KEY = "my-pi-thinking-level";
+const SIDEBAR_SHORTCUT_KEY = "b";
 
 const defaultSystemPrompt =
   "You are My Pi, an online agent conversation assistant. Be concise, practical, and explicit about assumptions.";
@@ -215,6 +218,21 @@ function parseModelKey(modelKey: string) {
     provider: modelKey.slice(0, separatorIndex),
     model: modelKey.slice(separatorIndex + 1)
   };
+}
+
+function isSidebarToggleShortcut(
+  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">
+) {
+  return (
+    event.key.toLowerCase() === SIDEBAR_SHORTCUT_KEY &&
+    !event.altKey &&
+    !event.shiftKey &&
+    (event.metaKey || event.ctrlKey)
+  );
+}
+
+function hasOpenDialog() {
+  return Boolean(document.querySelector('[role="dialog"], .ant-modal-root'));
 }
 
 function MessageHeader({ label, meta }: { label: string; meta: string }) {
@@ -543,6 +561,7 @@ export default function App() {
   });
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(modelPresets);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
   const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
   const [settingsDraft, setSettingsDraft] = useState({
     modelKey: "",
@@ -596,6 +615,7 @@ export default function App() {
   const didHydrateSelectionRef = useRef(false);
   const piSessionRequestIdRef = useRef(0);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
+  const chatPanelRef = useRef<HTMLElement | null>(null);
   const thinkingFlushTimeoutRef = useRef<number | null>(null);
   const piHistoryMessages = piSessionDetail?.messages ?? [];
   const selectedPiSessionId = activePanelView.kind === "pi" ? activePanelView.sessionId : null;
@@ -628,6 +648,16 @@ export default function App() {
   const filteredSelectableProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(selectSessionQuery.trim().toLowerCase())
   );
+  const isMacLikePlatform = useMemo(() => {
+    if (typeof navigator === "undefined") return true;
+    return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  }, []);
+  const sidebarShortcutLabel = isMacLikePlatform ? "⌘B" : "Ctrl+B";
+  const isAnyModalOpen =
+    isSettingsOpen ||
+    isHotkeysOpen ||
+    renameTargetId !== null ||
+    launcherMode !== null;
 
   function clearThinkingFlushTimeout() {
     if (thinkingFlushTimeoutRef.current === null) return;
@@ -720,6 +750,46 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(PANEL_MODE_STORAGE_KEY, panelMode);
   }, [panelMode]);
+
+  useEffect(() => {
+    function focusMainPanel() {
+      window.setTimeout(() => {
+        chatPanelRef.current?.focus();
+      }, 0);
+    }
+
+    function handleSidebarShortcut(event: KeyboardEvent) {
+      if (!isSidebarToggleShortcut(event)) return;
+      if (isAnyModalOpen || hasOpenDialog()) return;
+
+      const activeElement = document.activeElement;
+      const targetElement =
+        event.target instanceof Element
+          ? event.target
+          : activeElement instanceof Element
+            ? activeElement
+            : null;
+
+      if (targetElement?.closest(".terminal-panel")) {
+        return;
+      }
+
+      const focusedInsideSidebar =
+        activeElement instanceof HTMLElement && Boolean(activeElement.closest(".sidebar"));
+
+      event.preventDefault();
+      setSidebarCollapsed((current) => !current);
+
+      if (!sidebarCollapsed && focusedInsideSidebar) {
+        focusMainPanel();
+      }
+    }
+
+    document.addEventListener("keydown", handleSidebarShortcut);
+    return () => {
+      document.removeEventListener("keydown", handleSidebarShortcut);
+    };
+  }, [isAnyModalOpen, sidebarCollapsed]);
 
   useEffect(() => {
     return () => {
@@ -1090,6 +1160,14 @@ export default function App() {
     setIsSettingsOpen(true);
   }
 
+  function openHotkeysModal() {
+    setIsHotkeysOpen(true);
+  }
+
+  function closeHotkeysModal() {
+    setIsHotkeysOpen(false);
+  }
+
   function createLocalUserMessage(content: string): Extract<PiHistoryMessage, { role: "user" }> {
     return {
       id: `local-user-${crypto.randomUUID()}`,
@@ -1124,7 +1202,7 @@ export default function App() {
   }
 
   async function runClientSlashAction(
-    commandName: "settings" | "model" | "copy"
+    commandName: "settings" | "model" | "copy" | "hotkeys"
   ): Promise<LocalActionResult> {
     if (commandName === "settings") {
       openSettingsModal();
@@ -1140,6 +1218,15 @@ export default function App() {
       return {
         title: "Model",
         content: "Opened Settings. Update the model from the Settings panel.",
+        status: "success"
+      };
+    }
+
+    if (commandName === "hotkeys") {
+      openHotkeysModal();
+      return {
+        title: "Keyboard shortcuts",
+        content: "Opened the keyboard shortcuts help.",
         status: "success"
       };
     }
@@ -1552,6 +1639,19 @@ export default function App() {
                 <button
                   className="icon-button"
                   type="button"
+                  title={t("hotkeys.open")}
+                  onClick={openHotkeysModal}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <path d="M7 9h.01" />
+                    <path d="M11 9h2" />
+                    <path d="M7 13h10" />
+                  </svg>
+                </button>
+                <button
+                  className="icon-button"
+                  type="button"
                   title={t("settings.title")}
                   onClick={openSettingsModal}
                 >
@@ -1564,7 +1664,7 @@ export default function App() {
                   className="sidebar-collapse-btn"
                   type="button"
                   onClick={() => setSidebarCollapsed(true)}
-                  title={t("sidebar.collapse")}
+                  title={`${t("sidebar.collapse")} (${sidebarShortcutLabel})`}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="15 18 9 12 15 6" />
@@ -1599,7 +1699,7 @@ export default function App() {
             className="sidebar-expand-btn"
             type="button"
             onClick={() => setSidebarCollapsed(false)}
-            title={t("sidebar.expand")}
+            title={`${t("sidebar.expand")} (${sidebarShortcutLabel})`}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6" />
@@ -1608,7 +1708,7 @@ export default function App() {
         )}
 
         {panelMode === "terminal" ? (
-          <section className="chat-panel" aria-label={t("panel.terminal")}>
+          <section ref={chatPanelRef} className="chat-panel" aria-label={t("panel.terminal")} tabIndex={-1}>
             <header className="chat-header">
               <div className="chat-header-copy">
                 <span className="chat-header-title">{t("panel.terminal")}</span>
@@ -1650,7 +1750,7 @@ export default function App() {
             )}
           </section>
         ) : (
-          <section className="chat-panel" aria-label={t("chat.agentDialogue")}>
+          <section ref={chatPanelRef} className="chat-panel" aria-label={t("chat.agentDialogue")} tabIndex={-1}>
             <header className="chat-header">
               <div className="chat-header-copy">
                 <span className="chat-header-title">{panelTitle}</span>
@@ -1765,6 +1865,10 @@ export default function App() {
                         );
                       }}
                       onKeyDown={(event) => {
+                        if (isSidebarToggleShortcut(event)) {
+                          return;
+                        }
+
                         event.stopPropagation();
 
                         if (!event.shiftKey && event.key === "Tab") {
@@ -1806,6 +1910,7 @@ export default function App() {
         centered
         open={isSettingsOpen}
         title={t("settings.title")}
+        width={680}
         footer={
           <div className="settings-footer">
             <button className="settings-btn settings-btn-cancel" type="button" onClick={handleSettingsCancel}>
@@ -1818,68 +1923,102 @@ export default function App() {
         }
         onCancel={handleSettingsCancel}
       >
-        <div className="settings-modal-content">
-          <label className="field">
-            <span>{t("settings.model")}</span>
-            <select value={settingsDraft.modelKey} onChange={(event) => setSettingsDraft((prev) => ({ ...prev, modelKey: event.target.value }))}>
-              {modelOptions.map((preset) => (
-                <option key={getModelKey(preset.provider, preset.model)} value={getModelKey(preset.provider, preset.model)}>
-                  {preset.label}{preset.supportsImages ? " · vision" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+        <Tabs
+          tabPosition="left"
+          items={[
+            {
+              key: "general",
+              label: t("settings.tabGeneral"),
+              children: (
+                <div className="settings-tab-content">
+                  <label className="field">
+                    <span>{t("settings.language")}</span>
+                    <Select
+                      value={settingsDraft.locale}
+                      onChange={(value) => setSettingsDraft((prev) => ({ ...prev, locale: value as Locale }))}
+                      options={localeOptions.map((option) => ({
+                        value: option.value,
+                        label: option.label
+                      }))}
+                    />
+                    <small className="field-note">{t("settings.languageHelp")}</small>
+                  </label>
 
-          <label className="field">
-            <span>{t("settings.language")}</span>
-            <select
-              value={settingsDraft.locale}
-              onChange={(event) => setSettingsDraft((prev) => ({ ...prev, locale: event.target.value as Locale }))}
-            >
-              {localeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <small className="field-note">{t("settings.languageHelp")}</small>
-          </label>
+                  <label className="field">
+                    <span>{t("settings.panelMode")}</span>
+                    <Select
+                      value={settingsDraft.panelMode}
+                      onChange={(value) => setSettingsDraft((prev) => ({ ...prev, panelMode: value as PanelMode }))}
+                      options={[
+                        { value: "chat", label: t("settings.chatMode") },
+                        { value: "terminal", label: t("settings.terminalMode") }
+                      ]}
+                    />
+                  </label>
+                </div>
+              )
+            },
+            {
+              key: "model",
+              label: t("settings.tabModel"),
+              children: (
+                <div className="settings-tab-content">
+                  <label className="field">
+                    <span>{t("settings.model")}</span>
+                    <Select
+                      value={settingsDraft.modelKey}
+                      onChange={(value) => setSettingsDraft((prev) => ({ ...prev, modelKey: value }))}
+                      options={modelOptions.map((preset) => ({
+                        value: getModelKey(preset.provider, preset.model),
+                        label: `${preset.label}${preset.supportsImages ? " · vision" : ""}`
+                      }))}
+                    />
+                  </label>
 
-          <label className="field">
-            <span>{t("settings.panelMode")}</span>
-            <select
-              value={settingsDraft.panelMode}
-              onChange={(event) => setSettingsDraft((prev) => ({ ...prev, panelMode: event.target.value as PanelMode }))}
-            >
-              <option value="chat">{t("settings.chatMode")}</option>
-              <option value="terminal">{t("settings.terminalMode")}</option>
-            </select>
-          </label>
+                  <label className="field">
+                    <span>{t("settings.thinkingLevel")}</span>
+                    <Select
+                      value={settingsDraft.thinkingLevel}
+                      onChange={(value) => setSettingsDraft((prev) => ({ ...prev, thinkingLevel: value as ThinkingLevel }))}
+                      options={[
+                        { value: "off", label: t("settings.thinkingOff") },
+                        { value: "minimal", label: t("settings.thinkingMinimal") },
+                        { value: "low", label: t("settings.thinkingLow") },
+                        { value: "medium", label: t("settings.thinkingMedium") },
+                        { value: "high", label: t("settings.thinkingHigh") },
+                        { value: "xhigh", label: t("settings.thinkingXhigh") }
+                      ]}
+                    />
+                    <small className="field-note">{t("settings.thinkingLevelHelp")}</small>
+                  </label>
 
-          <label className="field">
-            <span>{t("settings.thinkingLevel")}</span>
-            <select
-              value={settingsDraft.thinkingLevel}
-              onChange={(event) => setSettingsDraft((prev) => ({ ...prev, thinkingLevel: event.target.value as ThinkingLevel }))}
-            >
-              <option value="off">{t("settings.thinkingOff")}</option>
-              <option value="minimal">{t("settings.thinkingMinimal")}</option>
-              <option value="low">{t("settings.thinkingLow")}</option>
-              <option value="medium">{t("settings.thinkingMedium")}</option>
-              <option value="high">{t("settings.thinkingHigh")}</option>
-              <option value="xhigh">{t("settings.thinkingXhigh")}</option>
-            </select>
-            <small className="field-note">{t("settings.thinkingLevelHelp")}</small>
-          </label>
+                  <label className="field">
+                    <span>{t("settings.systemPrompt")}</span>
+                    <textarea
+                      value={settingsDraft.systemPrompt}
+                      rows={7}
+                      onChange={(event) => setSettingsDraft((prev) => ({ ...prev, systemPrompt: event.target.value }))}
+                    />
+                  </label>
+                </div>
+              )
+            }
+          ]}
+        />
+      </Modal>
 
-          <label className="field">
-            <span>{t("settings.systemPrompt")}</span>
-            <textarea
-              value={settingsDraft.systemPrompt}
-              rows={7}
-              onChange={(event) => setSettingsDraft((prev) => ({ ...prev, systemPrompt: event.target.value }))}
-            />
-          </label>
+      <Modal
+        centered
+        open={isHotkeysOpen}
+        title={t("hotkeys.title")}
+        footer={null}
+        onCancel={closeHotkeysModal}
+      >
+        <div className="settings-tab-content">
+          <div className="field">
+            <span>{t("hotkeys.sidebarToggleLabel", { shortcut: sidebarShortcutLabel })}</span>
+            <small className="field-note">{t("hotkeys.sidebarToggleDescription")}</small>
+          </div>
         </div>
       </Modal>
 

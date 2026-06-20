@@ -3,6 +3,7 @@ export type AppSlashCommandSource = "app" | "pi";
 
 export const appSlashCommands = [
   { name: "settings", descriptionKey: "slash.settings", scope: "client", source: "app" },
+  { name: "hotkeys", descriptionKey: "slash.hotkeys", scope: "client", source: "app" },
   { name: "model", descriptionKey: "slash.model", scope: "client", source: "app" },
   { name: "copy", descriptionKey: "slash.copy", scope: "client", source: "app" },
   { name: "session", descriptionKey: "slash.session", scope: "server", source: "pi" },

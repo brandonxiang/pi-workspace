@@ -36,6 +36,7 @@ describe("app slash command registry", () => {
   it("contains only the supported local app actions", () => {
     expect(appSlashCommands.map((command) => command.name)).toEqual([
       "settings",
+      "hotkeys",
       "model",
       "copy",
       "session",
