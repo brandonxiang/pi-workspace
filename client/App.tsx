@@ -536,7 +536,7 @@ export default function App() {
     panelMode: "chat" as PanelMode,
     systemPrompt: "",
     locale,
-    thinkingLevel: "off" as ThinkingLevel
+    thinkingLevel: "high" as ThinkingLevel
   });
   const [renameDraft, setRenameDraft] = useState("");
   const [archivedPiSessionIds, setArchivedPiSessionIds] = useState<Set<string>>(() => {
@@ -1144,7 +1144,7 @@ export default function App() {
           prompt: userMessage.content,
           thinkingLevel:
             (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) ||
-            "off",
+            "high",
           images: userMessage.images?.map((image) => ({
             name: image.name,
             mimeType: image.mimeType,
@@ -1334,7 +1334,7 @@ export default function App() {
                   onClick={() => {
                     const storedThinkingLevel =
                       (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) ||
-                      "off";
+                      "high";
                     setSettingsDraft({ modelKey, panelMode, systemPrompt, locale, thinkingLevel: storedThinkingLevel });
                     setIsSettingsOpen(true);
                   }}
