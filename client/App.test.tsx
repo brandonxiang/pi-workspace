@@ -935,6 +935,73 @@ describe("App sidebar shortcut", () => {
     expect(window.location.search).toBe("?panel=chat");
   });
 
+  it("does not show loading copy while a selected Pi session is still loading", async () => {
+    mockState.projects = [
+      {
+        name: "workspace",
+        path: "/tmp/workspace",
+        sessions: [
+          {
+            id: "session-1",
+            name: "Session 1",
+            firstMessage: "First message",
+            messageCount: 1,
+            created: "2026-01-01T00:00:00.000Z",
+            modified: "2026-01-01T00:00:00.000Z"
+          }
+        ]
+      }
+    ];
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/skills")) {
+        return createJsonResponse({ skills: [] });
+      }
+      if (url.endsWith("/api/models")) {
+        return createJsonResponse({ models: [] });
+      }
+      if (url.endsWith("/api/cwd")) {
+        return createJsonResponse({ cwd: "/tmp/workspace" });
+      }
+      if (url.endsWith("/api/pi-sessions")) {
+        return createJsonResponse({ projects: mockState.projects });
+      }
+      if (url.includes("/api/pi-sessions/")) {
+        return new Promise<Response>(() => {});
+      }
+      if (url.endsWith("/api/chat/steer")) {
+        return createJsonResponse({ ok: true });
+      }
+      if (url.endsWith("/api/chat")) {
+        return createJsonResponse({});
+      }
+
+      throw new Error(`Unhandled fetch: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+
+    const openSessionButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Open first session"
+    );
+    expect(openSessionButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      openSessionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).not.toContain("Loading Pi session history");
+    expect(container.textContent).not.toContain(
+      "Fetching the active branch from your local Pi session store."
+    );
+  });
+
   it("updates the URL when the panel mode changes", async () => {
     seedSelectedPiSession();
     window.history.pushState({}, "", "/sessions/session-1?panel=chat");

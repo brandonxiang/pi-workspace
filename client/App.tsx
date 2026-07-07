@@ -2506,12 +2506,10 @@ export default function App() {
                 </div>
               </div>
             ) : !piSessionDetail ? (
-              <div className="messages messages-empty">
-                <div className="empty-state">
-                  <h3>{t("sidebar.loadingPiSessionTitle")}</h3>
-                  <p>{t("sidebar.loadingPiSessionBody")}</p>
-                </div>
-              </div>
+              <div
+                className="messages messages-empty"
+                aria-busy={piSessionLoading}
+              />
             ) : piHistoryBubbleItems.length === 0 ? (
               <div className="messages messages-empty">
                 <div className="empty-state">
