@@ -493,6 +493,39 @@ describe("App sidebar shortcut", () => {
     expect(document.activeElement).toBe(composer);
   });
 
+  it("toggles the left sidebar even when a nested composer listener stops bubbling", async () => {
+    seedSelectedPiSession();
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const shell = container.querySelector(".app-shell");
+    const composer = container.querySelector("textarea");
+    expect(composer).toBeInstanceOf(HTMLTextAreaElement);
+
+    const stopShortcutBubble = (event: Event) => {
+      event.stopPropagation();
+    };
+
+    composer?.parentElement?.addEventListener("keydown", stopShortcutBubble);
+
+    try {
+      composer?.focus();
+      expect(document.activeElement).toBe(composer);
+
+      await act(async () => {
+        dispatchSidebarShortcut(composer!);
+      });
+
+      expect(shell?.className).toContain("app-shell-collapsed");
+    } finally {
+      composer?.parentElement?.removeEventListener("keydown", stopShortcutBubble);
+    }
+  });
+
   it("does not toggle the left sidebar while the hotkeys modal dialog is open", async () => {
     await act(async () => {
       root.render(<App />);

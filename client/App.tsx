@@ -141,6 +141,7 @@ type HistoryWriteMode = "push" | "replace" | "skip";
 
 const THINKING_LEVEL_STORAGE_KEY = "my-pi-thinking-level";
 const SIDEBAR_SHORTCUT_KEY = "b";
+const PANEL_MODE_SHORTCUT_KEY = "'";
 
 const defaultSystemPrompt =
   "You are My Pi, an online agent conversation assistant. Be concise, practical, and explicit about assumptions.";
@@ -263,6 +264,17 @@ function isSidebarToggleShortcut(
 ) {
   return (
     event.key.toLowerCase() === SIDEBAR_SHORTCUT_KEY &&
+    !event.altKey &&
+    !event.shiftKey &&
+    (event.metaKey || event.ctrlKey)
+  );
+}
+
+function isPanelModeShortcut(
+  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">
+) {
+  return (
+    event.key === PANEL_MODE_SHORTCUT_KEY &&
     !event.altKey &&
     !event.shiftKey &&
     (event.metaKey || event.ctrlKey)
@@ -797,6 +809,7 @@ export default function App() {
     return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   }, []);
   const sidebarShortcutLabel = isMacLikePlatform ? "⌘B" : "Ctrl+B";
+  const panelModeShortcutLabel = isMacLikePlatform ? "⌘'" : "Ctrl+'";
   const isSettingsPage = routeKind === "settings";
   const isAnyModalOpen =
     isHotkeysOpen || renameTargetId !== null || launcherMode !== null;
@@ -991,11 +1004,27 @@ export default function App() {
       }
     }
 
-    document.addEventListener("keydown", handleSidebarShortcut);
+    document.addEventListener("keydown", handleSidebarShortcut, true);
     return () => {
-      document.removeEventListener("keydown", handleSidebarShortcut);
+      document.removeEventListener("keydown", handleSidebarShortcut, true);
     };
   }, [isAnyModalOpen, sidebarCollapsed]);
+
+  useEffect(() => {
+    function handlePanelModeShortcut(event: KeyboardEvent) {
+      if (!isPanelModeShortcut(event)) return;
+      if (isAnyModalOpen || hasOpenDialog()) return;
+      if (isSettingsPage) return;
+
+      event.preventDefault();
+      applyPanelMode(panelMode === "chat" ? "terminal" : "chat");
+    }
+
+    document.addEventListener("keydown", handlePanelModeShortcut, true);
+    return () => {
+      document.removeEventListener("keydown", handlePanelModeShortcut, true);
+    };
+  }, [isAnyModalOpen, isSettingsPage, panelMode]);
 
   useEffect(() => {
     return () => {
@@ -2638,6 +2667,10 @@ export default function App() {
                           return;
                         }
 
+                        if (isPanelModeShortcut(event)) {
+                          return;
+                        }
+
                         if (isSteeringSubmitShortcut(event)) {
                           event.preventDefault();
                           void submitMessage(input, "steering");
@@ -2694,6 +2727,10 @@ export default function App() {
           <div className="field">
             <span>{t("hotkeys.sidebarToggleLabel", { shortcut: sidebarShortcutLabel })}</span>
             <small className="field-note">{t("hotkeys.sidebarToggleDescription")}</small>
+          </div>
+          <div className="field">
+            <span>{t("hotkeys.modeToggleLabel", { shortcut: panelModeShortcutLabel })}</span>
+            <small className="field-note">{t("hotkeys.modeToggleDescription")}</small>
           </div>
         </div>
       </Modal>
