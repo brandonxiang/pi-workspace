@@ -144,6 +144,55 @@ export interface PiSessionDetailResponse {
 
 const MAX_FIRST_MESSAGE_LENGTH = 120;
 const MAX_TOOL_CONTENT_LENGTH = 12_000;
+const PI_SESSION_CATALOG_CACHE_TTL_MS = 1_000;
+
+export function createAsyncSnapshotCache<T>({
+  load,
+  now = Date.now,
+  ttlMs
+}: {
+  load: () => Promise<T>;
+  now?: () => number;
+  ttlMs: number;
+}) {
+  let cachedSnapshot: { value: T; loadedAt: number } | null = null;
+  let inFlightLoad: Promise<T> | null = null;
+
+  return {
+    async get() {
+      const currentTime = now();
+      if (cachedSnapshot && currentTime - cachedSnapshot.loadedAt < ttlMs) {
+        return cachedSnapshot.value;
+      }
+
+      if (inFlightLoad) {
+        return inFlightLoad;
+      }
+
+      inFlightLoad = load()
+        .then((value) => {
+          cachedSnapshot = {
+            value,
+            loadedAt: now()
+          };
+          return value;
+        })
+        .finally(() => {
+          inFlightLoad = null;
+        });
+
+      return inFlightLoad;
+    },
+    invalidate() {
+      cachedSnapshot = null;
+    }
+  };
+}
+
+const piSessionCatalogCache = createAsyncSnapshotCache<RawSessionInfo[]>({
+  load: async () => (await SessionManager.listAll()) as RawSessionInfo[],
+  ttlMs: PI_SESSION_CATALOG_CACHE_TTL_MS
+});
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
@@ -563,9 +612,18 @@ export function buildPiSessionDetail(
   };
 }
 
+export function invalidatePiSessionCatalogCache() {
+  piSessionCatalogCache.invalidate();
+}
+
+export async function loadPiSessionProjects() {
+  const sessions = await piSessionCatalogCache.get();
+  return groupSessionsByProject(sessions);
+}
+
 export async function loadPiSessionDetailById(sessionId: string) {
-  const sessions = await SessionManager.listAll();
-  const match = findSessionById(sessions as RawSessionInfo[], sessionId);
+  const sessions = await piSessionCatalogCache.get();
+  const match = findSessionById(sessions, sessionId);
   if (!match) return null;
 
   const sessionManager = SessionManager.open(match.path);
@@ -576,8 +634,8 @@ export async function loadPiSessionDetailById(sessionId: string) {
 }
 
 export async function loadPiSessionContextById(sessionId: string) {
-  const sessions = await SessionManager.listAll();
-  const match = findSessionById(sessions as RawSessionInfo[], sessionId);
+  const sessions = await piSessionCatalogCache.get();
+  const match = findSessionById(sessions, sessionId);
   if (!match) return null;
 
   const sessionManager = SessionManager.open(match.path);

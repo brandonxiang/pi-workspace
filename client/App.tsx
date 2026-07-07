@@ -40,11 +40,21 @@ import type {
   UserMessage
 } from "./types";
 import { PiSessionSection } from "./PiSessionSection";
+import { filterProjectsByArchiveState } from "./PiSessionSection";
 import {
   findProjectBySessionId,
   getNewestProjectSessionId,
   resolveInitialPiSessionSelection
 } from "./pi-session-launch.js";
+import {
+  buildHomeUrl,
+  buildPiSessionUrl,
+  buildSettingsUrl,
+  parseAppRoute,
+  resolvePanelMode,
+  type AppRoute,
+  type PanelMode
+} from "./app-routing";
 import {
   applyPiSessionStreamingEvent,
   createPiSessionStreamingState,
@@ -54,6 +64,10 @@ import {
   groupPiHistoryMessages,
   type PiHistoryTranscriptEntry
 } from "./pi-session-transcript";
+import {
+  createPiSessionDetailCache,
+  getCachedPiSessionDetailForSelection
+} from "./pi-session-detail-cache";
 
 const MarkdownContent = lazy(() => import("./MarkdownContent"));
 const TerminalPanel = lazy(async () => {
@@ -62,7 +76,6 @@ const TerminalPanel = lazy(async () => {
 });
 
 const PANEL_MODE_STORAGE_KEY = "my-pi-panel-mode";
-type PanelMode = "chat" | "terminal";
 
 const STORAGE_KEY = "my-pi-chat-session";
 const SESSIONS_STORAGE_KEY = "my-pi-chat-sessions";
@@ -111,12 +124,20 @@ type ActivePanelView = { kind: "empty" } | { kind: "pi"; sessionId: string };
 type LauncherMode = "new" | "select" | null;
 
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+type SettingsDraft = {
+  modelKey: string;
+  panelMode: PanelMode;
+  systemPrompt: string;
+  locale: Locale;
+  thinkingLevel: ThinkingLevel;
+};
 type QueuedComposerMessage = {
   id: string;
   content: string;
   image?: ImageAttachment;
 };
 type ComposerSubmitMode = "default" | "steering";
+type HistoryWriteMode = "push" | "replace" | "skip";
 
 const THINKING_LEVEL_STORAGE_KEY = "my-pi-thinking-level";
 const SIDEBAR_SHORTCUT_KEY = "b";
@@ -156,6 +177,14 @@ const xTheme = {
 
 function createSessionId() {
   return crypto.randomUUID();
+}
+
+function readStoredThinkingLevel() {
+  try {
+    return (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) || "high";
+  } catch {
+    return "high";
+  }
 }
 
 function createSession(title = "Untitled session", messages: ChatMessage[] = []): ChatSession {
@@ -650,15 +679,30 @@ export default function App() {
     }
   });
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(modelPresets);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<PanelMode>(() => {
+    let storedPanel: string | null = null;
+    try {
+      storedPanel = localStorage.getItem(PANEL_MODE_STORAGE_KEY);
+    } catch {}
+
+    if (typeof window === "undefined") {
+      return resolvePanelMode(null, storedPanel);
+    }
+
+    return resolvePanelMode(parseAppRoute(new URL(window.location.href)).panel, storedPanel);
+  });
+  const [routeKind, setRouteKind] = useState<AppRoute["kind"]>(() => {
+    if (typeof window === "undefined") return "home";
+    return parseAppRoute(new URL(window.location.href)).kind;
+  });
   const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
   const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
-  const [settingsDraft, setSettingsDraft] = useState({
-    modelKey: "",
-    panelMode: "chat" as PanelMode,
-    systemPrompt: "",
+  const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>({
+    modelKey,
+    panelMode,
+    systemPrompt,
     locale,
-    thinkingLevel: "high" as ThinkingLevel
+    thinkingLevel: readStoredThinkingLevel()
   });
   const [renameDraft, setRenameDraft] = useState("");
   const [archivedPiSessionIds, setArchivedPiSessionIds] = useState<Set<string>>(() => {
@@ -676,13 +720,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [panelMode, setPanelMode] = useState<PanelMode>(() => {
-    try {
-      const stored = localStorage.getItem(PANEL_MODE_STORAGE_KEY);
-      if (stored === "terminal" || stored === "chat") return stored;
-    } catch {}
-    return "chat";
-  });
   const [serverCwd, setServerCwd] = useState("");
   const [projects, setProjects] = useState<PiSessionProject[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
@@ -709,6 +746,7 @@ export default function App() {
 
   const didHydrateSelectionRef = useRef(false);
   const piSessionRequestIdRef = useRef(0);
+  const piSessionDetailCacheRef = useRef(createPiSessionDetailCache());
   const followUpDrainAttemptedSessionRef = useRef<string | null>(null);
   const followUpDrainInFlightRef = useRef(false);
   const followUpDrainRequestedRef = useRef(false);
@@ -746,16 +784,22 @@ export default function App() {
   const filteredSelectableProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(selectSessionQuery.trim().toLowerCase())
   );
+  const visibleSidebarProjects = useMemo(
+    () => filterProjectsByArchiveState(projects, archivedPiSessionIds, "visible"),
+    [projects, archivedPiSessionIds]
+  );
+  const archivedSettingsProjects = useMemo(
+    () => filterProjectsByArchiveState(projects, archivedPiSessionIds, "archived"),
+    [projects, archivedPiSessionIds]
+  );
   const isMacLikePlatform = useMemo(() => {
     if (typeof navigator === "undefined") return true;
     return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   }, []);
   const sidebarShortcutLabel = isMacLikePlatform ? "⌘B" : "Ctrl+B";
+  const isSettingsPage = routeKind === "settings";
   const isAnyModalOpen =
-    isSettingsOpen ||
-    isHotkeysOpen ||
-    renameTargetId !== null ||
-    launcherMode !== null;
+    isHotkeysOpen || renameTargetId !== null || launcherMode !== null;
 
   function updateQueuedFollowUps(
     updater: (current: QueuedComposerMessage[]) => QueuedComposerMessage[]
@@ -1028,8 +1072,62 @@ export default function App() {
       });
   }
 
-  function clearSelectedPiSession() {
+  function createSettingsDraftFromState(nextPanelMode: PanelMode = panelMode): SettingsDraft {
+    return {
+      modelKey,
+      panelMode: nextPanelMode,
+      systemPrompt,
+      locale,
+      thinkingLevel: readStoredThinkingLevel()
+    };
+  }
+
+  function buildUrlForState(
+    nextRouteKind: AppRoute["kind"],
+    view: ActivePanelView,
+    nextPanelMode: PanelMode
+  ) {
+    if (nextRouteKind === "settings") {
+      return buildSettingsUrl(nextPanelMode);
+    }
+
+    return view.kind === "pi"
+      ? buildPiSessionUrl(view.sessionId, nextPanelMode)
+      : buildHomeUrl(nextPanelMode);
+  }
+
+  function writeRouteForState(
+    nextRouteKind: AppRoute["kind"],
+    view: ActivePanelView,
+    nextPanelMode: PanelMode,
+    historyMode: HistoryWriteMode
+  ) {
+    if (historyMode === "skip" || typeof window === "undefined") return;
+
+    const nextUrl = buildUrlForState(nextRouteKind, view, nextPanelMode);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (currentUrl === nextUrl) return;
+
+    if (historyMode === "replace") {
+      window.history.replaceState({}, "", nextUrl);
+      return;
+    }
+
+    window.history.pushState({}, "", nextUrl);
+  }
+
+  function applyPanelMode(nextPanelMode: PanelMode, historyMode: HistoryWriteMode = "push") {
+    setPanelMode(nextPanelMode);
+    writeRouteForState(routeKind, activePanelView, nextPanelMode, historyMode);
+  }
+
+  function clearSelectedPiSession(
+    options?: { history?: HistoryWriteMode; routeKind?: AppRoute["kind"]; panelMode?: PanelMode }
+  ) {
+    const nextRouteKind = options?.routeKind ?? "home";
+    const nextPanelMode = options?.panelMode ?? panelMode;
     piSessionRequestIdRef.current += 1;
+    setRouteKind(nextRouteKind);
     setActivePanelView({ kind: "empty" });
     setPiSessionDetail(null);
     setPiLocalMessages([]);
@@ -1039,20 +1137,27 @@ export default function App() {
     resetStreamingDraft();
     setError(null);
     setContextUsage(null);
+    writeRouteForState(nextRouteKind, { kind: "empty" }, nextPanelMode, options?.history ?? "push");
     localStorage.removeItem(ACTIVE_SESSION_KEY);
     localStorage.removeItem(ACTIVE_PI_PROJECT_KEY);
   }
 
   async function selectPiSession(
     sessionId: string,
-    options?: { persist?: boolean; projectPath?: string | null }
+    options?: { persist?: boolean; projectPath?: string | null; history?: HistoryWriteMode }
   ) {
     if (isStreaming) return;
 
+    const cachedDetail = getCachedPiSessionDetailForSelection({
+      currentDetail: piSessionDetail,
+      cache: piSessionDetailCacheRef.current,
+      sessionId
+    });
     const requestId = piSessionRequestIdRef.current + 1;
     piSessionRequestIdRef.current = requestId;
+    setRouteKind("pi-session");
     setActivePanelView({ kind: "pi", sessionId });
-    setPiSessionDetail(null);
+    setPiSessionDetail(cachedDetail);
     setPiLocalMessages([]);
     setPiSessionLoading(true);
     setPiSessionError(null);
@@ -1060,6 +1165,7 @@ export default function App() {
     resetStreamingDraft();
     setPiPendingMessages([]);
     setContextUsage(null);
+    writeRouteForState("pi-session", { kind: "pi", sessionId }, panelMode, options?.history ?? "push");
 
     if (options?.persist !== false) {
       const projectPath =
@@ -1097,31 +1203,51 @@ export default function App() {
 
       if (options?.hydrateSelection && !didHydrateSelectionRef.current) {
         didHydrateSelectionRef.current = true;
+        const route = parseAppRoute(
+          typeof window !== "undefined"
+            ? new URL(window.location.href)
+            : new URL("http://localhost/")
+        );
         const storedSessionId = localStorage.getItem(ACTIVE_SESSION_KEY);
         const storedProjectPath = localStorage.getItem(ACTIVE_PI_PROJECT_KEY);
-        const initialSelection = resolveInitialPiSessionSelection({
-          storedSessionId,
-          storedProjectPath,
-          projects: body.projects
-        });
-
-        if (initialSelection.kind === "pi") {
-          const projectPath =
-            findProjectBySessionId(body.projects, initialSelection.sessionId)?.path ||
-            storedProjectPath;
-          await selectPiSession(initialSelection.sessionId, {
+        if (route.kind === "pi-session") {
+          await selectPiSession(route.sessionId, {
             persist: true,
-            projectPath
+            projectPath: findProjectBySessionId(body.projects, route.sessionId)?.path ?? null,
+            history: "skip"
           });
+        } else if (route.kind === "settings") {
+          setSettingsDraft(createSettingsDraftFromState());
+          clearSelectedPiSession({ history: "skip", routeKind: "settings" });
         } else {
-          clearSelectedPiSession();
+          const initialSelection = resolveInitialPiSessionSelection({
+            storedSessionId,
+            storedProjectPath,
+            projects: body.projects
+          });
+
+          if (initialSelection.kind === "pi") {
+            const projectPath =
+              findProjectBySessionId(body.projects, initialSelection.sessionId)?.path ||
+              storedProjectPath;
+            await selectPiSession(initialSelection.sessionId, {
+              persist: true,
+              projectPath,
+              history: "skip"
+            });
+          } else {
+            clearSelectedPiSession({ history: "skip" });
+          }
         }
       }
     } catch (err) {
       setProjectsError(err instanceof Error ? err.message : t("sidebar.piCliUnavailable"));
       if (options?.hydrateSelection && !didHydrateSelectionRef.current) {
         didHydrateSelectionRef.current = true;
-        clearSelectedPiSession();
+        clearSelectedPiSession({
+          history: "skip",
+          routeKind: routeKind === "settings" ? "settings" : "home"
+        });
       }
     } finally {
       setProjectsLoading(false);
@@ -1176,6 +1302,59 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (piSessionDetail) {
+      piSessionDetailCacheRef.current.set(piSessionDetail);
+    }
+  }, [piSessionDetail]);
+
+  useEffect(() => {
+    function handlePopState() {
+      const route = parseAppRoute(new URL(window.location.href));
+      const nextPanelMode = resolvePanelMode(
+        route.panel,
+        localStorage.getItem(PANEL_MODE_STORAGE_KEY)
+      );
+
+      if (isStreaming) {
+        writeRouteForState(routeKind, activePanelView, panelMode, "replace");
+        return;
+      }
+
+      applyPanelMode(nextPanelMode, "skip");
+
+      if (route.kind === "pi-session") {
+        if (activePanelView.kind === "pi" && activePanelView.sessionId === route.sessionId) {
+          return;
+        }
+
+        void selectPiSession(route.sessionId, {
+          persist: true,
+          projectPath: findProjectBySessionId(projects, route.sessionId)?.path ?? null,
+          history: "skip"
+        });
+        return;
+      }
+
+      if (route.kind === "settings") {
+        setSettingsDraft(createSettingsDraftFromState(nextPanelMode));
+        clearSelectedPiSession({
+          history: "skip",
+          routeKind: "settings",
+          panelMode: nextPanelMode
+        });
+        return;
+      }
+
+      clearSelectedPiSession({ history: "skip", panelMode: nextPanelMode });
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [activePanelView, isStreaming, panelMode, projects, routeKind]);
 
   useEffect(() => {
     if (selectedImage && !selectedModelSupportsImages) {
@@ -1353,23 +1532,23 @@ export default function App() {
   }
 
   function handleSettingsConfirm() {
+    const nextPanelMode = settingsDraft.panelMode;
     setModelKey(settingsDraft.modelKey);
-    setPanelMode(settingsDraft.panelMode);
+    setPanelMode(nextPanelMode);
     setSystemPrompt(settingsDraft.systemPrompt);
     setLocale(settingsDraft.locale);
     localStorage.setItem(THINKING_LEVEL_STORAGE_KEY, settingsDraft.thinkingLevel);
-    setIsSettingsOpen(false);
+    clearSelectedPiSession({ panelMode: nextPanelMode });
   }
 
   function handleSettingsCancel() {
-    setIsSettingsOpen(false);
+    clearSelectedPiSession({ routeKind: "home" });
   }
 
-  function openSettingsModal() {
-    const storedThinkingLevel =
-      (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) || "high";
-    setSettingsDraft({ modelKey, panelMode, systemPrompt, locale, thinkingLevel: storedThinkingLevel });
-    setIsSettingsOpen(true);
+  function openSettingsPage() {
+    setSettingsDraft(createSettingsDraftFromState());
+    setRouteKind("settings");
+    writeRouteForState("settings", activePanelView, panelMode, "push");
   }
 
   function openHotkeysModal() {
@@ -1417,19 +1596,19 @@ export default function App() {
     commandName: "settings" | "model" | "copy" | "hotkeys"
   ): Promise<LocalActionResult> {
     if (commandName === "settings") {
-      openSettingsModal();
+      openSettingsPage();
       return {
         title: "Settings",
-        content: "Opened the Settings panel.",
+        content: "Opened the Settings page.",
         status: "success"
       };
     }
 
     if (commandName === "model") {
-      openSettingsModal();
+      openSettingsPage();
       return {
         title: "Model",
-        content: "Opened Settings. Update the model from the Settings panel.",
+        content: "Opened Settings. Update the model from the Settings page.",
         status: "success"
       };
     }
@@ -1954,8 +2133,181 @@ export default function App() {
     </div>
   );
 
+  const settingsPageContent = (
+    <section
+      className="settings-page-panel"
+      aria-label={t("settings.title")}
+      data-testid="settings-page"
+      tabIndex={-1}
+    >
+      <header className="chat-header settings-page-header">
+        <button
+          className="settings-page-back"
+          data-testid="settings-back-button"
+          type="button"
+          title={t("settings.cancel")}
+          onClick={handleSettingsCancel}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div className="chat-header-copy">
+          <span className="chat-header-title">{t("settings.title")}</span>
+        </div>
+      </header>
+      <div className="settings-page-body">
+        <div className="settings-page-card">
+          <Tabs
+            tabPosition="left"
+            items={[
+              {
+                key: "general",
+                label: t("settings.tabGeneral"),
+                children: (
+                  <div className="settings-tab-content">
+                    <label className="field">
+                      <span>{t("settings.language")}</span>
+                      <Select
+                        value={settingsDraft.locale}
+                        onChange={(value) => setSettingsDraft((prev) => ({ ...prev, locale: value as Locale }))}
+                        options={localeOptions.map((option) => ({
+                          value: option.value,
+                          label: option.label
+                        }))}
+                      />
+                      <small className="field-note">{t("settings.languageHelp")}</small>
+                    </label>
+
+                    <label className="field">
+                      <span>{t("settings.panelMode")}</span>
+                      <Select
+                        value={settingsDraft.panelMode}
+                        onChange={(value) => setSettingsDraft((prev) => ({ ...prev, panelMode: value as PanelMode }))}
+                        options={[
+                          { value: "chat", label: t("settings.chatMode") },
+                          { value: "terminal", label: t("settings.terminalMode") }
+                        ]}
+                      />
+                    </label>
+                  </div>
+                )
+              },
+              {
+                key: "model",
+                label: t("settings.tabModel"),
+                children: (
+                  <div className="settings-tab-content">
+                    <label className="field">
+                      <span>{t("settings.model")}</span>
+                      <Select
+                        value={settingsDraft.modelKey}
+                        onChange={(value) => setSettingsDraft((prev) => ({ ...prev, modelKey: value }))}
+                        options={modelOptions.map((preset) => ({
+                          value: getModelKey(preset.provider, preset.model),
+                          label: `${preset.label}${preset.supportsImages ? " · vision" : ""}`
+                        }))}
+                      />
+                    </label>
+
+                    <label className="field">
+                      <span>{t("settings.thinkingLevel")}</span>
+                      <Select
+                        value={settingsDraft.thinkingLevel}
+                        onChange={(value) => setSettingsDraft((prev) => ({ ...prev, thinkingLevel: value as ThinkingLevel }))}
+                        options={[
+                          { value: "off", label: t("settings.thinkingOff") },
+                          { value: "minimal", label: t("settings.thinkingMinimal") },
+                          { value: "low", label: t("settings.thinkingLow") },
+                          { value: "medium", label: t("settings.thinkingMedium") },
+                          { value: "high", label: t("settings.thinkingHigh") },
+                          { value: "xhigh", label: t("settings.thinkingXhigh") }
+                        ]}
+                      />
+                      <small className="field-note">{t("settings.thinkingLevelHelp")}</small>
+                    </label>
+
+                    <label className="field">
+                      <span>{t("settings.systemPrompt")}</span>
+                      <textarea
+                        value={settingsDraft.systemPrompt}
+                        rows={7}
+                        onChange={(event) => setSettingsDraft((prev) => ({ ...prev, systemPrompt: event.target.value }))}
+                      />
+                    </label>
+                  </div>
+                )
+              },
+              {
+                key: "archived-chat",
+                label: t("settings.tabArchivedChat"),
+                children: (
+                  <div className="settings-tab-content settings-archived-tab">
+                    <div className="settings-archived-header">
+                      <span className="settings-archived-title">{t("settings.archivedChatTitle")}</span>
+                    </div>
+                    {archivedSettingsProjects.length === 0 ? (
+                      <div className="settings-archived-empty">{t("settings.archivedChatEmpty")}</div>
+                    ) : (
+                      <div className="settings-archived-groups">
+                        {archivedSettingsProjects.map((project) => (
+                          <section className="settings-archived-group" key={project.path}>
+                            <div className="settings-archived-group-name">{project.name}</div>
+                            <div className="settings-archived-list">
+                              {project.sessions.map((session) => (
+                                <article className="settings-archived-item" key={session.id}>
+                                  <div className="settings-archived-copy">
+                                    <div className="settings-archived-item-title">
+                                      {session.name || session.firstMessage}
+                                    </div>
+                                    <div className="settings-archived-item-meta">
+                                      {session.firstMessage}
+                                    </div>
+                                  </div>
+                                  <button
+                                    className="settings-btn settings-btn-cancel"
+                                    type="button"
+                                    onClick={() => restorePiSession(session.id)}
+                                  >
+                                    {t("actions.restore")}
+                                  </button>
+                                </article>
+                              ))}
+                            </div>
+                          </section>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+            ]}
+          />
+        </div>
+      </div>
+      <div className="settings-footer settings-page-footer">
+        <button className="settings-btn settings-btn-cancel" type="button" onClick={handleSettingsCancel}>
+          {t("settings.cancel")}
+        </button>
+        <button
+          className="settings-btn settings-btn-confirm"
+          data-testid="settings-save-button"
+          type="button"
+          onClick={handleSettingsConfirm}
+        >
+          {t("settings.confirm")}
+        </button>
+      </div>
+    </section>
+  );
+
   return (
     <XProvider theme={xTheme}>
+      {isSettingsPage ? (
+        <main className="settings-page-shell">
+          {settingsPageContent}
+        </main>
+      ) : (
       <main className={`app-shell${sidebarCollapsed ? " app-shell-collapsed" : ""}`}>
         <aside className="sidebar">
           <div className="sidebar-inner">
@@ -2000,7 +2352,7 @@ export default function App() {
                   className="icon-button"
                   type="button"
                   title={t("settings.title")}
-                  onClick={openSettingsModal}
+                  onClick={openSettingsPage}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="3" />
@@ -2028,7 +2380,7 @@ export default function App() {
               onCreateSessionInProject={(projectPath) => {
                 void createPiSessionInProject(projectPath);
               }}
-              projects={projects}
+              projects={visibleSidebarProjects}
               selectedSessionId={selectedPiSessionId}
               onSelectSession={(sessionId) => {
                 void selectPiSession(sessionId);
@@ -2059,7 +2411,9 @@ export default function App() {
             <header className="chat-header">
               <div className="chat-header-copy">
                 <span className="chat-header-title">{t("panel.terminal")}</span>
-                <small className="chat-header-meta">{terminalCwd}</small>
+                <small className="chat-header-meta" title={terminalCwd}>
+                  {terminalCwd}
+                </small>
               </div>
             </header>
             {activePanelView.kind === "empty" ? (
@@ -2100,8 +2454,14 @@ export default function App() {
           <section ref={chatPanelRef} className="chat-panel" aria-label={t("chat.agentDialogue")} tabIndex={-1}>
             <header className="chat-header">
               <div className="chat-header-copy">
-                <span className="chat-header-title">{panelTitle}</span>
-                {panelMeta ? <small className="chat-header-meta">{panelMeta}</small> : null}
+                <span className="chat-header-title" title={panelTitle}>
+                  {panelTitle}
+                </span>
+                {panelMeta ? (
+                  <small className="chat-header-meta" title={panelMeta}>
+                    {panelMeta}
+                  </small>
+                ) : null}
               </div>
               {piSessionDetail ? (
                 <button
@@ -2130,7 +2490,7 @@ export default function App() {
                   {projectsError ? <div className="error-banner">{projectsError}</div> : null}
                 </div>
               </div>
-            ) : piSessionError ? (
+            ) : piSessionError && !piSessionDetail ? (
               <div className="messages messages-empty">
                 <div className="error-banner">
                   <p>{piSessionError}</p>
@@ -2175,6 +2535,9 @@ export default function App() {
                     onNavigate={handleMinimapNavigate}
                   />
                 )}
+                {piSessionError && piSessionDetail ? (
+                  <div className="error-banner">{piSessionError}</div>
+                ) : null}
                 {error && !draftError ? <div className="error-banner">{error}</div> : null}
               </div>
             )}
@@ -2314,6 +2677,7 @@ export default function App() {
           </section>
         )}
       </main>
+      )}
       <input
         ref={projectFileInputRef}
         type="file"
@@ -2321,107 +2685,6 @@ export default function App() {
         {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
         onChange={handleBrowseChange}
       />
-      <Modal
-        centered
-        open={isSettingsOpen}
-        title={t("settings.title")}
-        width={680}
-        footer={
-          <div className="settings-footer">
-            <button className="settings-btn settings-btn-cancel" type="button" onClick={handleSettingsCancel}>
-              {t("settings.cancel")}
-            </button>
-            <button className="settings-btn settings-btn-confirm" type="button" onClick={handleSettingsConfirm}>
-              {t("settings.confirm")}
-            </button>
-          </div>
-        }
-        onCancel={handleSettingsCancel}
-      >
-        <Tabs
-          tabPosition="left"
-          items={[
-            {
-              key: "general",
-              label: t("settings.tabGeneral"),
-              children: (
-                <div className="settings-tab-content">
-                  <label className="field">
-                    <span>{t("settings.language")}</span>
-                    <Select
-                      value={settingsDraft.locale}
-                      onChange={(value) => setSettingsDraft((prev) => ({ ...prev, locale: value as Locale }))}
-                      options={localeOptions.map((option) => ({
-                        value: option.value,
-                        label: option.label
-                      }))}
-                    />
-                    <small className="field-note">{t("settings.languageHelp")}</small>
-                  </label>
-
-                  <label className="field">
-                    <span>{t("settings.panelMode")}</span>
-                    <Select
-                      value={settingsDraft.panelMode}
-                      onChange={(value) => setSettingsDraft((prev) => ({ ...prev, panelMode: value as PanelMode }))}
-                      options={[
-                        { value: "chat", label: t("settings.chatMode") },
-                        { value: "terminal", label: t("settings.terminalMode") }
-                      ]}
-                    />
-                  </label>
-                </div>
-              )
-            },
-            {
-              key: "model",
-              label: t("settings.tabModel"),
-              children: (
-                <div className="settings-tab-content">
-                  <label className="field">
-                    <span>{t("settings.model")}</span>
-                    <Select
-                      value={settingsDraft.modelKey}
-                      onChange={(value) => setSettingsDraft((prev) => ({ ...prev, modelKey: value }))}
-                      options={modelOptions.map((preset) => ({
-                        value: getModelKey(preset.provider, preset.model),
-                        label: `${preset.label}${preset.supportsImages ? " · vision" : ""}`
-                      }))}
-                    />
-                  </label>
-
-                  <label className="field">
-                    <span>{t("settings.thinkingLevel")}</span>
-                    <Select
-                      value={settingsDraft.thinkingLevel}
-                      onChange={(value) => setSettingsDraft((prev) => ({ ...prev, thinkingLevel: value as ThinkingLevel }))}
-                      options={[
-                        { value: "off", label: t("settings.thinkingOff") },
-                        { value: "minimal", label: t("settings.thinkingMinimal") },
-                        { value: "low", label: t("settings.thinkingLow") },
-                        { value: "medium", label: t("settings.thinkingMedium") },
-                        { value: "high", label: t("settings.thinkingHigh") },
-                        { value: "xhigh", label: t("settings.thinkingXhigh") }
-                      ]}
-                    />
-                    <small className="field-note">{t("settings.thinkingLevelHelp")}</small>
-                  </label>
-
-                  <label className="field">
-                    <span>{t("settings.systemPrompt")}</span>
-                    <textarea
-                      value={settingsDraft.systemPrompt}
-                      rows={7}
-                      onChange={(event) => setSettingsDraft((prev) => ({ ...prev, systemPrompt: event.target.value }))}
-                    />
-                  </label>
-                </div>
-              )
-            }
-          ]}
-        />
-      </Modal>
-
       <Modal
         centered
         open={isHotkeysOpen}

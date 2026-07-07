@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildPiSessionDetail,
+  createAsyncSnapshotCache,
   findSessionById,
   groupSessionsByProject,
   inferBranchModel,
@@ -188,6 +189,84 @@ describe("groupSessionsByProject", () => {
   it("does not truncate short first messages", () => {
     const shortMessage = "Hello, world!";
     expect(truncateFirstMessage(shortMessage)).toBe(shortMessage);
+  });
+});
+
+describe("createAsyncSnapshotCache", () => {
+  it("reuses the cached snapshot within the ttl window", async () => {
+    let now = 100;
+    const load = vi.fn(async () => [`snapshot-${now}`]);
+    const cache = createAsyncSnapshotCache({
+      load,
+      now: () => now,
+      ttlMs: 1_000
+    });
+
+    const first = await cache.get();
+    now = 900;
+    const second = await cache.get();
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+  });
+
+  it("reloads the snapshot after the ttl expires", async () => {
+    let now = 100;
+    const load = vi.fn(async () => [`snapshot-${now}`]);
+    const cache = createAsyncSnapshotCache({
+      load,
+      now: () => now,
+      ttlMs: 1_000
+    });
+
+    const first = await cache.get();
+    now = 1_101;
+    const second = await cache.get();
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(second).not.toBe(first);
+    expect(second).toEqual(["snapshot-1101"]);
+  });
+
+  it("shares the same in-flight load across concurrent callers", async () => {
+    let resolveSnapshot: ((value: string[]) => void) | null = null;
+    const load = vi.fn(
+      () =>
+        new Promise<string[]>((resolve) => {
+          resolveSnapshot = resolve;
+        })
+    );
+    const cache = createAsyncSnapshotCache({
+      load,
+      ttlMs: 1_000
+    });
+
+    const firstPromise = cache.get();
+    const secondPromise = cache.get();
+    resolveSnapshot?.(["shared"]);
+
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+  });
+
+  it("reloads after manual invalidation", async () => {
+    const load = vi
+      .fn<() => Promise<string[]>>()
+      .mockResolvedValueOnce(["first"])
+      .mockResolvedValueOnce(["second"]);
+    const cache = createAsyncSnapshotCache({
+      load,
+      ttlMs: 1_000
+    });
+
+    await cache.get();
+    cache.invalidate();
+    const second = await cache.get();
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(second).toEqual(["second"]);
   });
 });
 

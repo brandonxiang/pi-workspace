@@ -21,6 +21,7 @@ and continue the conversation from the chat panel.
 - Image attachment for vision-capable models
 - Local conversation transcript persistence
 - Pi session browsing, creation, and continuation
+- Deep-linkable Pi session URLs such as `/sessions/<sessionId>?panel=chat`
 
 ### 终端模式 (Terminal Mode)
 
@@ -32,6 +33,7 @@ automatically — pointed directly at that session.
 - Auto‑fit to panel size
 - Server‑side PTY via `node-pty` with WebSocket transport
 - `pi` CLI launched automatically into the selected Pi session
+- Deep-linkable terminal views such as `/sessions/<sessionId>?panel=terminal`
 
 Switch modes in **Settings → 模式 → 对话模式 / 终端模式**.
 
@@ -75,11 +77,17 @@ pnpm start       # production start after build
 - `client/` — React (Vite) UI with Ant Design X components.
 - `server/index.ts` — Fastify server that owns the Pi Coding Agent SDK
   integration.
+- The client uses lightweight History API routing:
+  - `/sessions/:sessionId` identifies the active Pi Session
+  - `panel=chat|terminal` identifies the active right-panel mode
 - The frontend sends only the latest user prompt and session metadata.
 - The backend keeps a per-browser-session `AgentSession` in memory and streams
   `message_update` deltas back to the browser.
 - `AuthStorage.create()` and `ModelRegistry.create()` load the same local auth
   and model registry that the Pi CLI uses.
+
+See [ADR-001](docs/adr/001-pi-session-routing.md) for the rationale behind the
+session routing design.
 
 By default the server starts Pi sessions with `noTools: "all"` so the online
 chat cannot execute shell or file mutation tools. Add a deliberate tool allowlist

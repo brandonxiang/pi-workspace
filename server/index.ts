@@ -27,9 +27,10 @@ import {
 import { executeServerLocalAction } from "./pi-local-actions.js";
 import {
   findSessionById,
-  groupSessionsByProject,
+  invalidatePiSessionCatalogCache,
   loadPiSessionContextById,
-  loadPiSessionDetailById
+  loadPiSessionDetailById,
+  loadPiSessionProjects
 } from "./pi-sessions.js";
 import { buildAgentEndStreamEvent } from "./chat-streaming.js";
 import {
@@ -494,8 +495,8 @@ async function buildServer() {
       // Force-write the session header to disk so listAll() finds it.
       // SessionManager.create() defers writes until an assistant message appears.
       (sm as unknown as { _rewriteFile(): void })._rewriteFile();
-      const sessions = await SessionManager.listAll();
-      const projects = groupSessionsByProject(sessions);
+      invalidatePiSessionCatalogCache();
+      const projects = await loadPiSessionProjects();
       return { projects };
     } catch (error) {
       reply.code(500);
@@ -507,8 +508,7 @@ async function buildServer() {
 
   server.get("/api/pi-sessions", async (_request, reply) => {
     try {
-      const sessions = await SessionManager.listAll();
-      const projects = groupSessionsByProject(sessions);
+      const projects = await loadPiSessionProjects();
       return { projects };
     } catch (error) {
       reply.code(500);
@@ -556,6 +556,7 @@ async function buildServer() {
 
     try {
       await persistSessionName(sessionId, name);
+      invalidatePiSessionCatalogCache();
       return { ok: true };
     } catch (error) {
       reply.code(error instanceof Error && error.message === "Session not found" ? 404 : 500);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterProjectsByArchiveState,
   ensureExpandedProjectPaths,
   getVisibleProjectSessions,
   sortProjectsByOrder
@@ -78,5 +79,43 @@ describe("getVisibleProjectSessions", () => {
       sessions,
       hiddenCount: 0
     });
+  });
+});
+
+describe("filterProjectsByArchiveState", () => {
+  it("returns only non-archived sessions for the home sidebar", () => {
+    const projects = [
+      createProject("/a", ["s1", "s2"]),
+      createProject("/b", ["s3"])
+    ];
+
+    expect(
+      filterProjectsByArchiveState(projects, new Set(["s2", "s3"]), "visible")
+    ).toEqual([
+      {
+        ...projects[0],
+        sessions: [projects[0].sessions[0]]
+      }
+    ]);
+  });
+
+  it("returns only archived sessions for the settings archived tab", () => {
+    const projects = [
+      createProject("/a", ["s1", "s2"]),
+      createProject("/b", ["s3"])
+    ];
+
+    expect(
+      filterProjectsByArchiveState(projects, new Set(["s2", "s3"]), "archived")
+    ).toEqual([
+      {
+        ...projects[0],
+        sessions: [projects[0].sessions[1]]
+      },
+      {
+        ...projects[1],
+        sessions: [projects[1].sessions[0]]
+      }
+    ]);
   });
 });

@@ -35,3 +35,17 @@ _Avoid_: repo, folder, project path
 **Active Context Header**:
 The compact header that identifies the current working object and its minimal stable context. In Pi Agent Desktop this header primarily names the active Session and secondarily shows its Workspace, rather than acting as a dense action bar.
 _Avoid_: navbar, toolbar, top chrome
+
+## Navigation State
+
+Pi Agent Desktop uses a lightweight client-side route model for Pi Session views.
+
+- `/sessions/:sessionId` identifies the active Pi Session.
+- `panel=chat|terminal` identifies the active right-panel mode.
+- Session identity belongs in the pathname because it is the primary working
+  resource.
+- Panel mode belongs in the query string because it changes presentation, not
+  the underlying Session identity.
+
+When discussing or extending navigation, preserve that distinction unless a new
+ADR intentionally changes it.

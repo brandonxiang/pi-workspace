@@ -146,6 +146,23 @@ export function getVisibleProjectSessions<T>(
   };
 }
 
+export function filterProjectsByArchiveState(
+  projects: PiSessionProject[],
+  archivedSessionIds: Set<string>,
+  mode: "visible" | "archived"
+): PiSessionProject[] {
+  return projects
+    .map((project) => ({
+      ...project,
+      sessions: project.sessions.filter((session) =>
+        mode === "archived"
+          ? archivedSessionIds.has(session.id)
+          : !archivedSessionIds.has(session.id)
+      )
+    }))
+    .filter((project) => project.sessions.length > 0);
+}
+
 export function PiSessionSection({
   isStreaming,
   locale,

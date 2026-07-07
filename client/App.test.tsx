@@ -193,13 +193,64 @@ vi.mock("antd/es/tabs", () => ({
   default: ({
     items
   }: {
-    items: Array<{ key: string; children: React.ReactNode }>;
-  }) => <>{items.map((item) => <div key={item.key}>{item.children}</div>)}</>
+    items: Array<{ key: string; label?: React.ReactNode; children: React.ReactNode }>;
+  }) => (
+    <div data-testid="tabs">
+      {items.map((item) => (
+        <section data-tab-key={item.key} key={item.key}>
+          {item.label ? <div>{item.label}</div> : null}
+          {item.children}
+        </section>
+      ))}
+    </div>
+  )
 }));
 
-vi.mock("./PiSessionSection", () => ({
-  PiSessionSection: () => <div data-testid="pi-session-section" />
-}));
+vi.mock("./PiSessionSection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./PiSessionSection")>();
+
+  return {
+    ...actual,
+    PiSessionSection: ({
+      projects,
+      onSelectSession
+    }: {
+      projects: Array<{
+        name: string;
+        sessions: Array<{ id: string; name?: string; firstMessage: string }>;
+      }>;
+      onSelectSession: (sessionId: string) => void;
+    }) => (
+      <div data-testid="pi-session-section">
+        {projects.map((project) => (
+          <div data-project-name={project.name} key={project.name}>
+            {project.sessions.map((session) => (
+              <button
+                data-testid="pi-session-row"
+                key={session.id}
+                type="button"
+                onClick={() => onSelectSession(session.id)}
+              >
+                {session.name || session.firstMessage}
+              </button>
+            ))}
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => {
+            const firstSessionId = projects[0]?.sessions[0]?.id;
+            if (firstSessionId) {
+              onSelectSession(firstSessionId);
+            }
+          }}
+        >
+          Open first session
+        </button>
+      </div>
+    )
+  };
+});
 
 vi.mock("./MarkdownContent", () => ({
   default: ({ content }: { content: string }) => <div>{content}</div>
@@ -254,6 +305,49 @@ function setTextareaValue(textarea: HTMLTextAreaElement, value: string) {
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function clearTestStorage() {
+  const storage = window.localStorage as Storage | Record<string, unknown> | undefined;
+  if (!storage) return;
+
+  if (typeof (storage as Storage).clear === "function") {
+    (storage as Storage).clear();
+    return;
+  }
+
+  for (const key of Object.keys(storage)) {
+    if (typeof (storage as Storage).removeItem === "function") {
+      (storage as Storage).removeItem(key);
+    } else {
+      delete (storage as Record<string, unknown>)[key];
+    }
+  }
+}
+
+function createMemoryStorage(): Storage {
+  const store = new Map<string, string>();
+
+  return {
+    get length() {
+      return store.size;
+    },
+    clear() {
+      store.clear();
+    },
+    getItem(key: string) {
+      return store.has(key) ? store.get(key)! : null;
+    },
+    key(index: number) {
+      return Array.from(store.keys())[index] ?? null;
+    },
+    removeItem(key: string) {
+      store.delete(key);
+    },
+    setItem(key: string, value: string) {
+      store.set(key, value);
+    }
+  };
+}
+
 function seedSelectedPiSession() {
   mockState.projects = [
     {
@@ -306,7 +400,14 @@ describe("App sidebar shortcut", () => {
     mockState.projects = [];
     mockState.sessionDetail = null;
     mockState.pendingChatPromise = null;
-    localStorage.clear();
+    const memoryStorage = createMemoryStorage();
+    vi.stubGlobal("localStorage", memoryStorage);
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: memoryStorage
+    });
+    clearTestStorage();
+    window.history.pushState({}, "", "/");
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -343,10 +444,12 @@ describe("App sidebar shortcut", () => {
   });
 
   afterEach(async () => {
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
+    if (root) {
+      await act(async () => {
+        root.unmount();
+      });
+    }
+    container?.remove();
     vi.unstubAllGlobals();
   });
 
@@ -390,18 +493,18 @@ describe("App sidebar shortcut", () => {
     expect(document.activeElement).toBe(composer);
   });
 
-  it("does not toggle the left sidebar while a modal dialog is open", async () => {
+  it("does not toggle the left sidebar while the hotkeys modal dialog is open", async () => {
     await act(async () => {
       root.render(<App />);
     });
     await flushEffects();
 
     const shell = container.querySelector(".app-shell");
-    const settingsButton = container.querySelector('button[title="Settings"]');
-    expect(settingsButton).toBeInstanceOf(HTMLButtonElement);
+    const hotkeysButton = container.querySelector('button[title="Keyboard shortcuts"]');
+    expect(hotkeysButton).toBeInstanceOf(HTMLButtonElement);
 
     await act(async () => {
-      settingsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      hotkeysButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
@@ -735,5 +838,253 @@ describe("App sidebar shortcut", () => {
     expect(container.textContent).toContain("Second prompt");
     expect(container.textContent).toContain("Second answer");
     expect(container.textContent).not.toContain("Following up");
+  });
+
+  it("hydrates the selected session and terminal mode from the URL before localStorage", async () => {
+    mockState.projects = [
+      {
+        name: "workspace",
+        path: "/tmp/workspace",
+        sessions: [
+          {
+            id: "session-1",
+            name: "Session 1",
+            firstMessage: "First message",
+            messageCount: 1,
+            created: "2026-01-01T00:00:00.000Z",
+            modified: "2026-01-01T00:00:00.000Z"
+          }
+        ]
+      }
+    ];
+    mockState.sessionDetail = {
+      session: {
+        id: "session-1",
+        name: "Session 1",
+        cwd: "/tmp/workspace",
+        projectName: "workspace",
+        created: "2026-01-01T00:00:00.000Z",
+        modified: "2026-01-01T00:00:00.000Z"
+      },
+      messages: []
+    };
+
+    localStorage.setItem("my-pi-active-session-id", "other-session");
+    localStorage.setItem("my-pi-active-pi-project-path", "/tmp/other");
+    localStorage.setItem("my-pi-panel-mode", "chat");
+    window.history.pushState({}, "", "/sessions/session-1?panel=terminal");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(window.location.pathname).toBe("/sessions/session-1");
+    expect(window.location.search).toBe("?panel=terminal");
+    expect(container.querySelector('[data-testid="terminal-panel"]')).toBeInstanceOf(HTMLDivElement);
+  });
+
+  it("pushes the selected Pi session into the URL", async () => {
+    mockState.projects = [
+      {
+        name: "workspace",
+        path: "/tmp/workspace",
+        sessions: [
+          {
+            id: "session-1",
+            name: "Session 1",
+            firstMessage: "First message",
+            messageCount: 1,
+            created: "2026-01-01T00:00:00.000Z",
+            modified: "2026-01-01T00:00:00.000Z"
+          }
+        ]
+      }
+    ];
+    mockState.sessionDetail = {
+      session: {
+        id: "session-1",
+        name: "Session 1",
+        cwd: "/tmp/workspace",
+        projectName: "workspace",
+        created: "2026-01-01T00:00:00.000Z",
+        modified: "2026-01-01T00:00:00.000Z"
+      },
+      messages: []
+    };
+
+    window.history.pushState({}, "", "/");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+
+    const openSessionButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Open first session"
+    );
+    expect(openSessionButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      openSessionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(window.location.pathname).toBe("/sessions/session-1");
+    expect(window.location.search).toBe("?panel=chat");
+  });
+
+  it("updates the URL when the panel mode changes", async () => {
+    seedSelectedPiSession();
+    window.history.pushState({}, "", "/sessions/session-1?panel=chat");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const settingsButton = container.querySelector('button[title="Settings"]');
+    expect(settingsButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      settingsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    const selects = Array.from(container.querySelectorAll("select"));
+    const panelModeSelect = selects[1];
+    expect(panelModeSelect).toBeInstanceOf(HTMLSelectElement);
+
+    await act(async () => {
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+      descriptor?.set?.call(panelModeSelect, "terminal");
+      panelModeSelect?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const confirmButton = container.querySelector('[data-testid="settings-save-button"]');
+    expect(confirmButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      confirmButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(window.location.pathname).toBe("/");
+    expect(window.location.search).toBe("?panel=terminal");
+  });
+
+  it("opens the settings page route instead of a modal dialog", async () => {
+    window.history.pushState({}, "", "/?panel=chat");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+
+    const settingsButton = container.querySelector('button[title="Settings"]');
+    expect(settingsButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      settingsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(window.location.pathname).toBe("/settings");
+    expect(window.location.search).toBe("?panel=chat");
+    expect(container.querySelector('[data-testid="settings-page"]')).toBeInstanceOf(HTMLElement);
+    expect(container.querySelector(".sidebar")).toBeNull();
+    expect(container.querySelector(".app-shell")).toBeNull();
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it("returns to the home route when the settings back button is clicked", async () => {
+    window.history.pushState({}, "", "/settings?panel=terminal");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+
+    const backButton = container.querySelector('[data-testid="settings-back-button"]');
+    expect(backButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      backButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(window.location.pathname).toBe("/");
+    expect(window.location.search).toBe("?panel=terminal");
+  });
+
+  it("shows archived chats in the third settings tab and restores them back to the home sidebar", async () => {
+    mockState.projects = [
+      {
+        name: "workspace",
+        path: "/tmp/workspace",
+        sessions: [
+          {
+            id: "session-1",
+            name: "Visible Session",
+            firstMessage: "Visible message",
+            messageCount: 1,
+            created: "2026-01-01T00:00:00.000Z",
+            modified: "2026-01-01T00:00:00.000Z"
+          },
+          {
+            id: "session-2",
+            name: "Archived Session Title",
+            firstMessage: "Archived message",
+            messageCount: 1,
+            created: "2026-01-02T00:00:00.000Z",
+            modified: "2026-01-02T00:00:00.000Z"
+          }
+        ]
+      }
+    ];
+    localStorage.setItem("my-pi-archived-pi-sessions", JSON.stringify(["session-2"]));
+    window.history.pushState({}, "", "/?panel=chat");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain("Visible Session");
+    expect(container.textContent).not.toContain("Archived Session Title");
+
+    const settingsButton = container.querySelector('button[title="Settings"]');
+    expect(settingsButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      settingsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain("Archived Chat");
+    expect(container.textContent).toContain("Archived Session Title");
+
+    const restoreButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Restore"
+    );
+    expect(restoreButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      restoreButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).not.toContain("Archived Session Title");
+
+    const backButton = container.querySelector('[data-testid="settings-back-button"]');
+    expect(backButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      backButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain("Archived Session Title");
   });
 });
