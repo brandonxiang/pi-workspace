@@ -98,12 +98,16 @@ textarea {
   width: 372px;
   width: max(var(--sidebar-width, 372px), 372px);
   height: 100%;
-  padding: 12px;
   opacity: 1;
   transform: translateX(0);
   transition:
     opacity 0.14s ease,
     transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Move outer padding to children so scrollable areas sit flush with sidebar edge */
+.sidebar-top-row {
+  padding: 12px;
 }
 
 .sidebar-inner > * {
@@ -351,6 +355,7 @@ h2 {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+  padding: 0 12px;
 }
 
 .session-section-heading small {
@@ -515,9 +520,25 @@ h2 {
   align-content: start;
   gap: 4px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
   min-height: 0;
   flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-border) transparent;
+}
+
+.pi-sessions-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.pi-sessions-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pi-sessions-list::-webkit-scrollbar-thumb {
+  background: var(--sidebar-border);
+  border-radius: 3px;
 }
 
 .pi-project-group {
