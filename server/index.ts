@@ -15,7 +15,6 @@ import {
   SessionManager,
   SettingsManager,
   type AgentSession,
-  type ContextUsage,
   type ResourceLoader,
 } from "@earendil-works/pi-coding-agent";
 import {
@@ -958,7 +957,7 @@ function setupTerminalWebSocket(httpServer: import("node:http").Server) {
         env: { ...process.env } as Record<string, string>,
       });
     } catch (err) {
-      ws.close(1011, `Failed to spawn PTY: ${err instanceof Error ? err.message : err}`);
+      ws.close(1011, `Failed to spawn PTY: ${err instanceof Error ? err.message : String(err)}`);
       return;
     }
 
@@ -988,7 +987,10 @@ function setupTerminalWebSocket(httpServer: import("node:http").Server) {
       if (!pty) return;
 
       try {
-        const parsed = JSON.parse(raw.toString());
+        const parsed = JSON.parse(
+          // eslint-disable-next-line @typescript-eslint/no-base-to-string
+          typeof raw === "string" ? raw : Buffer.isBuffer(raw) ? raw.toString() : String(raw),
+        );
         if (
           parsed.type === "resize" &&
           typeof parsed.cols === "number" &&
@@ -1000,7 +1002,10 @@ function setupTerminalWebSocket(httpServer: import("node:http").Server) {
         }
       } catch {
         // If parsing fails, treat as raw input (plain text from non-JSON clients)
-        pty.write(raw.toString());
+        pty.write(
+          // eslint-disable-next-line @typescript-eslint/no-base-to-string
+          typeof raw === "string" ? raw : Buffer.isBuffer(raw) ? raw.toString() : String(raw),
+        );
       }
     });
 

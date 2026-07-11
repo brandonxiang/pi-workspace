@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { applySessionRename } from "./session-rename.js";
 
 function makePiSessionDetail(name: string) {

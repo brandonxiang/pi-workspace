@@ -1,14 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   applyPiSessionStreamingEvent,
   createPiSessionStreamingState,
   flushPiSessionThinking,
   getPiSessionStreamingDisplayItems,
 } from "./pi-session-streaming";
-
-function getDisplayKinds(state: ReturnType<typeof createPiSessionStreamingState>) {
-  return getPiSessionStreamingDisplayItems(state).map((item) => item.kind);
-}
 
 describe("Pi Session streaming transcript state", () => {
   it("shows a thinking bubble immediately in chat panel mode", () => {

@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { VersionManagementError, type VersionsResponse } from "./version-management.js";
 import { registerVersionRoutes, type VersionManagerApi } from "./version-routes.js";
 

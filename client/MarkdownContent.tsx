@@ -11,7 +11,12 @@ type RenderMarkdownCodeArgs = {
 };
 
 export function renderMarkdownCode({ className, children, props = {} }: RenderMarkdownCodeArgs) {
-  const codeText = String(children).replace(/\n$/, "");
+  const codeText = (
+    typeof children === "string"
+      ? children
+      : // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        String(children)
+  ).replace(/\n$/, "");
   const match = /language-(\w+)/.exec(className ?? "");
   const lang = match?.[1];
 

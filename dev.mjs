@@ -78,7 +78,7 @@ function stop() {
     child = null;
 
     proc.on("exit", () => {
-      waitForPortFree().then(resolve);
+      void waitForPortFree().then(resolve);
     });
     proc.on("error", () => resolve());
     proc.kill("SIGTERM");
@@ -87,7 +87,7 @@ function stop() {
       try {
         proc.kill("SIGKILL");
       } catch {}
-      waitForPortFree().then(resolve);
+      void waitForPortFree().then(resolve);
     }, 3000);
   });
 }

@@ -2,7 +2,7 @@
 
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { PiHistoryMessage } from "./types";
 
 const mockState = vi.hoisted(() => ({
@@ -394,6 +394,10 @@ function dispatchSidebarShortcut(
   return event;
 }
 
+function toUrlString(input: RequestInfo | URL): string {
+  return typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+}
+
 describe("App sidebar shortcut", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -413,7 +417,7 @@ describe("App sidebar shortcut", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
+        const url = toUrlString(input);
 
         if (url.endsWith("/api/skills")) {
           return createJsonResponse({ skills: [] });
@@ -693,7 +697,7 @@ describe("App sidebar shortcut", () => {
     expect(container.textContent).toContain("Steer now");
     expect(container.textContent).not.toContain("Active Steering");
     expect(
-      vi.mocked(fetch).mock.calls.some(([input]) => String(input).endsWith("/api/chat/steer")),
+      vi.mocked(fetch).mock.calls.some(([input]) => toUrlString(input).endsWith("/api/chat/steer")),
     ).toBe(true);
   });
 
@@ -759,7 +763,7 @@ describe("App sidebar shortcut", () => {
 
     let chatCallCount = 0;
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
-      const url = String(input);
+      const url = toUrlString(input);
 
       if (url.endsWith("/api/skills")) {
         return createJsonResponse({ skills: [] });
@@ -1022,7 +1026,7 @@ describe("App sidebar shortcut", () => {
     ];
 
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
-      const url = String(input);
+      const url = toUrlString(input);
 
       if (url.endsWith("/api/skills")) {
         return createJsonResponse({ skills: [] });
@@ -1197,7 +1201,7 @@ describe("App sidebar shortcut", () => {
         .mocked(fetch)
         .mock.calls.some(
           ([input, init]) =>
-            String(input).endsWith("/api/versions/pi-workspace/upgrade") &&
+            toUrlString(input).endsWith("/api/versions/pi-workspace/upgrade") &&
             init?.method === "POST" &&
             new Headers(init.headers).get("x-pi-workspace-action-token") === "test-action-token",
         ),

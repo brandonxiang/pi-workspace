@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import Dropdown from "antd/es/dropdown";
 import Input from "antd/es/input";
 import Modal from "antd/es/modal";
 import Select from "antd/es/select";
@@ -29,7 +28,6 @@ import {
   type Translator,
 } from "./i18n";
 import {
-  appSlashCommands,
   findAppSlashCommand,
   findMatchingAppSlashCommands,
   getSlashAutocompleteValue,
@@ -39,7 +37,6 @@ import {
 } from "../shared/slash-commands.js";
 import type {
   AssistantMessage,
-  ChatMessage,
   ContextUsage,
   ImageAttachment,
   PiHistoryMessage,
@@ -83,8 +80,6 @@ const TerminalPanel = lazy(async () => {
 
 const PANEL_MODE_STORAGE_KEY = "my-pi-panel-mode";
 
-const STORAGE_KEY = "my-pi-chat-session";
-const SESSIONS_STORAGE_KEY = "my-pi-chat-sessions";
 const ACTIVE_SESSION_KEY = "my-pi-active-session-id";
 const ACTIVE_PI_PROJECT_KEY = "my-pi-active-pi-project-path";
 const FOLLOW_UP_QUEUES_STORAGE_KEY = "my-pi-follow-up-queues";
@@ -117,7 +112,6 @@ const modelPresets = [
 
 type ModelOption = (typeof modelPresets)[number];
 type SlashSuggestionInfo = { query: string };
-type ProjectSuggestionInfo = { query: string };
 type Skill = { name: string; description: string; disableModelInvocation: boolean };
 type LocalResultStatus = Extract<PiHistoryMessage, { role: "local_result" }>["status"];
 type LocalActionResult = {
@@ -140,14 +134,7 @@ type VersionsResponse = {
   actionToken: string;
 };
 type VersionUpgradeTarget = "pi" | "pi-workspace";
-type ChatSession = {
-  id: string;
-  title: string;
-  archived: boolean;
-  createdAt: number;
-  updatedAt: number;
-  messages: ChatMessage[];
-};
+
 type ActivePanelView = { kind: "empty" } | { kind: "pi"; sessionId: string };
 type LauncherMode = "new" | "select" | null;
 
@@ -204,69 +191,12 @@ const xTheme = {
   },
 };
 
-function createSessionId() {
-  return crypto.randomUUID();
-}
-
 function readStoredThinkingLevel() {
   try {
     return (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) || "high";
   } catch {
     return "high";
   }
-}
-
-function createSession(title = "Untitled session", messages: ChatMessage[] = []): ChatSession {
-  const timestamp = Date.now();
-
-  return {
-    id: createSessionId(),
-    title,
-    archived: false,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    messages,
-  };
-}
-
-function getSessionTitleFromMessages(messages: ChatMessage[], untitledTitle: string) {
-  const firstUserMessage = messages.find((message) => message.role === "user");
-  if (!firstUserMessage?.content.trim()) return untitledTitle;
-  return firstUserMessage.content.trim().slice(0, 48);
-}
-
-function readStoredSessions(locale: Locale): ChatSession[] {
-  const t = createTranslator(locale);
-
-  try {
-    const rawSessions = localStorage.getItem(SESSIONS_STORAGE_KEY);
-    if (rawSessions) {
-      const parsed = JSON.parse(rawSessions) as ChatSession[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.some((session) => !session.archived)
-          ? parsed
-          : [createSession(t("session.untitled")), ...parsed];
-      }
-    }
-
-    const legacyMessages = readStoredMessages();
-    if (legacyMessages.length > 0) {
-      return [
-        createSession(
-          getSessionTitleFromMessages(legacyMessages, t("session.untitled")),
-          legacyMessages,
-        ),
-      ];
-    }
-  } catch {
-    // Fall through to a clean session if local storage is unavailable or corrupted.
-  }
-
-  return [createSession(t("session.untitled"))];
-}
-
-function getMessageText(message: ChatMessage) {
-  return message.content;
 }
 
 function getImageDataUrl(image: { mimeType: string; data: string }) {
@@ -335,24 +265,6 @@ function RenderMarkdown({ content }: { content: string }) {
     <Suspense fallback={<MarkdownFallback content={content} />}>
       <MarkdownContent content={content} />
     </Suspense>
-  );
-}
-
-function UserMessageContent({ message }: { message: UserMessage }) {
-  return (
-    <div className="message-content">
-      {message.images?.length ? (
-        <div className="message-images">
-          {message.images.map((image) => (
-            <figure className="message-image" key={image.id}>
-              <img alt={image.name} src={getImageDataUrl(image)} />
-              <figcaption>{image.name}</figcaption>
-            </figure>
-          ))}
-        </div>
-      ) : null}
-      <p>{getMessageText(message)}</p>
-    </div>
   );
 }
 
@@ -481,31 +393,6 @@ function PiSteeringMessageContent({
       </time>
     </div>
   );
-}
-
-function createBubbleItem(
-  message: ChatMessage,
-  index: number,
-  locale: Locale,
-  t: Translator,
-): BubbleItemType {
-  const isAssistant = message.role === "assistant";
-
-  return {
-    key: `${message.role}-${message.timestamp}-${index}`,
-    role: isAssistant ? "assistant" : "user",
-    content: isAssistant ? getMessageText(message) : <UserMessageContent message={message} />,
-    header: (
-      <MessageHeader
-        label={isAssistant ? t("chat.myPi") : t("chat.you")}
-        meta={
-          isAssistant
-            ? `${message.provider}/${message.model}`
-            : new Date(message.timestamp).toLocaleTimeString(locale)
-        }
-      />
-    ),
-  };
 }
 
 function createPiHistoryBubbleItem(
@@ -645,15 +532,6 @@ function getWorkspaceName(cwd: string) {
 
   const parts = normalized.split("/");
   return parts[parts.length - 1] || "workspace";
-}
-
-function readStoredMessages(): ChatMessage[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
 }
 
 function readStoredFollowUpQueues(): Record<string, QueuedComposerMessage[]> {
@@ -1428,7 +1306,7 @@ export default function App() {
       })
       .catch(() => {});
 
-    loadModels();
+    void loadModels();
     fetch("/api/cwd")
       .then((res) => res.json())
       .then((data) => {

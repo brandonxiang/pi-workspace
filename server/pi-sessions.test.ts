@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
   buildPiSessionDetail,
   createAsyncSnapshotCache,
@@ -239,7 +239,7 @@ describe("createAsyncSnapshotCache", () => {
 
     const firstPromise = cache.get();
     const secondPromise = cache.get();
-    resolveSnapshot?.(["shared"]);
+    resolveSnapshot!(["shared"]);
 
     const [first, second] = await Promise.all([firstPromise, secondPromise]);
 

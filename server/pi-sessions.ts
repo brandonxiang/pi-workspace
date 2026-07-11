@@ -222,14 +222,6 @@ function readString(value: unknown, key: string) {
   return isRecord(value) && typeof value[key] === "string" ? value[key] : undefined;
 }
 
-function readNumber(value: unknown, key: string) {
-  return isRecord(value) && typeof value[key] === "number" ? value[key] : undefined;
-}
-
-function readBoolean(value: unknown, key: string) {
-  return isRecord(value) && typeof value[key] === "boolean" ? value[key] : undefined;
-}
-
 function toTimestamp(value: unknown, fallback: string) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
 

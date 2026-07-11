@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { groupPiHistoryMessages } from "./pi-session-transcript";
 import type { PiHistoryMessage } from "./types";
 
