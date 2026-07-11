@@ -1986,7 +1986,7 @@ h2 {
 }
 
 .settings-page-card {
-  width: min(100%, 840px);
+  width: min(100%, 1100px);
   margin: 0 auto;
   padding: 28px;
   border: 1px solid rgba(148, 163, 184, 0.22);
