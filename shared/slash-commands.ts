@@ -9,7 +9,7 @@ export const appSlashCommands = [
   { name: "session", descriptionKey: "slash.session", scope: "server", source: "pi" },
   { name: "export", descriptionKey: "slash.export", scope: "server", source: "pi" },
   { name: "name", descriptionKey: "slash.name", scope: "server", source: "pi" },
-  { name: "compact", descriptionKey: "slash.compact", scope: "server", source: "pi" }
+  { name: "compact", descriptionKey: "slash.compact", scope: "server", source: "pi" },
 ] as const;
 
 export type AppSlashCommand = (typeof appSlashCommands)[number];
@@ -30,7 +30,7 @@ export function parseSlashCommandInput(input: string): ParsedSlashCommand | null
     return {
       name: "",
       normalizedName: "",
-      args: ""
+      args: "",
     };
   }
 
@@ -38,7 +38,7 @@ export function parseSlashCommandInput(input: string): ParsedSlashCommand | null
   return {
     name,
     normalizedName: name.toLowerCase(),
-    args: rest.join(" ").trim()
+    args: rest.join(" ").trim(),
   };
 }
 
@@ -48,15 +48,10 @@ export function shouldShowSlashSuggestions(input: string): boolean {
 
 export function findMatchingAppSlashCommands(query: string): AppSlashCommand[] {
   const normalizedQuery = query.trim().toLowerCase();
-  return appSlashCommands.filter((command) =>
-    command.name.toLowerCase().includes(normalizedQuery)
-  );
+  return appSlashCommands.filter((command) => command.name.toLowerCase().includes(normalizedQuery));
 }
 
-export function getSlashAutocompleteValue(
-  input: string,
-  skillNames: string[]
-): string | null {
+export function getSlashAutocompleteValue(input: string, skillNames: string[]): string | null {
   if (!shouldShowSlashSuggestions(input)) return null;
 
   const query = input.slice(1).trim().toLowerCase();
@@ -73,7 +68,7 @@ export function findAppSlashCommand(name: string): AppSlashCommand | null {
 }
 
 export function isServerAppSlashCommand(
-  command: AppSlashCommand
+  command: AppSlashCommand,
 ): command is Extract<AppSlashCommand, { scope: "server" }> {
   return command.scope === "server";
 }

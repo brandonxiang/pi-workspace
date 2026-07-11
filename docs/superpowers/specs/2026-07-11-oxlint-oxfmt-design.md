@@ -42,4 +42,3 @@ unrelated user changes merely to obtain a clean commit.
 - `npm run build` succeeds.
 - The release-it dry run reaches the simulated publish, commit, tag, and push
   steps without performing a real release.
-

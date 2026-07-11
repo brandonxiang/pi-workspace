@@ -54,7 +54,7 @@ export function buildAgentEndStreamEvent(args: {
     content: args.finalText,
     provider: args.provider,
     model: args.model,
-    timestamp
+    timestamp,
   };
   const errorMessage = findAssistantError(args.messages);
 
@@ -66,6 +66,6 @@ export function buildAgentEndStreamEvent(args: {
 
   return {
     type: "done",
-    message
+    message,
   };
 }

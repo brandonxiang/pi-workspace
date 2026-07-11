@@ -48,14 +48,14 @@ tasks/settings-archived-chat-spec.md -> 本次需求规格
 const archivedProjects = projects
   .map((project) => ({
     ...project,
-    sessions: project.sessions.filter((session) => archivedPiSessionIds.has(session.id))
+    sessions: project.sessions.filter((session) => archivedPiSessionIds.has(session.id)),
   }))
   .filter((project) => project.sessions.length > 0);
 
 const visibleProjects = projects
   .map((project) => ({
     ...project,
-    sessions: project.sessions.filter((session) => !archivedPiSessionIds.has(session.id))
+    sessions: project.sessions.filter((session) => !archivedPiSessionIds.has(session.id)),
   }))
   .filter((project) => project.sessions.length > 0);
 ```

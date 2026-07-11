@@ -6,7 +6,7 @@ import {
   getSlashAutocompleteValue,
   isServerAppSlashCommand,
   parseSlashCommandInput,
-  shouldShowSlashSuggestions
+  shouldShowSlashSuggestions,
 } from "../shared/slash-commands.js";
 
 describe("parseSlashCommandInput", () => {
@@ -14,7 +14,7 @@ describe("parseSlashCommandInput", () => {
     expect(parseSlashCommandInput("/name sprint-plan")).toEqual({
       name: "name",
       normalizedName: "name",
-      args: "sprint-plan"
+      args: "sprint-plan",
     });
   });
 
@@ -27,7 +27,7 @@ describe("parseSlashCommandInput", () => {
     expect(parseSlashCommandInput("/review branch-a")).toEqual({
       name: "review",
       normalizedName: "review",
-      args: "branch-a"
+      args: "branch-a",
     });
   });
 });
@@ -42,7 +42,7 @@ describe("app slash command registry", () => {
       "session",
       "export",
       "name",
-      "compact"
+      "compact",
     ]);
   });
 
@@ -59,7 +59,7 @@ describe("app slash command registry", () => {
   it("matches slash suggestions from app commands in registry order", () => {
     expect(findMatchingAppSlashCommands("co").map((command) => command.name)).toEqual([
       "copy",
-      "compact"
+      "compact",
     ]);
   });
 });

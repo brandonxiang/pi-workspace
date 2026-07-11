@@ -19,7 +19,12 @@ interface MinimapProps {
  * Hover a dot to preview its content. Click to scroll to that message.
  * Uses flexbox for dot positioning so padding is respected natively.
  */
-export default function Minimap({ userCount, userPreviews, scrollContainer, onNavigate }: MinimapProps) {
+export default function Minimap({
+  userCount,
+  userPreviews,
+  scrollContainer,
+  onNavigate,
+}: MinimapProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [atBottom, setAtBottom] = useState(true);
@@ -90,7 +95,7 @@ export default function Minimap({ userCount, userPreviews, scrollContainer, onNa
 
       onNavigate(userIndex);
     },
-    [scrollContainer, userCount, onNavigate]
+    [scrollContainer, userCount, onNavigate],
   );
 
   /* ── mouse move handler for hover preview ── */
@@ -115,7 +120,7 @@ export default function Minimap({ userCount, userPreviews, scrollContainer, onNa
 
       setHoverIndex((prev) => (prev !== idx ? idx : prev));
     },
-    [userCount]
+    [userCount],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -140,7 +145,7 @@ export default function Minimap({ userCount, userPreviews, scrollContainer, onNa
             <span className="minimap-preview-text">{userPreviews[i]}</span>
           </div>
         )}
-      </div>
+      </div>,
     );
   }
 

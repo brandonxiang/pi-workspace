@@ -7,7 +7,7 @@ describe("renderMarkdownCode", () => {
   it("uses full Prism mode for fenced code blocks", () => {
     const element = renderMarkdownCode({
       className: "language-bash",
-      children: "echo hello\n"
+      children: "echo hello\n",
     });
 
     expect(element.type).toBe(CodeHighlighter);
@@ -18,7 +18,7 @@ describe("renderMarkdownCode", () => {
 
   it("keeps inline code inline", () => {
     const element = renderMarkdownCode({
-      children: "npm run dev"
+      children: "npm run dev",
     });
 
     expect(element.type).toBe("code");
@@ -26,9 +26,7 @@ describe("renderMarkdownCode", () => {
   });
 
   it("wraps markdown output in a dedicated container", () => {
-    const html = renderToStaticMarkup(
-      MarkdownContent({ content: "Summary\n\n1. One\n2. Two" })
-    );
+    const html = renderToStaticMarkup(MarkdownContent({ content: "Summary\n\n1. One\n2. Two" }));
 
     expect(html).toContain('class="markdown-content"');
   });

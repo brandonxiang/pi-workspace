@@ -4,7 +4,7 @@ import {
   buildPiSessionUrl,
   buildSettingsUrl,
   parseAppRoute,
-  resolvePanelMode
+  resolvePanelMode,
 } from "./app-routing";
 
 describe("app-routing", () => {
@@ -14,7 +14,7 @@ describe("app-routing", () => {
     expect(route).toEqual({
       kind: "pi-session",
       sessionId: "session-1",
-      panel: "terminal"
+      panel: "terminal",
     });
   });
 
@@ -23,7 +23,7 @@ describe("app-routing", () => {
 
     expect(route).toEqual({
       kind: "home",
-      panel: "chat"
+      panel: "chat",
     });
   });
 
@@ -32,7 +32,7 @@ describe("app-routing", () => {
 
     expect(route).toEqual({
       kind: "settings",
-      panel: "terminal"
+      panel: "terminal",
     });
   });
 
@@ -42,7 +42,7 @@ describe("app-routing", () => {
     expect(route).toEqual({
       kind: "pi-session",
       sessionId: "session-1",
-      panel: null
+      panel: null,
     });
   });
 

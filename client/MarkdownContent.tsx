@@ -10,11 +10,7 @@ type RenderMarkdownCodeArgs = {
   props?: React.ComponentProps<"code">;
 };
 
-export function renderMarkdownCode({
-  className,
-  children,
-  props = {}
-}: RenderMarkdownCodeArgs) {
+export function renderMarkdownCode({ className, children, props = {} }: RenderMarkdownCodeArgs) {
   const codeText = String(children).replace(/\n$/, "");
   const match = /language-(\w+)/.exec(className ?? "");
   const lang = match?.[1];
@@ -42,16 +38,13 @@ const components: Components = {
   // CodeHighlighter already provides its own wrapper, strip outer <pre>
   pre({ children }) {
     return <>{children}</>;
-  }
+  },
 };
 
 function MarkdownContent({ content }: { content: string }) {
   return (
     <div className="markdown-content">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={components}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>
     </div>

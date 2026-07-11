@@ -2,7 +2,13 @@
   color-scheme: light;
   --sidebar-width: 372px;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   /* Brand */
   --primary: #0075de;
   --primary-active: #005bab;
@@ -258,7 +264,9 @@ h2 {
   background: transparent;
   color: var(--sidebar-text-muted);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .sidebar-collapse-btn:hover {
@@ -281,7 +289,9 @@ h2 {
   color: var(--ink-muted);
   cursor: pointer;
   z-index: 10;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .sidebar-expand-btn:hover {
@@ -300,7 +310,9 @@ h2 {
   background: transparent;
   color: var(--sidebar-text-muted);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .icon-button svg,
@@ -464,7 +476,9 @@ h2 {
   color: var(--sidebar-text-muted);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.12s, background 0.12s;
+  transition:
+    opacity 0.12s,
+    background 0.12s;
 }
 
 .session-row:hover .session-menu-trigger,
@@ -543,7 +557,9 @@ h2 {
   justify-content: center;
   flex-shrink: 0;
   color: var(--sidebar-text-muted);
-  transition: transform 0.12s ease, color 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    color 0.12s ease;
 }
 
 .pi-project-chevron-expanded {
@@ -576,7 +592,10 @@ h2 {
   background: transparent;
   color: var(--sidebar-text-muted);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
 }
 
 .pi-new-session-btn:hover:not(:disabled) {
@@ -800,7 +819,10 @@ h2 {
   background: var(--canvas);
   color: var(--ink-secondary);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .chat-header-action-btn:hover {
@@ -868,7 +890,9 @@ h2 {
   height: 5px;
   border-radius: 50%;
   background: var(--ink-faint);
-  transition: background 0.15s, transform 0.15s;
+  transition:
+    background 0.15s,
+    transform 0.15s;
   z-index: 1;
 }
 
@@ -929,8 +953,13 @@ h2 {
 }
 
 @keyframes minimap-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .messages-empty {
@@ -1059,9 +1088,15 @@ h2 {
   color: var(--ink-secondary);
 }
 
-.chat-bubble .ant-bubble-content h1 { font-size: 1.4em; }
-.chat-bubble .ant-bubble-content h2 { font-size: 1.2em; }
-.chat-bubble .ant-bubble-content h3 { font-size: 1.1em; }
+.chat-bubble .ant-bubble-content h1 {
+  font-size: 1.4em;
+}
+.chat-bubble .ant-bubble-content h2 {
+  font-size: 1.2em;
+}
+.chat-bubble .ant-bubble-content h3 {
+  font-size: 1.1em;
+}
 
 .chat-bubble .ant-bubble-content p {
   margin: 0;
@@ -1851,7 +1886,10 @@ h2 {
   background: var(--canvas);
   color: var(--ink-secondary);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .settings-page-back:hover {
@@ -2049,7 +2087,10 @@ h2 {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
 }
 
 .settings-btn-confirm {
@@ -2110,7 +2151,10 @@ h2 {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
   white-space: nowrap;
 }
 
@@ -2177,7 +2221,10 @@ h2 {
   color: var(--ink-secondary);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.12s, background 0.12s, color 0.12s;
+  transition:
+    border-color 0.12s,
+    background 0.12s,
+    color 0.12s;
 }
 
 .launcher-project-button:hover {

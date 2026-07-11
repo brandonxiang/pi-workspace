@@ -14,14 +14,14 @@ export function createPiSessionDetailCache(): PiSessionDetailCache {
     },
     set(detail: PiSessionDetailResponse) {
       cache.set(detail.session.id, detail);
-    }
+    },
   };
 }
 
 export function getCachedPiSessionDetailForSelection({
   currentDetail,
   cache,
-  sessionId
+  sessionId,
 }: {
   currentDetail: PiSessionDetailResponse | null;
   cache: PiSessionDetailCache;

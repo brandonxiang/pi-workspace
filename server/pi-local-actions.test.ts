@@ -5,7 +5,7 @@ import {
   formatSessionStats,
   normalizeExportFormat,
   type SessionCompactionResult,
-  type SessionStatsSnapshot
+  type SessionStatsSnapshot,
 } from "./pi-local-actions.js";
 
 const stats: SessionStatsSnapshot = {
@@ -20,9 +20,9 @@ const stats: SessionStatsSnapshot = {
     input: 120,
     output: 240,
     cacheRead: 8,
-    cacheWrite: 4
+    cacheWrite: 4,
   },
-  cost: 0.123456
+  cost: 0.123456,
 };
 
 const compactionResult: SessionCompactionResult = {
@@ -30,8 +30,8 @@ const compactionResult: SessionCompactionResult = {
   tokensBefore: 54321,
   details: {
     readFiles: ["src/App.tsx"],
-    modifiedFiles: ["server/index.ts"]
-  }
+    modifiedFiles: ["server/index.ts"],
+  },
 };
 
 describe("normalizeExportFormat", () => {
@@ -71,13 +71,13 @@ describe("executeServerLocalAction", () => {
       exportToJsonl: vi.fn(() => "/tmp/export.jsonl"),
       getSessionName: vi.fn(),
       getSessionStats: vi.fn(() => stats),
-      setSessionName: vi.fn()
+      setSessionName: vi.fn(),
     });
 
     expect(result).toEqual({
       title: "Export",
       content: "Exported the current session as `jsonl` to `/tmp/export.jsonl`.",
-      status: "success"
+      status: "success",
     });
   });
 
@@ -90,7 +90,7 @@ describe("executeServerLocalAction", () => {
       exportToJsonl: vi.fn(),
       getSessionName: vi.fn(async () => "Old"),
       getSessionStats: vi.fn(() => stats),
-      setSessionName
+      setSessionName,
     });
 
     expect(setSessionName).toHaveBeenCalledWith("Roadmap");
@@ -105,7 +105,7 @@ describe("executeServerLocalAction", () => {
       exportToJsonl: vi.fn(),
       getSessionName: vi.fn(),
       getSessionStats: vi.fn(() => stats),
-      setSessionName: vi.fn()
+      setSessionName: vi.fn(),
     });
 
     expect(result.title).toBe("Compact");

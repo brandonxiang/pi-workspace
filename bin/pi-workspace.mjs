@@ -29,8 +29,8 @@ function printHelp() {
       `  ${cliName} --help      Show this help message`,
       "",
       "Options:",
-      "  --port <number>        Override PORT for the service"
-    ].join("\n")
+      "  --port <number>        Override PORT for the service",
+    ].join("\n"),
   );
 }
 
@@ -63,7 +63,13 @@ function parseArgs(argv) {
       continue;
     }
 
-    if (arg === "start" || arg === "build" || arg === "help" || arg === "check" || arg === "update") {
+    if (
+      arg === "start" ||
+      arg === "build" ||
+      arg === "help" ||
+      arg === "check" ||
+      arg === "update"
+    ) {
       command = arg;
       continue;
     }
@@ -81,7 +87,7 @@ function run(command, args, env = {}) {
     const child = spawn(command, args, {
       cwd: projectRoot,
       stdio: "inherit",
-      env: { ...process.env, ...env }
+      env: { ...process.env, ...env },
     });
 
     child.on("error", reject);
@@ -139,10 +145,7 @@ async function fetchLatestVersion() {
 }
 
 function isGloballyInstalled() {
-  return (
-    __dirname.includes("node_modules") &&
-    !__dirname.includes(projectRoot + "/node_modules")
-  );
+  return __dirname.includes("node_modules") && !__dirname.includes(projectRoot + "/node_modules");
 }
 
 async function checkForUpdate() {
@@ -158,7 +161,7 @@ async function checkForUpdate() {
     return latest;
   } catch (error) {
     throw new Error(
-      `Failed to check for updates: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to check for updates: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
@@ -171,9 +174,12 @@ async function handleUpdate() {
 
   if (global) {
     const pm = getPackageManager();
-    const installArgs = pm === "pnpm" ? ["add", "-g", `${cliName}@latest`] : ["install", "-g", `${cliName}@latest`];
+    const installArgs =
+      pm === "pnpm" ? ["add", "-g", `${cliName}@latest`] : ["install", "-g", `${cliName}@latest`];
 
-    console.log(`[${cliName}] Installing v${latestVersion} via \`${pm} ${installArgs.join(" ")}\`...`);
+    console.log(
+      `[${cliName}] Installing v${latestVersion} via \`${pm} ${installArgs.join(" ")}\`...`,
+    );
     await run(pm, installArgs);
     console.log(`[${cliName}] Updated to v${latestVersion}.`);
   } else {
@@ -246,7 +252,7 @@ async function main() {
   await ensureBuild(env);
   await run(process.execPath, ["dist-server/index.mjs"], {
     ...env,
-    NODE_ENV: "production"
+    NODE_ENV: "production",
   });
 }
 

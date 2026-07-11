@@ -40,7 +40,7 @@ export type PiSessionStreamingState = {
 };
 
 export function createPiSessionStreamingState(
-  panelMode: PiSessionStreamingPanelMode
+  panelMode: PiSessionStreamingPanelMode,
 ): PiSessionStreamingState {
   return {
     panelMode,
@@ -52,32 +52,30 @@ export function createPiSessionStreamingState(
     activeToolMessages: new Map(),
     completedToolMessages: [],
     finalMessage: null,
-    error: null
+    error: null,
   };
 }
 
-export function flushPiSessionThinking(
-  state: PiSessionStreamingState
-): PiSessionStreamingState {
+export function flushPiSessionThinking(state: PiSessionStreamingState): PiSessionStreamingState {
   if (!state.bufferedThinking) return state;
 
   return {
     ...state,
     visibleThinking: state.visibleThinking + state.bufferedThinking,
-    bufferedThinking: ""
+    bufferedThinking: "",
   };
 }
 
 export function applyPiSessionStreamingEvent(
   state: PiSessionStreamingState,
-  event: StreamEvent
+  event: StreamEvent,
 ): PiSessionStreamingState {
   if (event.type === "thinking") {
     if (!state.acceptsThinking) return state;
 
     return {
       ...state,
-      bufferedThinking: state.bufferedThinking + event.delta
+      bufferedThinking: state.bufferedThinking + event.delta,
     };
   }
 
@@ -86,13 +84,13 @@ export function applyPiSessionStreamingEvent(
       state.panelMode === "chat" && state.acceptsThinking
         ? flushPiSessionThinking({
             ...state,
-            acceptsThinking: false
+            acceptsThinking: false,
           })
         : state;
 
     return {
       ...nextState,
-      assistant: nextState.assistant + event.delta
+      assistant: nextState.assistant + event.delta,
     };
   }
 
@@ -103,12 +101,12 @@ export function applyPiSessionStreamingEvent(
     activeToolMessages.set(event.toolCallId, {
       toolName: event.toolName,
       content: "",
-      isError: false
+      isError: false,
     });
 
     return {
       ...state,
-      activeToolMessages
+      activeToolMessages,
     };
   }
 
@@ -121,12 +119,12 @@ export function applyPiSessionStreamingEvent(
     const activeToolMessages = new Map(state.activeToolMessages);
     activeToolMessages.set(event.toolCallId, {
       ...existing,
-      content: existing.content + event.delta
+      content: existing.content + event.delta,
     });
 
     return {
       ...state,
-      activeToolMessages
+      activeToolMessages,
     };
   }
 
@@ -136,14 +134,14 @@ export function applyPiSessionStreamingEvent(
       {
         toolName: event.toolName,
         content: event.content,
-        isError: event.isError
-      }
+        isError: event.isError,
+      },
     ];
 
     if (state.panelMode === "chat") {
       return {
         ...state,
-        completedToolMessages
+        completedToolMessages,
       };
     }
 
@@ -153,7 +151,7 @@ export function applyPiSessionStreamingEvent(
     return {
       ...state,
       activeToolMessages,
-      completedToolMessages
+      completedToolMessages,
     };
   }
 
@@ -162,7 +160,7 @@ export function applyPiSessionStreamingEvent(
       ...state,
       thinkingVisible: false,
       bufferedThinking: "",
-      finalMessage: event.message
+      finalMessage: event.message,
     };
   }
 
@@ -171,33 +169,33 @@ export function applyPiSessionStreamingEvent(
     thinkingVisible: false,
     bufferedThinking: "",
     finalMessage: event.message || null,
-    error: event.error
+    error: event.error,
   };
 }
 
 export function getPiSessionStreamingDisplayItems(
-  state: PiSessionStreamingState
+  state: PiSessionStreamingState,
 ): PiSessionStreamingDisplayItem[] {
   const items: PiSessionStreamingDisplayItem[] = [];
 
   if (state.thinkingVisible) {
     items.push({
       kind: "thinking",
-      content: state.visibleThinking
+      content: state.visibleThinking,
     });
   }
 
   if (state.assistant) {
     items.push({
       kind: "assistant",
-      content: state.assistant
+      content: state.assistant,
     });
   }
 
   if (state.error) {
     items.push({
       kind: "error",
-      content: state.error
+      content: state.error,
     });
   }
 
@@ -205,7 +203,7 @@ export function getPiSessionStreamingDisplayItems(
     items.push({
       kind: "tool",
       streaming: true,
-      ...toolMessage
+      ...toolMessage,
     });
   }
 

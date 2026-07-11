@@ -12,9 +12,7 @@ export interface PiSessionDetailResponse {
   messages: unknown[];
 }
 
-export type ActivePanelView =
-  | { kind: "local" }
-  | { kind: "pi"; sessionId: string };
+export type ActivePanelView = { kind: "local" } | { kind: "pi"; sessionId: string };
 
 /**
  * After renaming a session, derive the updated piSessionDetail.
@@ -26,7 +24,7 @@ export function applySessionRename(
   piSessionDetail: PiSessionDetailResponse | null,
   activePanelView: ActivePanelView,
   renameTargetId: string,
-  newName: string
+  newName: string,
 ): PiSessionDetailResponse | null {
   if (!piSessionDetail) return null;
   if (activePanelView.kind !== "pi") return null;
@@ -40,7 +38,7 @@ export function applySessionRename(
     ...piSessionDetail,
     session: {
       ...piSessionDetail.session,
-      name: newName
-    }
+      name: newName,
+    },
   };
 }

@@ -42,13 +42,13 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Client | React 19 + TypeScript |
-| UI | Ant Design X + existing CSS |
-| Server | Fastify + existing Pi session APIs |
+| Layer       | Technology                               |
+| ----------- | ---------------------------------------- |
+| Client      | React 19 + TypeScript                    |
+| UI          | Ant Design X + existing CSS              |
+| Server      | Fastify + existing Pi session APIs       |
 | Session SDK | `@earendil-works/pi-coding-agent@0.75.5` |
-| Tests | Vitest + jsdom |
+| Tests       | Vitest + jsdom                           |
 
 路由实现默认建立在浏览器原生 History API 之上，不新增客户端路由依赖。
 
@@ -136,12 +136,12 @@ Conventions:
 
 ## Testing Strategy
 
-| Test level | Where | What |
-|---|---|---|
-| Unit | `client/app-routing.test.ts` or `client/App.test.tsx` | Parse/build route helpers, invalid path handling |
-| Integration-like UI | `client/App.test.tsx` | Hydrate from URL, update URL on selection, respond to `popstate` |
-| Regression | existing client tests | Ensure current Pi session loading and empty state still render |
-| Verification | browser manual check | Refresh on `/sessions/:id`, click sidebar, use back/forward |
+| Test level          | Where                                                 | What                                                             |
+| ------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| Unit                | `client/app-routing.test.ts` or `client/App.test.tsx` | Parse/build route helpers, invalid path handling                 |
+| Integration-like UI | `client/App.test.tsx`                                 | Hydrate from URL, update URL on selection, respond to `popstate` |
+| Regression          | existing client tests                                 | Ensure current Pi session loading and empty state still render   |
+| Verification        | browser manual check                                  | Refresh on `/sessions/:id`, click sidebar, use back/forward      |
 
 Minimum coverage targets:
 
@@ -189,7 +189,7 @@ Minimum coverage targets:
 2. 当 session 不存在时，你更偏好：
    - 保留在错误页并继续显示 `/sessions/:id`
    - 自动跳回 `/`
-   当前 spec 先按前者，因为更利于定位问题，也更符合可分享链接的预期。
+     当前 spec 先按前者，因为更利于定位问题，也更符合可分享链接的预期。
 
 ## Implementation Sketch
 

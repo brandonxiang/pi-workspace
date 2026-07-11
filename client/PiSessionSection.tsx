@@ -6,7 +6,7 @@ import {
   formatMessageCount,
   formatRelativeTime,
   type Locale,
-  type Translator
+  type Translator,
 } from "./i18n";
 import type { PiSessionProject } from "./types";
 
@@ -33,7 +33,7 @@ function buildMenuItems(
   onRename: (id: string) => void,
   onArchive: (id: string) => void,
   onRestore: (id: string) => void,
-  t: Translator
+  t: Translator,
 ): MenuProps["items"] {
   if (isArchived) {
     return [{ key: "restore", label: t("actions.restore"), onClick: () => onRestore(sessionKey) }];
@@ -41,7 +41,7 @@ function buildMenuItems(
 
   return [
     { key: "rename", label: t("actions.rename"), onClick: () => onRename(sessionKey) },
-    { key: "archive", label: t("actions.archive"), onClick: () => onArchive(sessionKey) }
+    { key: "archive", label: t("actions.archive"), onClick: () => onArchive(sessionKey) },
   ];
 }
 
@@ -86,7 +86,7 @@ function writeStoredExpandedProjects(paths: string[]) {
 
 export function sortProjectsByOrder(
   projects: PiSessionProject[],
-  order: string[]
+  order: string[],
 ): PiSessionProject[] {
   if (order.length === 0) return projects;
 
@@ -107,14 +107,14 @@ export function sortProjectsByOrder(
 export function ensureExpandedProjectPaths(
   projects: PiSessionProject[],
   storedExpandedPaths: string[],
-  selectedSessionId: string | null
+  selectedSessionId: string | null,
 ): string[] {
   const availablePaths = new Set(projects.map((project) => project.path));
   const nextExpanded = storedExpandedPaths.filter((path) => availablePaths.has(path));
 
   if (selectedSessionId) {
     const selectedProject = projects.find((project) =>
-      project.sessions.some((session) => session.id === selectedSessionId)
+      project.sessions.some((session) => session.id === selectedSessionId),
     );
     if (selectedProject && !nextExpanded.includes(selectedProject.path)) {
       nextExpanded.push(selectedProject.path);
@@ -131,25 +131,25 @@ export function ensureExpandedProjectPaths(
 export function getVisibleProjectSessions<T>(
   sessions: T[],
   showAll: boolean,
-  limit = DEFAULT_VISIBLE_SESSION_COUNT
+  limit = DEFAULT_VISIBLE_SESSION_COUNT,
 ) {
   if (showAll || sessions.length <= limit) {
     return {
       sessions,
-      hiddenCount: 0
+      hiddenCount: 0,
     };
   }
 
   return {
     sessions: sessions.slice(0, limit),
-    hiddenCount: sessions.length - limit
+    hiddenCount: sessions.length - limit,
   };
 }
 
 export function filterProjectsByArchiveState(
   projects: PiSessionProject[],
   archivedSessionIds: Set<string>,
-  mode: "visible" | "archived"
+  mode: "visible" | "archived",
 ): PiSessionProject[] {
   return projects
     .map((project) => ({
@@ -157,8 +157,8 @@ export function filterProjectsByArchiveState(
       sessions: project.sessions.filter((session) =>
         mode === "archived"
           ? archivedSessionIds.has(session.id)
-          : !archivedSessionIds.has(session.id)
-      )
+          : !archivedSessionIds.has(session.id),
+      ),
     }))
     .filter((project) => project.sessions.length > 0);
 }
@@ -175,11 +175,11 @@ export function PiSessionSection({
   archivedSessionIds,
   onArchive,
   onRestore,
-  onCreateSessionInProject
+  onCreateSessionInProject,
 }: PiSessionSectionProps) {
   const t = createTranslator(locale);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
-    () => new Set(readStoredExpandedProjects())
+    () => new Set(readStoredExpandedProjects()),
   );
   const [projectOrder, setProjectOrder] = useState<string[]>(() => readStoredProjectOrder());
   const [dragOverProjectPath, setDragOverProjectPath] = useState<string | null>(null);
@@ -190,7 +190,7 @@ export function PiSessionSection({
 
   const orderedProjects = useMemo(
     () => sortProjectsByOrder(projects, projectOrder),
-    [projectOrder, projects]
+    [projectOrder, projects],
   );
 
   function stopPropagation(event: React.MouseEvent) {
@@ -212,7 +212,7 @@ export function PiSessionSection({
     const nextExpanded = ensureExpandedProjectPaths(
       orderedProjects,
       Array.from(expandedProjects),
-      selectedSessionId
+      selectedSessionId,
     );
     const currentExpanded = Array.from(expandedProjects);
 
@@ -350,10 +350,7 @@ export function PiSessionSection({
             const isExpanded = expandedProjects.has(project.path);
             const isDragOver = dragOverProjectPath === project.path;
             const showAllSessions = expandedSessionProjects.has(project.path);
-            const visibleSessions = getVisibleProjectSessions(
-              project.sessions,
-              showAllSessions
-            );
+            const visibleSessions = getVisibleProjectSessions(project.sessions, showAllSessions);
 
             return (
               <div
@@ -373,8 +370,21 @@ export function PiSessionSection({
                     type="button"
                     onClick={() => toggleProject(project.path)}
                   >
-                    <span className={"pi-project-chevron" + (isExpanded ? " pi-project-chevron-expanded" : "")}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <span
+                      className={
+                        "pi-project-chevron" + (isExpanded ? " pi-project-chevron-expanded" : "")
+                      }
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <polyline points="9 18 15 12 9 6" />
                       </svg>
                     </span>
@@ -391,7 +401,16 @@ export function PiSessionSection({
                       onCreateSessionInProject(project.path);
                     }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <line x1="12" y1="5" x2="12" y2="19" />
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
@@ -420,7 +439,8 @@ export function PiSessionSection({
                               {session.name || session.firstMessage}
                             </span>
                             <small className="pi-session-meta">
-                              {formatMessageCount(locale, session.messageCount)} · {formatRelativeTime(locale, session.modified)}
+                              {formatMessageCount(locale, session.messageCount)} ·{" "}
+                              {formatRelativeTime(locale, session.modified)}
                             </small>
                           </div>
                           <span className="pi-session-menu-trigger" onClick={stopPropagation}>
@@ -432,8 +452,8 @@ export function PiSessionSection({
                                   onRename,
                                   onArchive,
                                   onRestore,
-                                  t
-                                )
+                                  t,
+                                ),
                               }}
                               placement="bottomRight"
                               trigger={["click"]}

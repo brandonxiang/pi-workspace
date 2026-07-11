@@ -149,7 +149,7 @@ const PI_SESSION_CATALOG_CACHE_TTL_MS = 1_000;
 export function createAsyncSnapshotCache<T>({
   load,
   now = Date.now,
-  ttlMs
+  ttlMs,
 }: {
   load: () => Promise<T>;
   now?: () => number;
@@ -173,7 +173,7 @@ export function createAsyncSnapshotCache<T>({
         .then((value) => {
           cachedSnapshot = {
             value,
-            loadedAt: now()
+            loadedAt: now(),
           };
           return value;
         })
@@ -185,13 +185,13 @@ export function createAsyncSnapshotCache<T>({
     },
     invalidate() {
       cachedSnapshot = null;
-    }
+    },
   };
 }
 
 const piSessionCatalogCache = createAsyncSnapshotCache<RawSessionInfo[]>({
   load: async () => (await SessionManager.listAll()) as RawSessionInfo[],
-  ttlMs: PI_SESSION_CATALOG_CACHE_TTL_MS
+  ttlMs: PI_SESSION_CATALOG_CACHE_TTL_MS,
 });
 
 function truncate(text: string, maxLength: number): string {
@@ -269,7 +269,7 @@ function isToolCallContent(value: unknown): value is PiToolCallContent {
 
 function normalizeRichContent(
   content: unknown,
-  entryId: string
+  entryId: string,
 ): { text: string; images: PiHistoryImage[]; toolCalls: PiToolCallContent[] } {
   if (typeof content === "string") {
     return { text: content, images: [], toolCalls: [] };
@@ -296,7 +296,7 @@ function normalizeRichContent(
         id: `${entryId}-image-${imageIndex - 1}`,
         data: item.data,
         mimeType: item.mimeType,
-        name: `Pi session image ${imageIndex}`
+        name: `Pi session image ${imageIndex}`,
       });
       continue;
     }
@@ -360,8 +360,8 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         role: "user",
         content: normalized.text,
         images: normalized.images.length > 0 ? normalized.images : undefined,
-        timestamp
-      }
+        timestamp,
+      },
     ];
   }
 
@@ -376,7 +376,7 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         content: normalized.text,
         provider: message.provider,
         model: message.model,
-        timestamp
+        timestamp,
       });
     }
 
@@ -388,7 +388,7 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         content: formatToolArguments(toolCall.arguments),
         isError: false,
         expandable: true,
-        timestamp
+        timestamp,
       });
     }
 
@@ -404,8 +404,8 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         content: stringifyContent(normalizeContentToText(message.content)),
         isError: Boolean(message.isError),
         expandable: true,
-        timestamp
-      }
+        timestamp,
+      },
     ];
   }
 
@@ -421,8 +421,8 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         content: stringifyContent(lines.join("\n").trim()),
         isError: typeof message.exitCode === "number" ? message.exitCode !== 0 : false,
         expandable: true,
-        timestamp
-      }
+        timestamp,
+      },
     ];
   }
 
@@ -435,8 +435,8 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
           id: entry.id,
           role: "steering",
           content: normalizeContentToText(message.content),
-          timestamp
-        }
+          timestamp,
+        },
       ];
     }
 
@@ -447,8 +447,8 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         summaryType: "custom",
         title: toCustomSummaryTitle(message.customType),
         content: normalizeContentToText(message.content) || "",
-        timestamp
-      }
+        timestamp,
+      },
     ];
   }
 
@@ -460,8 +460,8 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         summaryType: "branch",
         title: "Branch Summary",
         content: readString(message, "summary") || "",
-        timestamp
-      }
+        timestamp,
+      },
     ];
   }
 
@@ -473,8 +473,8 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         summaryType: "compaction",
         title: "Compaction Summary",
         content: readString(message, "summary") || "",
-        timestamp
-      }
+        timestamp,
+      },
     ];
   }
 
@@ -493,8 +493,8 @@ function normalizeSummaryEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         summaryType: "compaction",
         title: "Compaction Summary",
         content: summary,
-        timestamp
-      }
+        timestamp,
+      },
     ];
   }
 
@@ -506,8 +506,8 @@ function normalizeSummaryEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
         summaryType: "branch",
         title: "Branch Summary",
         content: summary,
-        timestamp
-      }
+        timestamp,
+      },
     ];
   }
 
@@ -540,8 +540,8 @@ export function groupSessionsByProject(rawSessions: RawSessionInfo[]): PiSession
         firstMessage: truncateFirstMessage(s.firstMessage),
         messageCount: s.messageCount,
         created: toIsoString(s.created),
-        modified: toIsoString(s.modified)
-      }))
+        modified: toIsoString(s.modified),
+      })),
     });
   }
 
@@ -573,7 +573,7 @@ export function inferBranchModel(entries: PiSessionEntryLike[]): PiBranchModel |
     ) {
       return {
         provider: readString(entry, "provider")!,
-        modelId: readString(entry, "modelId")!
+        modelId: readString(entry, "modelId")!,
       };
     }
 
@@ -587,7 +587,7 @@ export function inferBranchModel(entries: PiSessionEntryLike[]): PiBranchModel |
     ) {
       return {
         provider: message.provider,
-        modelId: message.model
+        modelId: message.model,
       };
     }
   }
@@ -597,7 +597,7 @@ export function inferBranchModel(entries: PiSessionEntryLike[]): PiBranchModel |
 
 export function buildPiSessionDetail(
   session: RawSessionInfo,
-  entries: PiSessionEntryLike[]
+  entries: PiSessionEntryLike[],
 ): PiSessionDetailResponse {
   return {
     session: {
@@ -606,9 +606,9 @@ export function buildPiSessionDetail(
       cwd: session.cwd,
       projectName: extractProjectName(session.cwd),
       created: toIsoString(session.created),
-      modified: toIsoString(session.modified)
+      modified: toIsoString(session.modified),
     },
-    messages: normalizeBranchEntries(entries)
+    messages: normalizeBranchEntries(entries),
   };
 }
 
@@ -627,10 +627,7 @@ export async function loadPiSessionDetailById(sessionId: string) {
   if (!match) return null;
 
   const sessionManager = SessionManager.open(match.path);
-  return buildPiSessionDetail(
-    match,
-    sessionManager.getBranch() as unknown as PiSessionEntryLike[]
-  );
+  return buildPiSessionDetail(match, sessionManager.getBranch() as unknown as PiSessionEntryLike[]);
 }
 
 export async function loadPiSessionContextById(sessionId: string) {
@@ -645,6 +642,6 @@ export async function loadPiSessionContextById(sessionId: string) {
     session: match,
     sessionManager,
     entries,
-    model: inferBranchModel(entries)
+    model: inferBranchModel(entries),
   };
 }

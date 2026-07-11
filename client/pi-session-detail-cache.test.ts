@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createPiSessionDetailCache,
-  getCachedPiSessionDetailForSelection
+  getCachedPiSessionDetailForSelection,
 } from "./pi-session-detail-cache";
 import type { PiSessionDetailResponse } from "./types";
 
@@ -13,7 +13,7 @@ function createDetail(sessionId: string, content: string): PiSessionDetailRespon
       cwd: "/tmp/workspace",
       projectName: "workspace",
       created: "2026-01-01T00:00:00.000Z",
-      modified: "2026-01-01T00:00:00.000Z"
+      modified: "2026-01-01T00:00:00.000Z",
     },
     messages: [
       {
@@ -22,9 +22,9 @@ function createDetail(sessionId: string, content: string): PiSessionDetailRespon
         content,
         provider: "openai",
         model: "gpt-4o-mini",
-        timestamp: 1
-      }
-    ]
+        timestamp: 1,
+      },
+    ],
   };
 }
 
@@ -48,8 +48,8 @@ describe("getCachedPiSessionDetailForSelection", () => {
       getCachedPiSessionDetailForSelection({
         currentDetail: current,
         cache,
-        sessionId: "session-1"
-      })
+        sessionId: "session-1",
+      }),
     ).toBe(current);
   });
 
@@ -63,8 +63,8 @@ describe("getCachedPiSessionDetailForSelection", () => {
       getCachedPiSessionDetailForSelection({
         currentDetail: current,
         cache,
-        sessionId: "session-1"
-      })
+        sessionId: "session-1",
+      }),
     ).toEqual(cached);
   });
 
@@ -76,8 +76,8 @@ describe("getCachedPiSessionDetailForSelection", () => {
       getCachedPiSessionDetailForSelection({
         currentDetail: current,
         cache,
-        sessionId: "session-3"
-      })
+        sessionId: "session-3",
+      }),
     ).toBeNull();
   });
 });

@@ -56,9 +56,7 @@ Success means we can point to a short, evidence-backed backlog with clear accept
 Prefer small pure helpers for state transforms, then wire them into React with explicit memoization only where the render cost is real.
 
 ```ts
-export function groupPiHistoryMessages(
-  messages: PiHistoryMessage[]
-): PiHistoryTranscriptEntry[] {
+export function groupPiHistoryMessages(messages: PiHistoryMessage[]): PiHistoryTranscriptEntry[] {
   const entries: PiHistoryTranscriptEntry[] = [];
   let activeToolGroup: Extract<PiHistoryTranscriptEntry, { role: "tool-group" }> | null = null;
 
@@ -68,7 +66,7 @@ export function groupPiHistoryMessages(
         id: `tool-group-${message.id}`,
         role: "tool-group",
         messages: [],
-        timestamp: message.timestamp
+        timestamp: message.timestamp,
       };
       activeToolGroup.messages.push(message);
       continue;

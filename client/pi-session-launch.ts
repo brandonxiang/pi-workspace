@@ -1,8 +1,6 @@
 import type { PiSessionProject } from "./types.js";
 
-export type InitialPiSessionSelection =
-  | { kind: "pi"; sessionId: string }
-  | { kind: "empty" };
+export type InitialPiSessionSelection = { kind: "pi"; sessionId: string } | { kind: "empty" };
 
 interface ResolveInitialPiSessionSelectionInput {
   storedSessionId: string | null;
@@ -13,7 +11,7 @@ interface ResolveInitialPiSessionSelectionInput {
 export function resolveInitialPiSessionSelection({
   storedSessionId,
   storedProjectPath,
-  projects
+  projects,
 }: ResolveInitialPiSessionSelectionInput): InitialPiSessionSelection {
   if (!storedSessionId) {
     return { kind: "empty" };
@@ -39,7 +37,7 @@ export function resolveInitialPiSessionSelection({
 
 export function findProjectBySessionId(
   projects: PiSessionProject[],
-  sessionId: string
+  sessionId: string,
 ): PiSessionProject | null {
   for (const project of projects) {
     if (project.sessions.some((candidate) => candidate.id === sessionId)) {
@@ -52,7 +50,7 @@ export function findProjectBySessionId(
 
 export function getNewestProjectSessionId(
   projects: PiSessionProject[],
-  projectPath: string
+  projectPath: string,
 ): string | null {
   const project = projects.find((candidate) => candidate.path === projectPath);
   return project?.sessions[0]?.id ?? null;

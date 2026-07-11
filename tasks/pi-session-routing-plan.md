@@ -96,13 +96,13 @@ Route model helpers
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| URL syncing creates loops between state updates and `pushState` | High | Centralize route writes in helper functions and guard against no-op rewrites |
-| Initial hydration races with project/session loading | High | Parse route immediately, then apply it only after project data is available using a single hydration gate |
-| `popstate` bypasses existing streaming protections | Medium | Route history handlers must call the same guarded selection/mode-change functions used by the UI |
-| Panel mode in URL conflicts with stored preference | Medium | Define explicit precedence: URL when present, stored mode when absent |
-| Invalid session URLs degrade into confusing fallback behavior | Medium | Keep explicit error state and do not silently jump to another session |
+| Risk                                                            | Impact | Mitigation                                                                                                |
+| --------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
+| URL syncing creates loops between state updates and `pushState` | High   | Centralize route writes in helper functions and guard against no-op rewrites                              |
+| Initial hydration races with project/session loading            | High   | Parse route immediately, then apply it only after project data is available using a single hydration gate |
+| `popstate` bypasses existing streaming protections              | Medium | Route history handlers must call the same guarded selection/mode-change functions used by the UI          |
+| Panel mode in URL conflicts with stored preference              | Medium | Define explicit precedence: URL when present, stored mode when absent                                     |
+| Invalid session URLs degrade into confusing fallback behavior   | Medium | Keep explicit error state and do not silently jump to another session                                     |
 
 ## Open Questions
 

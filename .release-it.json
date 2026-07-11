@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/release-it@20/schema/release-it.json",
   "hooks": {
-    "before:init": ["pnpm test", "pnpm build"],
+    "before:init": ["pnpm lint", "pnpm format:check", "pnpm test", "pnpm build"],
     "after:bump": "pnpm install --lockfile-only"
   },
   "git": {

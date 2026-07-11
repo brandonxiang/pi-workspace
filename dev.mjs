@@ -48,7 +48,9 @@ function start() {
       child = null;
       if (!shuttingDown) log(`Exited (${code}), waiting for changes…`);
     });
-    child.on("error", () => { child = null; });
+    child.on("error", () => {
+      child = null;
+    });
     setTimeout(resolve, 300);
   });
 }
@@ -82,7 +84,9 @@ function stop() {
     proc.kill("SIGTERM");
 
     setTimeout(() => {
-      try { proc.kill("SIGKILL"); } catch {}
+      try {
+        proc.kill("SIGKILL");
+      } catch {}
       waitForPortFree().then(resolve);
     }, 3000);
   });
@@ -91,9 +95,9 @@ function stop() {
 async function rebuildAndRestart() {
   if (shuttingDown) return;
   try {
-    await stop();      // kill old + wait for port release
-    await build();     // rebuild
-    if (!shuttingDown) await start();  // start new
+    await stop(); // kill old + wait for port release
+    await build(); // rebuild
+    if (!shuttingDown) await start(); // start new
   } catch (err) {
     log(`Build failed: ${err.message}`);
   }

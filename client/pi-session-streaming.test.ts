@@ -3,7 +3,7 @@ import {
   applyPiSessionStreamingEvent,
   createPiSessionStreamingState,
   flushPiSessionThinking,
-  getPiSessionStreamingDisplayItems
+  getPiSessionStreamingDisplayItems,
 } from "./pi-session-streaming";
 
 function getDisplayKinds(state: ReturnType<typeof createPiSessionStreamingState>) {
@@ -17,8 +17,8 @@ describe("Pi Session streaming transcript state", () => {
     expect(getPiSessionStreamingDisplayItems(state)).toEqual([
       {
         kind: "thinking",
-        content: ""
-      }
+        content: "",
+      },
     ]);
   });
 
@@ -27,26 +27,26 @@ describe("Pi Session streaming transcript state", () => {
 
     state = applyPiSessionStreamingEvent(state, {
       type: "thinking",
-      delta: "Inspecting the workspace"
+      delta: "Inspecting the workspace",
     });
     state = flushPiSessionThinking(state);
     state = applyPiSessionStreamingEvent(state, {
       type: "tool_start",
       toolCallId: "tool-1",
-      toolName: "read_file"
+      toolName: "read_file",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "tool_delta",
       toolCallId: "tool-1",
       toolName: "read_file",
-      delta: "partial output"
+      delta: "partial output",
     });
 
     expect(getPiSessionStreamingDisplayItems(state)).toEqual([
       {
         kind: "thinking",
-        content: "Inspecting the workspace"
-      }
+        content: "Inspecting the workspace",
+      },
     ]);
   });
 
@@ -55,31 +55,31 @@ describe("Pi Session streaming transcript state", () => {
 
     state = applyPiSessionStreamingEvent(state, {
       type: "thinking",
-      delta: "Plan A"
+      delta: "Plan A",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "thinking",
-      delta: " + Plan B"
+      delta: " + Plan B",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "delta",
-      delta: "Here is the answer"
+      delta: "Here is the answer",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "thinking",
-      delta: " + hidden tail"
+      delta: " + hidden tail",
     });
     state = flushPiSessionThinking(state);
 
     expect(getPiSessionStreamingDisplayItems(state)).toEqual([
       {
         kind: "thinking",
-        content: "Plan A + Plan B"
+        content: "Plan A + Plan B",
       },
       {
         kind: "assistant",
-        content: "Here is the answer"
-      }
+        content: "Here is the answer",
+      },
     ]);
   });
 
@@ -88,18 +88,18 @@ describe("Pi Session streaming transcript state", () => {
 
     state = applyPiSessionStreamingEvent(state, {
       type: "thinking",
-      delta: "Plan A"
+      delta: "Plan A",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "delta",
-      delta: "Final answer"
+      delta: "Final answer",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "tool_end",
       toolCallId: "tool-1",
       toolName: "read_file",
       content: "file content",
-      isError: false
+      isError: false,
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "done",
@@ -108,22 +108,22 @@ describe("Pi Session streaming transcript state", () => {
         content: "Final answer",
         provider: "openai",
         model: "gpt-4o-mini",
-        timestamp: 1
-      }
+        timestamp: 1,
+      },
     });
 
     expect(getPiSessionStreamingDisplayItems(state)).toEqual([
       {
         kind: "assistant",
-        content: "Final answer"
-      }
+        content: "Final answer",
+      },
     ]);
     expect(state.completedToolMessages).toEqual([
       {
         toolName: "read_file",
         content: "file content",
-        isError: false
-      }
+        isError: false,
+      },
     ]);
   });
 
@@ -132,18 +132,18 @@ describe("Pi Session streaming transcript state", () => {
 
     state = applyPiSessionStreamingEvent(state, {
       type: "thinking",
-      delta: "Plan A"
+      delta: "Plan A",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "error",
-      error: "Agent failed"
+      error: "Agent failed",
     });
 
     expect(getPiSessionStreamingDisplayItems(state)).toEqual([
       {
         kind: "error",
-        content: "Agent failed"
-      }
+        content: "Agent failed",
+      },
     ]);
     expect(state.error).toBe("Agent failed");
   });
@@ -153,22 +153,22 @@ describe("Pi Session streaming transcript state", () => {
 
     state = applyPiSessionStreamingEvent(state, {
       type: "delta",
-      delta: "Partial answer"
+      delta: "Partial answer",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "error",
-      error: "Provider auth failed"
+      error: "Provider auth failed",
     });
 
     expect(getPiSessionStreamingDisplayItems(state)).toEqual([
       {
         kind: "assistant",
-        content: "Partial answer"
+        content: "Partial answer",
       },
       {
         kind: "error",
-        content: "Provider auth failed"
-      }
+        content: "Provider auth failed",
+      },
     ]);
   });
 
@@ -178,13 +178,13 @@ describe("Pi Session streaming transcript state", () => {
     state = applyPiSessionStreamingEvent(state, {
       type: "tool_start",
       toolCallId: "tool-1",
-      toolName: "read_file"
+      toolName: "read_file",
     });
     state = applyPiSessionStreamingEvent(state, {
       type: "tool_delta",
       toolCallId: "tool-1",
       toolName: "read_file",
-      delta: "partial output"
+      delta: "partial output",
     });
 
     expect(getPiSessionStreamingDisplayItems(state)).toEqual([
@@ -193,8 +193,8 @@ describe("Pi Session streaming transcript state", () => {
         streaming: true,
         toolName: "read_file",
         content: "partial output",
-        isError: false
-      }
+        isError: false,
+      },
     ]);
   });
 });

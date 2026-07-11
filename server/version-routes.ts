@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   VersionManagementError,
   type UpgradeTarget,
-  type VersionsResponse
+  type VersionsResponse,
 } from "./version-management.js";
 
 type UpgradeResult = {
@@ -22,7 +22,7 @@ export type VersionManagerApi = {
 export function registerVersionRoutes(
   server: FastifyInstance,
   manager: VersionManagerApi,
-  options: { actionToken?: string } = {}
+  options: { actionToken?: string } = {},
 ) {
   const actionToken = options.actionToken || randomUUID();
 

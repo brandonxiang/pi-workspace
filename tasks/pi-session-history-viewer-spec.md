@@ -39,13 +39,13 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Client | React, TypeScript, Ant Design X `Bubble.List` |
-| Server | Fastify, TypeScript |
-| Session SDK | `@earendil-works/pi-coding-agent@0.75.5` |
-| Tests | Vitest |
-| Build | Vite + Rolldown |
+| Layer       | Technology                                    |
+| ----------- | --------------------------------------------- |
+| Client      | React, TypeScript, Ant Design X `Bubble.List` |
+| Server      | Fastify, TypeScript                           |
+| Session SDK | `@earendil-works/pi-coding-agent@0.75.5`      |
+| Tests       | Vitest                                        |
+| Build       | Vite + Rolldown                               |
 
 Pi session 必须通过 SDK 的 `SessionManager.listAll()`、`SessionManager.open()` 和 `getBranch()` 读取。不得由客户端解析 JSONL，也不得使用用户传入的文件路径直接打开文件。
 
@@ -117,18 +117,18 @@ In `pi-history` mode:
 
 The API returns normalized display items so the client does not depend on Pi SDK union types.
 
-| Pi content | Viewer behavior |
-|---|---|
-| User text | User bubble |
-| User image | Return base64 data from the API and render the image inline in the transcript |
-| Assistant text | Assistant bubble with provider/model metadata when available |
-| Assistant tool call | Compact collapsible tool item; collapsed by default and expandable on click |
-| Tool result | Compact collapsible tool result item; collapsed by default and expandable on click |
-| Bash execution | Compact command/output item |
-| Displayable custom message | Neutral notice item |
-| Hidden custom message or custom state | Omitted |
-| Thinking block | Omitted from the initial viewer |
-| Compaction or branch summary | Distinct summary notice when it is part of the active branch, visually different from normal bubbles |
+| Pi content                            | Viewer behavior                                                                                      |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| User text                             | User bubble                                                                                          |
+| User image                            | Return base64 data from the API and render the image inline in the transcript                        |
+| Assistant text                        | Assistant bubble with provider/model metadata when available                                         |
+| Assistant tool call                   | Compact collapsible tool item; collapsed by default and expandable on click                          |
+| Tool result                           | Compact collapsible tool result item; collapsed by default and expandable on click                   |
+| Bash execution                        | Compact command/output item                                                                          |
+| Displayable custom message            | Neutral notice item                                                                                  |
+| Hidden custom message or custom state | Omitted                                                                                              |
+| Thinking block                        | Omitted from the initial viewer                                                                      |
+| Compaction or branch summary          | Distinct summary notice when it is part of the active branch, visually different from normal bubbles |
 
 Large tool output must be bounded in the UI with collapsed overflow and explicit expand/collapse interaction; the full JSONL file must never be sent wholesale to the browser.
 
@@ -209,9 +209,7 @@ export type PiHistoryMessage =
     };
 
 export async function loadPiSessionById(sessionId: string) {
-  const match = (await SessionManager.listAll()).find(
-    (session) => session.id === sessionId
-  );
+  const match = (await SessionManager.listAll()).find((session) => session.id === sessionId);
   if (!match) return null;
 
   const manager = SessionManager.open(match.path);

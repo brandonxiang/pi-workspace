@@ -1,4 +1,13 @@
-import { Suspense, lazy, useCallback, type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  type ChangeEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Dropdown from "antd/es/dropdown";
 import Input from "antd/es/input";
 import Modal from "antd/es/modal";
@@ -17,7 +26,7 @@ import {
   readStoredLocale,
   type Locale,
   type TranslationKey,
-  type Translator
+  type Translator,
 } from "./i18n";
 import {
   appSlashCommands,
@@ -26,7 +35,7 @@ import {
   getSlashAutocompleteValue,
   isServerAppSlashCommand,
   parseSlashCommandInput,
-  shouldShowSlashSuggestions
+  shouldShowSlashSuggestions,
 } from "../shared/slash-commands.js";
 import type {
   AssistantMessage,
@@ -37,14 +46,14 @@ import type {
   PiSessionProject,
   PiSessionDetailResponse,
   StreamEvent,
-  UserMessage
+  UserMessage,
 } from "./types";
 import { PiSessionSection } from "./PiSessionSection";
 import { filterProjectsByArchiveState } from "./PiSessionSection";
 import {
   findProjectBySessionId,
   getNewestProjectSessionId,
-  resolveInitialPiSessionSelection
+  resolveInitialPiSessionSelection,
 } from "./pi-session-launch.js";
 import {
   buildHomeUrl,
@@ -53,20 +62,17 @@ import {
   parseAppRoute,
   resolvePanelMode,
   type AppRoute,
-  type PanelMode
+  type PanelMode,
 } from "./app-routing";
 import {
   applyPiSessionStreamingEvent,
   createPiSessionStreamingState,
-  flushPiSessionThinking
+  flushPiSessionThinking,
 } from "./pi-session-streaming";
-import {
-  groupPiHistoryMessages,
-  type PiHistoryTranscriptEntry
-} from "./pi-session-transcript";
+import { groupPiHistoryMessages, type PiHistoryTranscriptEntry } from "./pi-session-transcript";
 import {
   createPiSessionDetailCache,
-  getCachedPiSessionDetailForSelection
+  getCachedPiSessionDetailForSelection,
 } from "./pi-session-detail-cache";
 
 const MarkdownContent = lazy(() => import("./MarkdownContent"));
@@ -93,10 +99,20 @@ const modelPresets = [
     provider: "anthropic",
     model: "claude-3-5-haiku-20241022",
     label: "Claude 3.5 Haiku",
-    supportsImages: true
+    supportsImages: true,
   },
-  { provider: "google", model: "gemini-2.5-flash", label: "Gemini 2.5 Flash", supportsImages: true },
-  { provider: "mistral", model: "mistral-small-latest", label: "Mistral Small", supportsImages: false }
+  {
+    provider: "google",
+    model: "gemini-2.5-flash",
+    label: "Gemini 2.5 Flash",
+    supportsImages: true,
+  },
+  {
+    provider: "mistral",
+    model: "mistral-small-latest",
+    label: "Mistral Small",
+    supportsImages: false,
+  },
 ];
 
 type ModelOption = (typeof modelPresets)[number];
@@ -169,14 +185,14 @@ const bubbleRoles: BubbleListProps["role"] = {
         return <RenderMarkdown content={content} />;
       }
       return content;
-    }
+    },
   },
   user: {
     placement: "end",
     variant: "outlined",
     shape: "default",
-    className: "chat-bubble chat-bubble-user"
-  }
+    className: "chat-bubble chat-bubble-user",
+  },
 };
 
 const xTheme = {
@@ -184,8 +200,8 @@ const xTheme = {
     colorPrimary: "#0075de",
     borderRadius: 8,
     fontFamily:
-      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-  }
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+  },
 };
 
 function createSessionId() {
@@ -209,7 +225,7 @@ function createSession(title = "Untitled session", messages: ChatMessage[] = [])
     archived: false,
     createdAt: timestamp,
     updatedAt: timestamp,
-    messages
+    messages,
   };
 }
 
@@ -238,8 +254,8 @@ function readStoredSessions(locale: Locale): ChatSession[] {
       return [
         createSession(
           getSessionTitleFromMessages(legacyMessages, t("session.untitled")),
-          legacyMessages
-        )
+          legacyMessages,
+        ),
       ];
     }
   } catch {
@@ -267,12 +283,12 @@ function parseModelKey(modelKey: string) {
 
   return {
     provider: modelKey.slice(0, separatorIndex),
-    model: modelKey.slice(separatorIndex + 1)
+    model: modelKey.slice(separatorIndex + 1),
   };
 }
 
 function isSidebarToggleShortcut(
-  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">
+  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
 ) {
   return (
     event.key.toLowerCase() === SIDEBAR_SHORTCUT_KEY &&
@@ -283,7 +299,7 @@ function isSidebarToggleShortcut(
 }
 
 function isPanelModeShortcut(
-  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">
+  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
 ) {
   return (
     event.key === PANEL_MODE_SHORTCUT_KEY &&
@@ -297,9 +313,7 @@ function hasOpenDialog() {
   return Boolean(document.querySelector('[role="dialog"], .ant-modal-root'));
 }
 
-function isSteeringSubmitShortcut(
-  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey">
-) {
+function isSteeringSubmitShortcut(event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey">) {
   return event.key === "Enter" && (event.metaKey || event.ctrlKey);
 }
 
@@ -343,7 +357,7 @@ function UserMessageContent({ message }: { message: UserMessage }) {
 }
 
 function PiHistoryUserMessageContent({
-  message
+  message,
 }: {
   message: Extract<PiHistoryMessage, { role: "user" }>;
 }) {
@@ -366,7 +380,7 @@ function PiHistoryUserMessageContent({
 
 function PiToolMessageContent({
   t,
-  message
+  message,
 }: {
   t: Translator;
   message: Extract<PiHistoryMessage, { role: "tool" }>;
@@ -384,7 +398,7 @@ function PiToolMessageContent({
 
 function PiToolGroupContent({
   t,
-  messages
+  messages,
 }: {
   t: Translator;
   messages: Extract<PiHistoryTranscriptEntry, { role: "tool-group" }>["messages"];
@@ -392,7 +406,9 @@ function PiToolGroupContent({
   const hasError = messages.some((message) => message.isError);
 
   return (
-    <details className={hasError ? "pi-tool-group-card pi-tool-group-card-error" : "pi-tool-group-card"}>
+    <details
+      className={hasError ? "pi-tool-group-card pi-tool-group-card-error" : "pi-tool-group-card"}
+    >
       <summary>
         <span>{t("chat.toolHistory")}</span>
         <small>{t("chat.clickToExpand")}</small>
@@ -412,7 +428,7 @@ function PiToolGroupContent({
 }
 
 function PiSummaryMessageContent({
-  message
+  message,
 }: {
   message: Extract<PiHistoryMessage, { role: "summary" }>;
 }) {
@@ -425,7 +441,7 @@ function PiSummaryMessageContent({
 }
 
 function PiLocalResultContent({
-  message
+  message,
 }: {
   message: Extract<PiHistoryMessage, { role: "local_result" }>;
 }) {
@@ -447,7 +463,7 @@ function StreamingErrorContent({ message }: { message: string }) {
 function PiSteeringMessageContent({
   locale,
   message,
-  t
+  t,
 }: {
   locale: Locale;
   message: Extract<PiHistoryMessage, { role: "steering" }>;
@@ -457,7 +473,10 @@ function PiSteeringMessageContent({
     <div className="pi-steering-marker">
       <span className="pi-steering-marker-label">{t("chat.steering")}</span>
       <span className="pi-steering-marker-text">{message.content}</span>
-      <time className="pi-steering-marker-time" dateTime={new Date(message.timestamp).toISOString()}>
+      <time
+        className="pi-steering-marker-time"
+        dateTime={new Date(message.timestamp).toISOString()}
+      >
         {new Date(message.timestamp).toLocaleTimeString(locale)}
       </time>
     </div>
@@ -468,7 +487,7 @@ function createBubbleItem(
   message: ChatMessage,
   index: number,
   locale: Locale,
-  t: Translator
+  t: Translator,
 ): BubbleItemType {
   const isAssistant = message.role === "assistant";
 
@@ -485,7 +504,7 @@ function createBubbleItem(
             : new Date(message.timestamp).toLocaleTimeString(locale)
         }
       />
-    )
+    ),
   };
 }
 
@@ -493,14 +512,19 @@ function createPiHistoryBubbleItem(
   entry: PiHistoryTranscriptEntry,
   index: number,
   locale: Locale,
-  t: Translator
+  t: Translator,
 ): BubbleItemType {
   if (entry.role === "tool-group") {
     return {
       key: `${entry.role}-${entry.timestamp}-${index}`,
       role: "assistant",
       content: <PiToolGroupContent t={t} messages={entry.messages} />,
-      header: <MessageHeader label={t("chat.tool")} meta={t("chat.toolSummary", { count: entry.messages.length })} />
+      header: (
+        <MessageHeader
+          label={t("chat.tool")}
+          meta={t("chat.toolSummary", { count: entry.messages.length })}
+        />
+      ),
     };
   }
 
@@ -509,7 +533,7 @@ function createPiHistoryBubbleItem(
       key: `${entry.role}-${entry.timestamp}-${index}`,
       role: "user",
       content: <PiHistoryUserMessageContent message={entry} />,
-      header: <MessageHeader label={t("chat.piSession")} meta={t("chat.user")} />
+      header: <MessageHeader label={t("chat.piSession")} meta={t("chat.user")} />,
     };
   }
 
@@ -521,9 +545,11 @@ function createPiHistoryBubbleItem(
       header: (
         <MessageHeader
           label={t("chat.piSession")}
-          meta={entry.provider && entry.model ? `${entry.provider}/${entry.model}` : t("chat.assistant")}
+          meta={
+            entry.provider && entry.model ? `${entry.provider}/${entry.model}` : t("chat.assistant")
+          }
         />
-      )
+      ),
     };
   }
 
@@ -533,7 +559,7 @@ function createPiHistoryBubbleItem(
       role: "divider",
       content: <PiSteeringMessageContent locale={locale} message={entry} t={t} />,
       className: "chat-bubble-divider",
-      dividerProps: { plain: true }
+      dividerProps: { plain: true },
     };
   }
 
@@ -542,7 +568,7 @@ function createPiHistoryBubbleItem(
       key: `${entry.role}-${entry.timestamp}-${index}`,
       role: "assistant",
       content: <PiToolMessageContent t={t} message={entry} />,
-      header: <MessageHeader label={t("chat.tool")} meta={entry.toolName} />
+      header: <MessageHeader label={t("chat.tool")} meta={entry.toolName} />,
     };
   }
 
@@ -551,7 +577,7 @@ function createPiHistoryBubbleItem(
       key: `${entry.role}-${entry.timestamp}-${index}`,
       role: "assistant",
       content: <PiLocalResultContent message={entry} />,
-      header: <MessageHeader label={t("chat.localAction")} meta={entry.title} />
+      header: <MessageHeader label={t("chat.localAction")} meta={entry.title} />,
     };
   }
 
@@ -559,7 +585,7 @@ function createPiHistoryBubbleItem(
     key: `${entry.role}-${entry.timestamp}-${index}`,
     role: "assistant",
     content: <PiSummaryMessageContent message={entry} />,
-    header: <MessageHeader label={entry.title} meta={t("chat.piSessionSummary")} />
+    header: <MessageHeader label={entry.title} meta={t("chat.piSessionSummary")} />,
   };
 }
 
@@ -579,13 +605,11 @@ function readFileAsBase64(file: File) {
 function getSlashSuggestionItems(
   t: Translator,
   skills: Skill[],
-  info?: SlashSuggestionInfo
+  info?: SlashSuggestionInfo,
 ): SuggestionItem[] {
   const query = info?.query.toLowerCase() || "";
   const matchedCommands = findMatchingAppSlashCommands(query);
-  const matchedSkills = skills.filter((skill) =>
-    skill.name.toLowerCase().includes(query)
-  );
+  const matchedSkills = skills.filter((skill) => skill.name.toLowerCase().includes(query));
 
   return [
     ...matchedCommands.map((command) => ({
@@ -600,7 +624,7 @@ function getSlashSuggestionItems(
         <span className={`slash-command-source slash-command-badge-${command.source}`}>
           {command.source}
         </span>
-      )
+      ),
     })),
     ...matchedSkills.map((skill) => ({
       label: (
@@ -610,8 +634,8 @@ function getSlashSuggestionItems(
         </div>
       ),
       value: `/${skill.name}`,
-      extra: <span className="slash-command-source slash-command-badge-skill">skill</span>
-    }))
+      extra: <span className="slash-command-source slash-command-badge-skill">skill</span>,
+    })),
   ];
 }
 
@@ -680,9 +704,7 @@ async function readEventStream(response: Response, onEvent: (event: StreamEvent)
     buffer = chunks.pop() || "";
 
     for (const chunk of chunks) {
-      const line = chunk
-        .split("\n")
-        .find((item) => item.startsWith("data: "));
+      const line = chunk.split("\n").find((item) => item.startsWith("data: "));
       if (!line) continue;
       onEvent(JSON.parse(line.slice(6)) as StreamEvent);
     }
@@ -726,7 +748,7 @@ export default function App() {
     panelMode,
     systemPrompt,
     locale,
-    thinkingLevel: readStoredThinkingLevel()
+    thinkingLevel: readStoredThinkingLevel(),
   });
   const [renameDraft, setRenameDraft] = useState("");
   const [archivedPiSessionIds, setArchivedPiSessionIds] = useState<Set<string>>(() => {
@@ -754,7 +776,9 @@ export default function App() {
   const [piPendingMessages, setPiPendingMessages] = useState<PiHistoryMessage[]>([]);
   const [piSessionError, setPiSessionError] = useState<string | null>(null);
   const [piSessionLoading, setPiSessionLoading] = useState(false);
-  const [draftToolMessages, setDraftToolMessages] = useState<Map<string, { toolName: string; content: string; isError: boolean }>>(new Map());
+  const [draftToolMessages, setDraftToolMessages] = useState<
+    Map<string, { toolName: string; content: string; isError: boolean }>
+  >(new Map());
   const [queuedFollowUps, setQueuedFollowUps] = useState<QueuedComposerMessage[]>([]);
   const [launcherMode, setLauncherMode] = useState<LauncherMode>(null);
   const [newSessionQuery, setNewSessionQuery] = useState("");
@@ -771,10 +795,12 @@ export default function App() {
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [versionError, setVersionError] = useState<string | null>(null);
   const [versionNotice, setVersionNotice] = useState<string | null>(null);
-  const [versionUpgradeTarget, setVersionUpgradeTarget] =
-    useState<VersionUpgradeTarget | null>(null);
-  const [versionUpgradeRunning, setVersionUpgradeRunning] =
-    useState<VersionUpgradeTarget | null>(null);
+  const [versionUpgradeTarget, setVersionUpgradeTarget] = useState<VersionUpgradeTarget | null>(
+    null,
+  );
+  const [versionUpgradeRunning, setVersionUpgradeRunning] = useState<VersionUpgradeTarget | null>(
+    null,
+  );
 
   const didHydrateSelectionRef = useRef(false);
   const piSessionRequestIdRef = useRef(0);
@@ -804,25 +830,23 @@ export default function App() {
 
   const selectedModel = useMemo(() => parseModelKey(modelKey), [modelKey]);
   const selectedModelOption = useMemo(() => {
-    return modelOptions.find(
-      (option) => getModelKey(option.provider, option.model) === modelKey
-    );
+    return modelOptions.find((option) => getModelKey(option.provider, option.model) === modelKey);
   }, [modelKey, modelOptions]);
   const selectedModelSupportsImages = selectedModelOption?.supportsImages ?? false;
   const launcherWorkspaceName = getWorkspaceName(serverCwd);
   const filteredNewProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(newSessionQuery.trim().toLowerCase())
+    project.name.toLowerCase().includes(newSessionQuery.trim().toLowerCase()),
   );
   const filteredSelectableProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(selectSessionQuery.trim().toLowerCase())
+    project.name.toLowerCase().includes(selectSessionQuery.trim().toLowerCase()),
   );
   const visibleSidebarProjects = useMemo(
     () => filterProjectsByArchiveState(projects, archivedPiSessionIds, "visible"),
-    [projects, archivedPiSessionIds]
+    [projects, archivedPiSessionIds],
   );
   const archivedSettingsProjects = useMemo(
     () => filterProjectsByArchiveState(projects, archivedPiSessionIds, "archived"),
-    [projects, archivedPiSessionIds]
+    [projects, archivedPiSessionIds],
   );
   const isMacLikePlatform = useMemo(() => {
     if (typeof navigator === "undefined") return true;
@@ -832,7 +856,10 @@ export default function App() {
   const panelModeShortcutLabel = isMacLikePlatform ? "⌘'" : "Ctrl+'";
   const isSettingsPage = routeKind === "settings";
   const isAnyModalOpen =
-    isHotkeysOpen || renameTargetId !== null || launcherMode !== null || versionUpgradeTarget !== null;
+    isHotkeysOpen ||
+    renameTargetId !== null ||
+    launcherMode !== null ||
+    versionUpgradeTarget !== null;
 
   const loadVersions = useCallback(async () => {
     setVersionsLoading(true);
@@ -846,7 +873,7 @@ export default function App() {
     } catch (loadError) {
       setVersions(null);
       setVersionError(
-        loadError instanceof Error ? loadError.message : t("settings.versionCheckFailed")
+        loadError instanceof Error ? loadError.message : t("settings.versionCheckFailed"),
       );
     } finally {
       setVersionsLoading(false);
@@ -872,7 +899,7 @@ export default function App() {
       if (!actionToken) throw new Error(t("settings.versionPermissionMissing"));
       const response = await fetch(`/api/versions/${target}/upgrade`, {
         method: "POST",
-        headers: { "x-pi-workspace-action-token": actionToken }
+        headers: { "x-pi-workspace-action-token": actionToken },
       });
       const body = (await response.json()) as {
         error?: string;
@@ -881,12 +908,14 @@ export default function App() {
       };
       if (!response.ok) throw new Error(body.error || t("settings.upgradeFailed"));
       setVersionNotice(
-        body.restartRequired ? t("settings.restartPiWorkspace") : body.message || t("settings.upgradeComplete")
+        body.restartRequired
+          ? t("settings.restartPiWorkspace")
+          : body.message || t("settings.upgradeComplete"),
       );
       await loadVersions();
     } catch (upgradeError) {
       setVersionError(
-        upgradeError instanceof Error ? upgradeError.message : t("settings.upgradeFailed")
+        upgradeError instanceof Error ? upgradeError.message : t("settings.upgradeFailed"),
       );
     } finally {
       setVersionUpgradeRunning(null);
@@ -894,7 +923,7 @@ export default function App() {
   }
 
   function updateQueuedFollowUps(
-    updater: (current: QueuedComposerMessage[]) => QueuedComposerMessage[]
+    updater: (current: QueuedComposerMessage[]) => QueuedComposerMessage[],
   ) {
     if (!selectedPiSessionId) return;
 
@@ -939,7 +968,7 @@ export default function App() {
           <pre>{entry.content || "…"}</pre>
         </details>
       ),
-      header: <MessageHeader label={t("chat.tool")} meta={entry.toolName} />
+      header: <MessageHeader label={t("chat.tool")} meta={entry.toolName} />,
     }));
   }, [draftToolMessages, t]);
 
@@ -957,7 +986,7 @@ export default function App() {
       ),
       streaming: isStreaming,
       status: "updating" as const,
-      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.streaming")} />
+      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.streaming")} />,
     };
   }, [draftThinking, draftThinkingVisible, isStreaming, t]);
 
@@ -970,7 +999,7 @@ export default function App() {
       content: draftAssistant,
       streaming: isStreaming,
       status: "updating" as const,
-      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.streaming")} />
+      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.streaming")} />,
     };
   }, [draftAssistant, isStreaming, t]);
 
@@ -981,7 +1010,7 @@ export default function App() {
       key: "assistant-error",
       role: "assistant",
       content: <StreamingErrorContent message={draftError} />,
-      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.error")} />
+      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.error")} />,
     };
   }, [draftError, t]);
 
@@ -989,7 +1018,7 @@ export default function App() {
     const items = groupPiHistoryMessages([
       ...piHistoryMessages,
       ...piLocalMessages,
-      ...piPendingMessages
+      ...piPendingMessages,
     ]).map((entry, index) => createPiHistoryBubbleItem(entry, index, locale, t));
     if (
       !thinkingBubbleItem &&
@@ -1005,7 +1034,7 @@ export default function App() {
       ...draftToolBubbleItems,
       ...(thinkingBubbleItem ? [thinkingBubbleItem] : []),
       ...(streamingAssistantBubbleItem ? [streamingAssistantBubbleItem] : []),
-      ...(streamingErrorBubbleItem ? [streamingErrorBubbleItem] : [])
+      ...(streamingErrorBubbleItem ? [streamingErrorBubbleItem] : []),
     ];
   }, [
     draftToolBubbleItems,
@@ -1016,25 +1045,19 @@ export default function App() {
     streamingAssistantBubbleItem,
     streamingErrorBubbleItem,
     t,
-    thinkingBubbleItem
+    thinkingBubbleItem,
   ]);
 
   const userBubbleCount = useMemo(
     () => piHistoryBubbleItems.filter((item) => item.role === "user").length,
-    [piHistoryBubbleItems]
+    [piHistoryBubbleItems],
   );
 
   const userPreviews: string[] = useMemo(() => {
-    const allMessages = [
-      ...piHistoryMessages,
-      ...piLocalMessages,
-      ...piPendingMessages
-    ];
+    const allMessages = [...piHistoryMessages, ...piLocalMessages, ...piPendingMessages];
     return allMessages
       .filter((m): m is typeof m & { role: "user" } => m.role === "user")
-      .map((m) =>
-        m.content.length > 80 ? m.content.slice(0, 80) + "…" : m.content
-      );
+      .map((m) => (m.content.length > 80 ? m.content.slice(0, 80) + "…" : m.content));
   }, [piHistoryMessages, piLocalMessages, piPendingMessages]);
 
   const panelTitle = selectedPiSessionId
@@ -1156,15 +1179,18 @@ export default function App() {
     setScrollContainer(el);
   }, [messagesEl]);
 
-  const handleMinimapNavigate = useCallback((userIndex: number) => {
-    if (!scrollContainer) return;
-    const userBubbles = scrollContainer.querySelectorAll<HTMLElement>(
-      ".ant-bubble-list-scroll-content > .chat-bubble-user"
-    );
-    const target = userBubbles[userIndex];
-    if (!target) return;
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [scrollContainer]);
+  const handleMinimapNavigate = useCallback(
+    (userIndex: number) => {
+      if (!scrollContainer) return;
+      const userBubbles = scrollContainer.querySelectorAll<HTMLElement>(
+        ".ant-bubble-list-scroll-content > .chat-bubble-user",
+      );
+      const target = userBubbles[userIndex];
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    [scrollContainer],
+  );
 
   function fetchContextUsage(sessionId: string) {
     fetch(`/api/sessions/${encodeURIComponent(sessionId)}/context-usage`)
@@ -1186,14 +1212,14 @@ export default function App() {
       panelMode: nextPanelMode,
       systemPrompt,
       locale,
-      thinkingLevel: readStoredThinkingLevel()
+      thinkingLevel: readStoredThinkingLevel(),
     };
   }
 
   function buildUrlForState(
     nextRouteKind: AppRoute["kind"],
     view: ActivePanelView,
-    nextPanelMode: PanelMode
+    nextPanelMode: PanelMode,
   ) {
     if (nextRouteKind === "settings") {
       return buildSettingsUrl(nextPanelMode);
@@ -1208,7 +1234,7 @@ export default function App() {
     nextRouteKind: AppRoute["kind"],
     view: ActivePanelView,
     nextPanelMode: PanelMode,
-    historyMode: HistoryWriteMode
+    historyMode: HistoryWriteMode,
   ) {
     if (historyMode === "skip" || typeof window === "undefined") return;
 
@@ -1229,9 +1255,11 @@ export default function App() {
     writeRouteForState(routeKind, activePanelView, nextPanelMode, historyMode);
   }
 
-  function clearSelectedPiSession(
-    options?: { history?: HistoryWriteMode; routeKind?: AppRoute["kind"]; panelMode?: PanelMode }
-  ) {
+  function clearSelectedPiSession(options?: {
+    history?: HistoryWriteMode;
+    routeKind?: AppRoute["kind"];
+    panelMode?: PanelMode;
+  }) {
     const nextRouteKind = options?.routeKind ?? "home";
     const nextPanelMode = options?.panelMode ?? panelMode;
     piSessionRequestIdRef.current += 1;
@@ -1252,14 +1280,14 @@ export default function App() {
 
   async function selectPiSession(
     sessionId: string,
-    options?: { persist?: boolean; projectPath?: string | null; history?: HistoryWriteMode }
+    options?: { persist?: boolean; projectPath?: string | null; history?: HistoryWriteMode },
   ) {
     if (isStreaming) return;
 
     const cachedDetail = getCachedPiSessionDetailForSelection({
       currentDetail: piSessionDetail,
       cache: piSessionDetailCacheRef.current,
-      sessionId
+      sessionId,
     });
     const requestId = piSessionRequestIdRef.current + 1;
     piSessionRequestIdRef.current = requestId;
@@ -1273,7 +1301,12 @@ export default function App() {
     resetStreamingDraft();
     setPiPendingMessages([]);
     setContextUsage(null);
-    writeRouteForState("pi-session", { kind: "pi", sessionId }, panelMode, options?.history ?? "push");
+    writeRouteForState(
+      "pi-session",
+      { kind: "pi", sessionId },
+      panelMode,
+      options?.history ?? "push",
+    );
 
     if (options?.persist !== false) {
       const projectPath =
@@ -1314,7 +1347,7 @@ export default function App() {
         const route = parseAppRoute(
           typeof window !== "undefined"
             ? new URL(window.location.href)
-            : new URL("http://localhost/")
+            : new URL("http://localhost/"),
         );
         const storedSessionId = localStorage.getItem(ACTIVE_SESSION_KEY);
         const storedProjectPath = localStorage.getItem(ACTIVE_PI_PROJECT_KEY);
@@ -1322,7 +1355,7 @@ export default function App() {
           await selectPiSession(route.sessionId, {
             persist: true,
             projectPath: findProjectBySessionId(body.projects, route.sessionId)?.path ?? null,
-            history: "skip"
+            history: "skip",
           });
         } else if (route.kind === "settings") {
           setSettingsDraft(createSettingsDraftFromState());
@@ -1331,7 +1364,7 @@ export default function App() {
           const initialSelection = resolveInitialPiSessionSelection({
             storedSessionId,
             storedProjectPath,
-            projects: body.projects
+            projects: body.projects,
           });
 
           if (initialSelection.kind === "pi") {
@@ -1341,7 +1374,7 @@ export default function App() {
             await selectPiSession(initialSelection.sessionId, {
               persist: true,
               projectPath,
-              history: "skip"
+              history: "skip",
             });
           } else {
             clearSelectedPiSession({ history: "skip" });
@@ -1354,7 +1387,7 @@ export default function App() {
         didHydrateSelectionRef.current = true;
         clearSelectedPiSession({
           history: "skip",
-          routeKind: routeKind === "settings" ? "settings" : "home"
+          routeKind: routeKind === "settings" ? "settings" : "home",
         });
       }
     } finally {
@@ -1375,7 +1408,7 @@ export default function App() {
         setModelOptions(body.models);
         setModelKey((current) => {
           const currentExists = body.models?.some(
-            (option) => `${option.provider}:${option.model}` === current
+            (option) => `${option.provider}:${option.model}` === current,
           );
           return currentExists
             ? current
@@ -1422,7 +1455,7 @@ export default function App() {
       const route = parseAppRoute(new URL(window.location.href));
       const nextPanelMode = resolvePanelMode(
         route.panel,
-        localStorage.getItem(PANEL_MODE_STORAGE_KEY)
+        localStorage.getItem(PANEL_MODE_STORAGE_KEY),
       );
 
       if (isStreaming) {
@@ -1440,7 +1473,7 @@ export default function App() {
         void selectPiSession(route.sessionId, {
           persist: true,
           projectPath: findProjectBySessionId(projects, route.sessionId)?.path ?? null,
-          history: "skip"
+          history: "skip",
         });
         return;
       }
@@ -1450,7 +1483,7 @@ export default function App() {
         clearSelectedPiSession({
           history: "skip",
           routeKind: "settings",
-          panelMode: nextPanelMode
+          panelMode: nextPanelMode,
         });
         return;
       }
@@ -1498,7 +1531,9 @@ export default function App() {
     const piName =
       piSessionDetail && piSessionDetail.session.id === sessionId
         ? piSessionDetail.session.name
-        : findProjectBySessionId(projects, sessionId)?.sessions.find((session) => session.id === sessionId)?.name;
+        : findProjectBySessionId(projects, sessionId)?.sessions.find(
+            (session) => session.id === sessionId,
+          )?.name;
     setRenameTargetId(sessionId);
     setRenameDraft(piName || "");
   }
@@ -1521,7 +1556,7 @@ export default function App() {
     ) {
       setPiSessionDetail({
         ...piSessionDetail,
-        session: { ...piSessionDetail.session, name: newName }
+        session: { ...piSessionDetail.session, name: newName },
       });
     }
 
@@ -1529,7 +1564,7 @@ export default function App() {
       await fetch(`/api/sessions/${encodeURIComponent(targetId)}/name`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName })
+        body: JSON.stringify({ name: newName }),
       });
     } catch {
       // Keep optimistic UI update when rename persistence fails.
@@ -1565,7 +1600,7 @@ export default function App() {
       const response = await fetch("/api/pi-sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd: projectPath })
+        body: JSON.stringify({ cwd: projectPath }),
       });
       if (!response.ok) {
         const err = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -1607,7 +1642,7 @@ export default function App() {
       const response = await fetch("/api/resolve-workspace", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: folderName })
+        body: JSON.stringify({ name: folderName }),
       });
       const body = (await response.json()) as {
         found: boolean;
@@ -1672,12 +1707,12 @@ export default function App() {
       id: `local-user-${crypto.randomUUID()}`,
       role: "user",
       content,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   }
 
   function createLocalResultMessage(
-    result: LocalActionResult
+    result: LocalActionResult,
   ): Extract<PiHistoryMessage, { role: "local_result" }> {
     return {
       id: `local-result-${crypto.randomUUID()}`,
@@ -1685,30 +1720,26 @@ export default function App() {
       title: result.title,
       content: result.content,
       status: result.status,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   }
 
   function appendPiLocalTurn(
     userMessage: Extract<PiHistoryMessage, { role: "user" }>,
-    result: LocalActionResult
+    result: LocalActionResult,
   ) {
-    setPiLocalMessages((current) => [
-      ...current,
-      userMessage,
-      createLocalResultMessage(result)
-    ]);
+    setPiLocalMessages((current) => [...current, userMessage, createLocalResultMessage(result)]);
   }
 
   async function runClientSlashAction(
-    commandName: "settings" | "model" | "copy" | "hotkeys"
+    commandName: "settings" | "model" | "copy" | "hotkeys",
   ): Promise<LocalActionResult> {
     if (commandName === "settings") {
       openSettingsPage();
       return {
         title: "Settings",
         content: "Opened the Settings page.",
-        status: "success"
+        status: "success",
       };
     }
 
@@ -1717,7 +1748,7 @@ export default function App() {
       return {
         title: "Model",
         content: "Opened Settings. Update the model from the Settings page.",
-        status: "success"
+        status: "success",
       };
     }
 
@@ -1726,19 +1757,22 @@ export default function App() {
       return {
         title: "Keyboard shortcuts",
         content: "Opened the keyboard shortcuts help.",
-        status: "success"
+        status: "success",
       };
     }
 
     const latestAssistant = [...piHistoryMessages]
       .reverse()
-      .find((message): message is Extract<PiHistoryMessage, { role: "assistant" }> => message.role === "assistant");
+      .find(
+        (message): message is Extract<PiHistoryMessage, { role: "assistant" }> =>
+          message.role === "assistant",
+      );
 
     if (!latestAssistant?.content) {
       return {
         title: "Copy",
         content: "No assistant message is available to copy yet.",
-        status: "error"
+        status: "error",
       };
     }
 
@@ -1747,7 +1781,7 @@ export default function App() {
       return {
         title: "Copy",
         content: `Copied the last assistant message to the clipboard (${latestAssistant.content.length} characters).`,
-        status: "success"
+        status: "success",
       };
     } catch (error) {
       return {
@@ -1756,27 +1790,28 @@ export default function App() {
           error instanceof Error
             ? `Failed to copy the last assistant message: ${error.message}`
             : "Failed to copy the last assistant message.",
-        status: "error"
+        status: "error",
       };
     }
   }
 
   async function runServerSlashAction(
     action: "session" | "export" | "name" | "compact",
-    args: string
+    args: string,
   ): Promise<LocalActionResult> {
     const response = await fetch("/api/pi-local-actions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-pi-session-id": activePanelView.kind === "pi" ? activePanelView.sessionId : ""
+        "x-pi-session-id": activePanelView.kind === "pi" ? activePanelView.sessionId : "",
       },
-      body: JSON.stringify({ action, args })
+      body: JSON.stringify({ action, args }),
     });
 
-    const body = (await response.json().catch(() => null)) as
-      | { result?: LocalActionResult; error?: string }
-      | null;
+    const body = (await response.json().catch(() => null)) as {
+      result?: LocalActionResult;
+      error?: string;
+    } | null;
 
     if (!response.ok || !body?.result) {
       throw new Error(body?.error || `Request failed with ${response.status}`);
@@ -1794,7 +1829,9 @@ export default function App() {
 
     if (!response.ok) {
       throw new Error(
-        body && "error" in body && body.error ? body.error : `Request failed with ${response.status}`
+        body && "error" in body && body.error
+          ? body.error
+          : `Request failed with ${response.status}`,
       );
     }
 
@@ -1808,20 +1845,22 @@ export default function App() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-pi-session-id": activePanelView.sessionId
+        "x-pi-session-id": activePanelView.sessionId,
       },
       body: JSON.stringify({
         ...selectedModel,
         prompt: messageText,
         images: image
-          ? [{
-              name: image.name,
-              mimeType: image.mimeType,
-              size: image.size,
-              data: image.data
-            }]
-          : undefined
-      })
+          ? [
+              {
+                name: image.name,
+                mimeType: image.mimeType,
+                size: image.size,
+                data: image.data,
+              },
+            ]
+          : undefined,
+      }),
     });
 
     if (!response.ok) {
@@ -1846,8 +1885,8 @@ export default function App() {
         role: "user",
         content: userMessage.content,
         images: userMessage.images,
-        timestamp: userMessage.timestamp
-      }
+        timestamp: userMessage.timestamp,
+      },
     ]);
 
     setInput("");
@@ -1886,21 +1925,20 @@ export default function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-pi-session-id": sessionId
+          "x-pi-session-id": sessionId,
         },
         body: JSON.stringify({
           ...selectedModel,
           prompt: userMessage.content,
           thinkingLevel:
-            (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) ||
-            "high",
+            (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) || "high",
           images: userMessage.images?.map((image) => ({
             name: image.name,
             mimeType: image.mimeType,
             size: image.size,
-            data: image.data
-          }))
-        })
+            data: image.data,
+          })),
+        }),
       });
 
       if (!response.ok) {
@@ -1938,7 +1976,7 @@ export default function App() {
           content: fm.content,
           provider: fm.provider,
           model: fm.model,
-          timestamp: fm.timestamp
+          timestamp: fm.timestamp,
         };
 
         const pendingUserMsg: PiHistoryMessage = {
@@ -1946,28 +1984,30 @@ export default function App() {
           role: "user",
           content: userMessage.content,
           images: userMessage.images,
-          timestamp: userMessage.timestamp
+          timestamp: userMessage.timestamp,
         };
-        const toolBaseTimestamp = finalAssistantMsg.timestamp - streamState.completedToolMessages.length;
-        const toolMsgs: Extract<PiHistoryMessage, { role: "tool" }>[] = streamState.completedToolMessages.map(
-          (tool, index) =>
-            ({
-              id: `tool-${Date.now()}-${index}`,
-              role: "tool",
-              toolName: tool.toolName,
-              content: tool.content,
-              isError: tool.isError,
-              expandable: true,
-              timestamp: toolBaseTimestamp + index
-            }) as Extract<PiHistoryMessage, { role: "tool" }>
-        );
+        const toolBaseTimestamp =
+          finalAssistantMsg.timestamp - streamState.completedToolMessages.length;
+        const toolMsgs: Extract<PiHistoryMessage, { role: "tool" }>[] =
+          streamState.completedToolMessages.map(
+            (tool, index) =>
+              ({
+                id: `tool-${Date.now()}-${index}`,
+                role: "tool",
+                toolName: tool.toolName,
+                content: tool.content,
+                isError: tool.isError,
+                expandable: true,
+                timestamp: toolBaseTimestamp + index,
+              }) as Extract<PiHistoryMessage, { role: "tool" }>,
+          );
         setPiSessionDetail((current) =>
           current
             ? {
                 ...current,
                 session: {
                   ...current.session,
-                  modified: new Date(finalAssistantMsg.timestamp).toISOString()
+                  modified: new Date(finalAssistantMsg.timestamp).toISOString(),
                 },
                 messages: [
                   ...current.messages,
@@ -1979,11 +2019,11 @@ export default function App() {
                     content: finalAssistantMsg.content,
                     provider: finalAssistantMsg.provider,
                     model: finalAssistantMsg.model,
-                    timestamp: finalAssistantMsg.timestamp
-                  } as Extract<PiHistoryMessage, { role: "assistant" }>
-                ]
+                    timestamp: finalAssistantMsg.timestamp,
+                  } as Extract<PiHistoryMessage, { role: "assistant" }>,
+                ],
               }
-            : current
+            : current,
         );
         setPiPendingMessages([]);
       }
@@ -2024,11 +2064,8 @@ export default function App() {
     } catch (error) {
       appendPiLocalTurn(userMessage, {
         title: command.name,
-        content:
-          error instanceof Error
-            ? error.message
-            : "The local action failed unexpectedly.",
-        status: "error"
+        content: error instanceof Error ? error.message : "The local action failed unexpectedly.",
+        status: "error",
       });
       setIsStreaming(false);
       return true;
@@ -2043,10 +2080,10 @@ export default function App() {
               ...current,
               session: {
                 ...current.session,
-                name: result.updatedSessionName || current.session.name
-              }
+                name: result.updatedSessionName || current.session.name,
+              },
             }
-          : current
+          : current,
       );
     }
 
@@ -2058,7 +2095,7 @@ export default function App() {
           setError(
             error instanceof Error
               ? error.message
-              : "The command succeeded, but refreshing the project list failed."
+              : "The command succeeded, but refreshing the project list failed.",
           );
         }
       }
@@ -2071,7 +2108,7 @@ export default function App() {
           setError(
             error instanceof Error
               ? error.message
-              : "The session updated, but refreshing the latest history failed."
+              : "The session updated, but refreshing the latest history failed.",
           );
         }
       }
@@ -2097,8 +2134,8 @@ export default function App() {
             id: steeringId,
             role: "steering",
             content: steeringContent,
-            timestamp: Date.now()
-          }
+            timestamp: Date.now(),
+          },
         ]);
         setInput("");
         setSelectedImage(null);
@@ -2112,7 +2149,7 @@ export default function App() {
       queueFollowUpMessage({
         id: crypto.randomUUID(),
         content: trimmed || t("composer.defaultImagePrompt"),
-        image: selectedImage || undefined
+        image: selectedImage || undefined,
       });
       setInput("");
       setSelectedImage(null);
@@ -2133,7 +2170,7 @@ export default function App() {
       role: "user",
       content: trimmed || t("composer.defaultImagePrompt"),
       images: selectedImage ? [selectedImage] : undefined,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
     try {
       await runPiPrompt(userMessage);
@@ -2162,11 +2199,14 @@ export default function App() {
         role: "user",
         content: nextFollowUp.content,
         images: nextFollowUp.image ? [nextFollowUp.image] : undefined,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       followUpDrainRequestedRef.current = remainingFollowUps.length > 0;
     } catch {
-      writeStoredFollowUpsForSession(activePanelView.sessionId, [nextFollowUp, ...remainingFollowUps]);
+      writeStoredFollowUpsForSession(activePanelView.sessionId, [
+        nextFollowUp,
+        ...remainingFollowUps,
+      ]);
       setQueuedFollowUps([nextFollowUp, ...remainingFollowUps]);
       followUpDrainRequestedRef.current = false;
     } finally {
@@ -2175,7 +2215,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (activePanelView.kind !== "pi" || !piSessionDetail || isStreaming || queuedFollowUps.length === 0) {
+    if (
+      activePanelView.kind !== "pi" ||
+      !piSessionDetail ||
+      isStreaming ||
+      queuedFollowUps.length === 0
+    ) {
       return;
     }
 
@@ -2187,7 +2232,13 @@ export default function App() {
 
     followUpDrainAttemptedSessionRef.current = activePanelView.sessionId;
     void drainNextQueuedFollowUp();
-  }, [activePanelView, drainNextQueuedFollowUp, isStreaming, piSessionDetail, queuedFollowUps.length]);
+  }, [
+    activePanelView,
+    drainNextQueuedFollowUp,
+    isStreaming,
+    piSessionDetail,
+    queuedFollowUps.length,
+  ]);
 
   function handleSenderSubmit(messageText: string) {
     void submitMessage(messageText);
@@ -2222,7 +2273,7 @@ export default function App() {
         name: file.name,
         mimeType: file.type,
         size: file.size,
-        data
+        data,
       });
       setError(null);
     } catch {
@@ -2232,10 +2283,18 @@ export default function App() {
 
   const launcherActions = (
     <div className="launcher-actions">
-      <button className="settings-btn settings-btn-confirm" type="button" onClick={openNewSessionLauncher}>
+      <button
+        className="settings-btn settings-btn-confirm"
+        type="button"
+        onClick={openNewSessionLauncher}
+      >
         {t("launcher.newPiSession")}
       </button>
-      <button className="settings-btn settings-btn-cancel" type="button" onClick={openSelectSessionLauncher}>
+      <button
+        className="settings-btn settings-btn-cancel"
+        type="button"
+        onClick={openSelectSessionLauncher}
+      >
         {t("launcher.selectPiSession")}
       </button>
     </div>
@@ -2256,7 +2315,16 @@ export default function App() {
           title={t("settings.cancel")}
           onClick={handleSettingsCancel}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
@@ -2278,10 +2346,12 @@ export default function App() {
                       <span>{t("settings.language")}</span>
                       <Select
                         value={settingsDraft.locale}
-                        onChange={(value) => setSettingsDraft((prev) => ({ ...prev, locale: value as Locale }))}
+                        onChange={(value) =>
+                          setSettingsDraft((prev) => ({ ...prev, locale: value as Locale }))
+                        }
                         options={localeOptions.map((option) => ({
                           value: option.value,
-                          label: option.label
+                          label: option.label,
                         }))}
                       />
                       <small className="field-note">{t("settings.languageHelp")}</small>
@@ -2291,15 +2361,17 @@ export default function App() {
                       <span>{t("settings.panelMode")}</span>
                       <Select
                         value={settingsDraft.panelMode}
-                        onChange={(value) => setSettingsDraft((prev) => ({ ...prev, panelMode: value as PanelMode }))}
+                        onChange={(value) =>
+                          setSettingsDraft((prev) => ({ ...prev, panelMode: value as PanelMode }))
+                        }
                         options={[
                           { value: "chat", label: t("settings.chatMode") },
-                          { value: "terminal", label: t("settings.terminalMode") }
+                          { value: "terminal", label: t("settings.terminalMode") },
                         ]}
                       />
                     </label>
                   </div>
-                )
+                ),
               },
               {
                 key: "model",
@@ -2310,10 +2382,12 @@ export default function App() {
                       <span>{t("settings.model")}</span>
                       <Select
                         value={settingsDraft.modelKey}
-                        onChange={(value) => setSettingsDraft((prev) => ({ ...prev, modelKey: value }))}
+                        onChange={(value) =>
+                          setSettingsDraft((prev) => ({ ...prev, modelKey: value }))
+                        }
                         options={modelOptions.map((preset) => ({
                           value: getModelKey(preset.provider, preset.model),
-                          label: `${preset.label}${preset.supportsImages ? " · vision" : ""}`
+                          label: `${preset.label}${preset.supportsImages ? " · vision" : ""}`,
                         }))}
                       />
                     </label>
@@ -2322,14 +2396,19 @@ export default function App() {
                       <span>{t("settings.thinkingLevel")}</span>
                       <Select
                         value={settingsDraft.thinkingLevel}
-                        onChange={(value) => setSettingsDraft((prev) => ({ ...prev, thinkingLevel: value as ThinkingLevel }))}
+                        onChange={(value) =>
+                          setSettingsDraft((prev) => ({
+                            ...prev,
+                            thinkingLevel: value as ThinkingLevel,
+                          }))
+                        }
                         options={[
                           { value: "off", label: t("settings.thinkingOff") },
                           { value: "minimal", label: t("settings.thinkingMinimal") },
                           { value: "low", label: t("settings.thinkingLow") },
                           { value: "medium", label: t("settings.thinkingMedium") },
                           { value: "high", label: t("settings.thinkingHigh") },
-                          { value: "xhigh", label: t("settings.thinkingXhigh") }
+                          { value: "xhigh", label: t("settings.thinkingXhigh") },
                         ]}
                       />
                       <small className="field-note">{t("settings.thinkingLevelHelp")}</small>
@@ -2340,11 +2419,16 @@ export default function App() {
                       <textarea
                         value={settingsDraft.systemPrompt}
                         rows={7}
-                        onChange={(event) => setSettingsDraft((prev) => ({ ...prev, systemPrompt: event.target.value }))}
+                        onChange={(event) =>
+                          setSettingsDraft((prev) => ({
+                            ...prev,
+                            systemPrompt: event.target.value,
+                          }))
+                        }
                       />
                     </label>
                   </div>
-                )
+                ),
               },
               {
                 key: "archived-chat",
@@ -2352,10 +2436,14 @@ export default function App() {
                 children: (
                   <div className="settings-tab-content settings-archived-tab">
                     <div className="settings-archived-header">
-                      <span className="settings-archived-title">{t("settings.archivedChatTitle")}</span>
+                      <span className="settings-archived-title">
+                        {t("settings.archivedChatTitle")}
+                      </span>
                     </div>
                     {archivedSettingsProjects.length === 0 ? (
-                      <div className="settings-archived-empty">{t("settings.archivedChatEmpty")}</div>
+                      <div className="settings-archived-empty">
+                        {t("settings.archivedChatEmpty")}
+                      </div>
                     ) : (
                       <div className="settings-archived-groups">
                         {archivedSettingsProjects.map((project) => (
@@ -2387,7 +2475,7 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                )
+                ),
               },
               {
                 key: "version",
@@ -2405,35 +2493,51 @@ export default function App() {
                         disabled={versionsLoading || versionUpgradeRunning !== null}
                         onClick={() => void loadVersions()}
                       >
-                        {versionsLoading ? t("settings.checkingVersions") : t("settings.recheckVersions")}
+                        {versionsLoading
+                          ? t("settings.checkingVersions")
+                          : t("settings.recheckVersions")}
                       </button>
                     </div>
 
-                    {versionError ? <div className="error-banner" role="alert">{versionError}</div> : null}
-                    {versionNotice ? <div className="settings-version-notice" role="status">{versionNotice}</div> : null}
+                    {versionError ? (
+                      <div className="error-banner" role="alert">
+                        {versionError}
+                      </div>
+                    ) : null}
+                    {versionNotice ? (
+                      <div className="settings-version-notice" role="status">
+                        {versionNotice}
+                      </div>
+                    ) : null}
 
                     <div className="settings-version-list">
-                      {([
-                        ["pi", t("settings.piCli"), versions?.pi, t("settings.upgradePi")],
+                      {(
                         [
-                          "pi-workspace",
-                          "pi-workspace",
-                          versions?.piWorkspace,
-                          t("settings.upgradePiWorkspace")
-                        ]
-                      ] as const).map(([target, label, status, buttonLabel]) => (
+                          ["pi", t("settings.piCli"), versions?.pi, t("settings.upgradePi")],
+                          [
+                            "pi-workspace",
+                            "pi-workspace",
+                            versions?.piWorkspace,
+                            t("settings.upgradePiWorkspace"),
+                          ],
+                        ] as const
+                      ).map(([target, label, status, buttonLabel]) => (
                         <section className="settings-version-item" key={target}>
                           <div className="settings-version-copy">
                             <div className="settings-version-component">{label}</div>
                             <div className="settings-version-numbers">
                               <span>
-                                {t("settings.currentVersion")}: <strong>{status?.currentVersion || "—"}</strong>
+                                {t("settings.currentVersion")}:{" "}
+                                <strong>{status?.currentVersion || "—"}</strong>
                               </span>
                               <span>
-                                {t("settings.latestVersion")}: <strong>{status?.latestVersion || "—"}</strong>
+                                {t("settings.latestVersion")}:{" "}
+                                <strong>{status?.latestVersion || "—"}</strong>
                               </span>
                             </div>
-                            <div className={`settings-version-status settings-version-status-${status?.error ? "error" : status?.updateAvailable ? "available" : "current"}`}>
+                            <div
+                              className={`settings-version-status settings-version-status-${status?.error ? "error" : status?.updateAvailable ? "available" : "current"}`}
+                            >
                               {versionsLoading && !status
                                 ? t("settings.checkingVersions")
                                 : status?.error ||
@@ -2454,20 +2558,26 @@ export default function App() {
                             }
                             onClick={() => setVersionUpgradeTarget(target)}
                           >
-                            {versionUpgradeRunning === target ? t("settings.upgrading") : buttonLabel}
+                            {versionUpgradeRunning === target
+                              ? t("settings.upgrading")
+                              : buttonLabel}
                           </button>
                         </section>
                       ))}
                     </div>
                   </div>
-                )
-              }
+                ),
+              },
             ]}
           />
         </div>
       </div>
       <div className="settings-footer settings-page-footer">
-        <button className="settings-btn settings-btn-cancel" type="button" onClick={handleSettingsCancel}>
+        <button
+          className="settings-btn settings-btn-cancel"
+          type="button"
+          onClick={handleSettingsCancel}
+        >
           {t("settings.cancel")}
         </button>
         <button
@@ -2485,381 +2595,476 @@ export default function App() {
   return (
     <XProvider theme={xTheme}>
       {isSettingsPage ? (
-        <main className="settings-page-shell">
-          {settingsPageContent}
-        </main>
+        <main className="settings-page-shell">{settingsPageContent}</main>
       ) : (
-      <main className={`app-shell${sidebarCollapsed ? " app-shell-collapsed" : ""}`}>
-        <aside className="sidebar">
-          <div className="sidebar-inner">
-            <div className="sidebar-top-row">
-              <div className="sidebar-brand-icon">
-                <svg width="28" height="28" viewBox="0 0 128 128" fill="none">
-                  <rect x="8" y="8" width="112" height="112" rx="22" fill="var(--canvas)" stroke="var(--sidebar-border)" strokeWidth="3" />
-                  <g transform="translate(64, 44)">
-                    <line x1="-30" y1="0" x2="30" y2="0" stroke="var(--primary)" strokeWidth="10" strokeLinecap="round" />
-                    <line x1="-18" y1="0" x2="-18" y2="34" stroke="var(--primary)" strokeWidth="10" strokeLinecap="round" />
-                    <line x1="18" y1="0" x2="18" y2="34" stroke="var(--primary)" strokeWidth="10" strokeLinecap="round" />
-                  </g>
-                </svg>
-              </div>
-              <div className="sidebar-actions">
-                <button
-                  className="icon-button"
-                  disabled={isStreaming}
-                  type="button"
-                  title={t("sidebar.newPiSession")}
-                  onClick={openNewSessionLauncher}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
+        <main className={`app-shell${sidebarCollapsed ? " app-shell-collapsed" : ""}`}>
+          <aside className="sidebar">
+            <div className="sidebar-inner">
+              <div className="sidebar-top-row">
+                <div className="sidebar-brand-icon">
+                  <svg width="28" height="28" viewBox="0 0 128 128" fill="none">
+                    <rect
+                      x="8"
+                      y="8"
+                      width="112"
+                      height="112"
+                      rx="22"
+                      fill="var(--canvas)"
+                      stroke="var(--sidebar-border)"
+                      strokeWidth="3"
+                    />
+                    <g transform="translate(64, 44)">
+                      <line
+                        x1="-30"
+                        y1="0"
+                        x2="30"
+                        y2="0"
+                        stroke="var(--primary)"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1="-18"
+                        y1="0"
+                        x2="-18"
+                        y2="34"
+                        stroke="var(--primary)"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1="18"
+                        y1="0"
+                        x2="18"
+                        y2="34"
+                        stroke="var(--primary)"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                      />
+                    </g>
                   </svg>
-                </button>
-                <button
-                  className="icon-button"
-                  type="button"
-                  title={t("hotkeys.open")}
-                  onClick={openHotkeysModal}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="5" width="18" height="14" rx="2" />
-                    <path d="M7 9h.01" />
-                    <path d="M11 9h2" />
-                    <path d="M7 13h10" />
-                  </svg>
-                </button>
-                <button
-                  className="icon-button"
-                  type="button"
-                  title={t("settings.title")}
-                  onClick={openSettingsPage}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                  </svg>
-                </button>
-                <button
-                  className="sidebar-collapse-btn"
-                  type="button"
-                  onClick={() => setSidebarCollapsed(true)}
-                  title={`${t("sidebar.collapse")} (${sidebarShortcutLabel})`}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="15 18 9 12 15 6" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <PiSessionSection
-              error={projectsError}
-              isStreaming={isStreaming}
-              locale={locale}
-              loading={projectsLoading}
-              onCreateSessionInProject={(projectPath) => {
-                void createPiSessionInProject(projectPath);
-              }}
-              projects={visibleSidebarProjects}
-              selectedSessionId={selectedPiSessionId}
-              onSelectSession={(sessionId) => {
-                void selectPiSession(sessionId);
-              }}
-              onRename={openRenameModal}
-              archivedSessionIds={archivedPiSessionIds}
-              onArchive={archivePiSession}
-              onRestore={restorePiSession}
-            />
-          </div>
-        </aside>
-
-        {sidebarCollapsed && (
-          <button
-            className="sidebar-expand-btn"
-            type="button"
-            onClick={() => setSidebarCollapsed(false)}
-            title={`${t("sidebar.expand")} (${sidebarShortcutLabel})`}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        )}
-
-        {panelMode === "terminal" ? (
-          <section ref={chatPanelRef} className="chat-panel" aria-label={t("panel.terminal")} tabIndex={-1}>
-            <header className="chat-header">
-              <div className="chat-header-copy">
-                <span className="chat-header-title">{t("panel.terminal")}</span>
-                <small className="chat-header-meta" title={terminalCwd}>
-                  {terminalCwd}
-                </small>
-              </div>
-            </header>
-            {activePanelView.kind === "empty" ? (
-              <div className="messages messages-empty">
-                <div className="empty-state">
-                  <h3>{t("launcher.title", { workspace: launcherWorkspaceName })}</h3>
-                  <p>{t("launcher.body")}</p>
-                  {launcherActions}
                 </div>
-              </div>
-            ) : activePanelView.kind === "pi" && !piSessionDetail ? (
-              <div className="messages messages-empty">
-                <div className="empty-state">
-                  <h3>{t("panel.loadingTerminalTitle")}</h3>
-                  <p>{t("panel.loadingTerminalBody")}</p>
-                </div>
-              </div>
-            ) : (
-              <Suspense
-                fallback={
-                  <div className="messages messages-empty">
-                    <div className="empty-state">
-                      <h3>{t("panel.loadingTerminalTitle")}</h3>
-                    </div>
-                  </div>
-                }
-              >
-                <TerminalPanel
-                  cwd={terminalCwd}
-                  initialCommand={terminalInitialCommand}
-                  locale={locale}
-                  sessionId={selectedPiSessionId ?? undefined}
-                />
-              </Suspense>
-            )}
-          </section>
-        ) : (
-          <section ref={chatPanelRef} className="chat-panel" aria-label={t("chat.agentDialogue")} tabIndex={-1}>
-            <header className="chat-header">
-              <div className="chat-header-copy">
-                <span className="chat-header-title" title={panelTitle}>
-                  {panelTitle}
-                </span>
-                {panelMeta ? (
-                  <small className="chat-header-meta" title={panelMeta}>
-                    {panelMeta}
-                  </small>
-                ) : null}
-              </div>
-              {piSessionDetail ? (
-                <button
-                  className="chat-header-action-btn"
-                  type="button"
-                  title={t("panel.openEditor")}
-                  onClick={() => {
-                    const cwd = piSessionDetail?.session.cwd;
-                    if (cwd) window.open(`vscode://file/${encodeURIComponent(cwd)}`);
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="16 18 22 12 16 6" />
-                    <polyline points="8 6 2 12 8 18" />
-                  </svg>
-                </button>
-              ) : null}
-            </header>
-
-            {activePanelView.kind === "empty" ? (
-              <div className="messages messages-empty">
-                <div className="empty-state">
-                  <h3>{t("launcher.title", { workspace: launcherWorkspaceName })}</h3>
-                  <p>{t("launcher.body")}</p>
-                  {launcherActions}
-                  {projectsError ? <div className="error-banner">{projectsError}</div> : null}
-                </div>
-              </div>
-            ) : piSessionError && !piSessionDetail ? (
-              <div className="messages messages-empty">
-                <div className="error-banner">
-                  <p>{piSessionError}</p>
+                <div className="sidebar-actions">
                   <button
-                    className="inline-action-button"
+                    className="icon-button"
+                    disabled={isStreaming}
                     type="button"
-                    onClick={() => {
-                      void selectPiSession(activePanelView.sessionId);
-                    }}
+                    title={t("sidebar.newPiSession")}
+                    onClick={openNewSessionLauncher}
                   >
-                    {t("panel.retry")}
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    title={t("hotkeys.open")}
+                    onClick={openHotkeysModal}
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="M7 9h.01" />
+                      <path d="M11 9h2" />
+                      <path d="M7 13h10" />
+                    </svg>
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    title={t("settings.title")}
+                    onClick={openSettingsPage}
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                  </button>
+                  <button
+                    className="sidebar-collapse-btn"
+                    type="button"
+                    onClick={() => setSidebarCollapsed(true)}
+                    title={`${t("sidebar.collapse")} (${sidebarShortcutLabel})`}
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
                   </button>
                 </div>
               </div>
-            ) : !piSessionDetail ? (
-              <div
-                className="messages messages-empty"
-                aria-busy={piSessionLoading}
-              />
-            ) : piHistoryBubbleItems.length === 0 ? (
-              <div className="messages messages-empty">
-                <div className="empty-state">
-                  <h3>{t("session.newPiTitle")}</h3>
-                  <p>{t("session.newPiBody")}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="messages" ref={setMessagesEl}>
-                <Bubble.List
-                  autoScroll
-                  className="chat-bubble-list"
-                  items={piHistoryBubbleItems}
-                  role={bubbleRoles}
-                />
-                {userBubbleCount >= 2 && (
-                  <Minimap
-                    userCount={userBubbleCount}
-                    userPreviews={userPreviews}
-                    scrollContainer={scrollContainer}
-                    onNavigate={handleMinimapNavigate}
-                  />
-                )}
-                {piSessionError && piSessionDetail ? (
-                  <div className="error-banner">{piSessionError}</div>
-                ) : null}
-                {error && !draftError ? <div className="error-banner">{error}</div> : null}
-              </div>
-            )}
 
-            {activePanelView.kind === "pi" && contextUsage && contextUsage.tokens !== null && contextUsage.contextWindow > 0 ? (
-              <div className="context-usage-bar">
-                <span className="context-usage-label">
-                  {t("composer.contextUsage", {
-                    used: contextUsage.tokens.toLocaleString(),
-                    total: contextUsage.contextWindow.toLocaleString()
-                  })}
-                </span>
-                <div className="context-usage-track">
-                  <div
-                    className={
-                      `context-usage-fill${
+              <PiSessionSection
+                error={projectsError}
+                isStreaming={isStreaming}
+                locale={locale}
+                loading={projectsLoading}
+                onCreateSessionInProject={(projectPath) => {
+                  void createPiSessionInProject(projectPath);
+                }}
+                projects={visibleSidebarProjects}
+                selectedSessionId={selectedPiSessionId}
+                onSelectSession={(sessionId) => {
+                  void selectPiSession(sessionId);
+                }}
+                onRename={openRenameModal}
+                archivedSessionIds={archivedPiSessionIds}
+                onArchive={archivePiSession}
+                onRestore={restorePiSession}
+              />
+            </div>
+          </aside>
+
+          {sidebarCollapsed && (
+            <button
+              className="sidebar-expand-btn"
+              type="button"
+              onClick={() => setSidebarCollapsed(false)}
+              title={`${t("sidebar.expand")} (${sidebarShortcutLabel})`}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
+
+          {panelMode === "terminal" ? (
+            <section
+              ref={chatPanelRef}
+              className="chat-panel"
+              aria-label={t("panel.terminal")}
+              tabIndex={-1}
+            >
+              <header className="chat-header">
+                <div className="chat-header-copy">
+                  <span className="chat-header-title">{t("panel.terminal")}</span>
+                  <small className="chat-header-meta" title={terminalCwd}>
+                    {terminalCwd}
+                  </small>
+                </div>
+              </header>
+              {activePanelView.kind === "empty" ? (
+                <div className="messages messages-empty">
+                  <div className="empty-state">
+                    <h3>{t("launcher.title", { workspace: launcherWorkspaceName })}</h3>
+                    <p>{t("launcher.body")}</p>
+                    {launcherActions}
+                  </div>
+                </div>
+              ) : activePanelView.kind === "pi" && !piSessionDetail ? (
+                <div className="messages messages-empty">
+                  <div className="empty-state">
+                    <h3>{t("panel.loadingTerminalTitle")}</h3>
+                    <p>{t("panel.loadingTerminalBody")}</p>
+                  </div>
+                </div>
+              ) : (
+                <Suspense
+                  fallback={
+                    <div className="messages messages-empty">
+                      <div className="empty-state">
+                        <h3>{t("panel.loadingTerminalTitle")}</h3>
+                      </div>
+                    </div>
+                  }
+                >
+                  <TerminalPanel
+                    cwd={terminalCwd}
+                    initialCommand={terminalInitialCommand}
+                    locale={locale}
+                    sessionId={selectedPiSessionId ?? undefined}
+                  />
+                </Suspense>
+              )}
+            </section>
+          ) : (
+            <section
+              ref={chatPanelRef}
+              className="chat-panel"
+              aria-label={t("chat.agentDialogue")}
+              tabIndex={-1}
+            >
+              <header className="chat-header">
+                <div className="chat-header-copy">
+                  <span className="chat-header-title" title={panelTitle}>
+                    {panelTitle}
+                  </span>
+                  {panelMeta ? (
+                    <small className="chat-header-meta" title={panelMeta}>
+                      {panelMeta}
+                    </small>
+                  ) : null}
+                </div>
+                {piSessionDetail ? (
+                  <button
+                    className="chat-header-action-btn"
+                    type="button"
+                    title={t("panel.openEditor")}
+                    onClick={() => {
+                      const cwd = piSessionDetail?.session.cwd;
+                      if (cwd) window.open(`vscode://file/${encodeURIComponent(cwd)}`);
+                    }}
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="16 18 22 12 16 6" />
+                      <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                  </button>
+                ) : null}
+              </header>
+
+              {activePanelView.kind === "empty" ? (
+                <div className="messages messages-empty">
+                  <div className="empty-state">
+                    <h3>{t("launcher.title", { workspace: launcherWorkspaceName })}</h3>
+                    <p>{t("launcher.body")}</p>
+                    {launcherActions}
+                    {projectsError ? <div className="error-banner">{projectsError}</div> : null}
+                  </div>
+                </div>
+              ) : piSessionError && !piSessionDetail ? (
+                <div className="messages messages-empty">
+                  <div className="error-banner">
+                    <p>{piSessionError}</p>
+                    <button
+                      className="inline-action-button"
+                      type="button"
+                      onClick={() => {
+                        void selectPiSession(activePanelView.sessionId);
+                      }}
+                    >
+                      {t("panel.retry")}
+                    </button>
+                  </div>
+                </div>
+              ) : !piSessionDetail ? (
+                <div className="messages messages-empty" aria-busy={piSessionLoading} />
+              ) : piHistoryBubbleItems.length === 0 ? (
+                <div className="messages messages-empty">
+                  <div className="empty-state">
+                    <h3>{t("session.newPiTitle")}</h3>
+                    <p>{t("session.newPiBody")}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="messages" ref={setMessagesEl}>
+                  <Bubble.List
+                    autoScroll
+                    className="chat-bubble-list"
+                    items={piHistoryBubbleItems}
+                    role={bubbleRoles}
+                  />
+                  {userBubbleCount >= 2 && (
+                    <Minimap
+                      userCount={userBubbleCount}
+                      userPreviews={userPreviews}
+                      scrollContainer={scrollContainer}
+                      onNavigate={handleMinimapNavigate}
+                    />
+                  )}
+                  {piSessionError && piSessionDetail ? (
+                    <div className="error-banner">{piSessionError}</div>
+                  ) : null}
+                  {error && !draftError ? <div className="error-banner">{error}</div> : null}
+                </div>
+              )}
+
+              {activePanelView.kind === "pi" &&
+              contextUsage &&
+              contextUsage.tokens !== null &&
+              contextUsage.contextWindow > 0 ? (
+                <div className="context-usage-bar">
+                  <span className="context-usage-label">
+                    {t("composer.contextUsage", {
+                      used: contextUsage.tokens.toLocaleString(),
+                      total: contextUsage.contextWindow.toLocaleString(),
+                    })}
+                  </span>
+                  <div className="context-usage-track">
+                    <div
+                      className={`context-usage-fill${
                         contextUsage.percent !== null && contextUsage.percent >= 80
                           ? " context-usage-fill-high"
                           : contextUsage.percent !== null && contextUsage.percent >= 50
                             ? " context-usage-fill-mid"
                             : ""
-                      }`
-                    }
-                    style={{ width: `${Math.min(contextUsage.percent ?? 0, 100)}%` }}
-                  />
+                      }`}
+                      style={{ width: `${Math.min(contextUsage.percent ?? 0, 100)}%` }}
+                    />
+                  </div>
+                  <span className="context-usage-percent">
+                    {contextUsage.percent !== null
+                      ? t("composer.contextPercent", { percent: Math.round(contextUsage.percent) })
+                      : null}
+                  </span>
                 </div>
-                <span className="context-usage-percent">
-                  {contextUsage.percent !== null
-                    ? t("composer.contextPercent", { percent: Math.round(contextUsage.percent) })
-                    : null}
-                </span>
-              </div>
-            ) : activePanelView.kind === "pi" && piSessionDetail ? (
-              <div className="context-usage-bar">
-                <span className="context-usage-label">{t("composer.contextNotAvailable")}</span>
-              </div>
-            ) : null}
+              ) : activePanelView.kind === "pi" && piSessionDetail ? (
+                <div className="context-usage-bar">
+                  <span className="context-usage-label">{t("composer.contextNotAvailable")}</span>
+                </div>
+              ) : null}
 
-            {activePanelView.kind === "pi" ? (
-              <div className="composer">
-                {queuedFollowUps.length > 0 ? (
-                  <div className="composer-queue-header">
-                    <div className="composer-queue-title">{t("composer.followingUp")}</div>
-                    <div className="composer-queue-list">
-                      {queuedFollowUps.map((item) => (
-                        <div className="composer-queue-item" key={item.id}>
-                          <span>{item.content}</span>
-                          <button
-                            type="button"
-                            aria-label={`Remove queued follow-up: ${item.content}`}
-                            onClick={() => removeQueuedFollowUp(item.id)}
-                          >
-                            {t("composer.remove")}
-                          </button>
-                        </div>
-                      ))}
+              {activePanelView.kind === "pi" ? (
+                <div className="composer">
+                  {queuedFollowUps.length > 0 ? (
+                    <div className="composer-queue-header">
+                      <div className="composer-queue-title">{t("composer.followingUp")}</div>
+                      <div className="composer-queue-list">
+                        {queuedFollowUps.map((item) => (
+                          <div className="composer-queue-item" key={item.id}>
+                            <span>{item.content}</span>
+                            <button
+                              type="button"
+                              aria-label={`Remove queued follow-up: ${item.content}`}
+                              onClick={() => removeQueuedFollowUp(item.id)}
+                            >
+                              {t("composer.remove")}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-                {selectedImage ? (
-                  <div className="attachment-preview">
-                    <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
-                    <div>
-                      <strong>{selectedImage.name}</strong>
-                      <span>{t("composer.attachmentMeta", { size: Math.ceil(selectedImage.size / 1024) })}</span>
+                  ) : null}
+                  {selectedImage ? (
+                    <div className="attachment-preview">
+                      <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
+                      <div>
+                        <strong>{selectedImage.name}</strong>
+                        <span>
+                          {t("composer.attachmentMeta", {
+                            size: Math.ceil(selectedImage.size / 1024),
+                          })}
+                        </span>
+                      </div>
+                      <button type="button" onClick={() => setSelectedImage(null)}>
+                        {t("composer.remove")}
+                      </button>
                     </div>
-                    <button type="button" onClick={() => setSelectedImage(null)}>
-                      {t("composer.remove")}
-                    </button>
-                  </div>
-                ) : null}
-                <input
-                  className="composer-upload-input"
-                  accept={supportedImageMimeTypes.join(",")}
-                  onChange={handleImageChange}
-                  type="file"
-                />
-                <Suggestion<SlashSuggestionInfo>
-                  block
-                  className="slash-command-suggestion"
-                  items={(info) => getSlashSuggestionItems(t, skills, info)}
-                  onSelect={handleSlashSelect}
-                >
-                  {({ onKeyDown, onTrigger }) => (
-                    <Sender
-                      autoSize={{ minRows: 2, maxRows: 8 }}
-                      className="chat-sender"
-                      disabled={piSessionLoading || Boolean(piSessionError)}
-                      loading={false}
-                      onChange={(value) => {
-                        setInput(value);
-                        onTrigger(
-                          shouldShowSlashSuggestions(value)
-                            ? { query: value.slice(1) }
-                            : false
-                        );
-                      }}
-                      onKeyDown={(event) => {
-                        if (isSidebarToggleShortcut(event)) {
-                          return;
-                        }
-
-                        if (isPanelModeShortcut(event)) {
-                          return;
-                        }
-
-                        if (isSteeringSubmitShortcut(event)) {
-                          event.preventDefault();
-                          void submitMessage(input, "steering");
-                          onTrigger(false);
-                          return;
-                        }
-
-                        event.stopPropagation();
-
-                        if (!event.shiftKey && event.key === "Tab") {
-                          const autocompleteValue = getSlashAutocompleteValue(
-                            input,
-                            skills.map((skill) => skill.name)
+                  ) : null}
+                  <input
+                    className="composer-upload-input"
+                    accept={supportedImageMimeTypes.join(",")}
+                    onChange={handleImageChange}
+                    type="file"
+                  />
+                  <Suggestion<SlashSuggestionInfo>
+                    block
+                    className="slash-command-suggestion"
+                    items={(info) => getSlashSuggestionItems(t, skills, info)}
+                    onSelect={handleSlashSelect}
+                  >
+                    {({ onKeyDown, onTrigger }) => (
+                      <Sender
+                        autoSize={{ minRows: 2, maxRows: 8 }}
+                        className="chat-sender"
+                        disabled={piSessionLoading || Boolean(piSessionError)}
+                        loading={false}
+                        onChange={(value) => {
+                          setInput(value);
+                          onTrigger(
+                            shouldShowSlashSuggestions(value) ? { query: value.slice(1) } : false,
                           );
+                        }}
+                        onKeyDown={(event) => {
+                          if (isSidebarToggleShortcut(event)) {
+                            return;
+                          }
 
-                          if (autocompleteValue) {
+                          if (isPanelModeShortcut(event)) {
+                            return;
+                          }
+
+                          if (isSteeringSubmitShortcut(event)) {
                             event.preventDefault();
-                            handleSlashSelect(autocompleteValue);
+                            void submitMessage(input, "steering");
                             onTrigger(false);
                             return;
                           }
-                        }
 
-                        onKeyDown(event);
-                      }}
-                      onSubmit={handleSenderSubmit}
-                      placeholder={t("composer.continuePiSession")}
-                      submitType="enter"
-                      value={input}
-                    />
-                  )}
-                </Suggestion>
-              </div>
-            ) : null}
-          </section>
-        )}
-      </main>
+                          event.stopPropagation();
+
+                          if (!event.shiftKey && event.key === "Tab") {
+                            const autocompleteValue = getSlashAutocompleteValue(
+                              input,
+                              skills.map((skill) => skill.name),
+                            );
+
+                            if (autocompleteValue) {
+                              event.preventDefault();
+                              handleSlashSelect(autocompleteValue);
+                              onTrigger(false);
+                              return;
+                            }
+                          }
+
+                          onKeyDown(event);
+                        }}
+                        onSubmit={handleSenderSubmit}
+                        placeholder={t("composer.continuePiSession")}
+                        submitType="enter"
+                        value={input}
+                      />
+                    )}
+                  </Suggestion>
+                </div>
+              ) : null}
+            </section>
+          )}
+        </main>
       )}
       <input
         ref={projectFileInputRef}
@@ -2872,7 +3077,7 @@ export default function App() {
         centered
         open={versionUpgradeTarget !== null}
         title={t("settings.upgradeConfirmTitle", {
-          name: versionUpgradeTarget === "pi" ? "Pi" : "pi-workspace"
+          name: versionUpgradeTarget === "pi" ? "Pi" : "pi-workspace",
         })}
         footer={
           <div className="settings-footer">
@@ -2921,7 +3126,9 @@ export default function App() {
         title={t("session.renameTitle")}
         okText={t("actions.rename")}
         cancelText={t("settings.cancel")}
-        onOk={() => { void confirmRename(); }}
+        onOk={() => {
+          void confirmRename();
+        }}
         onCancel={closeRenameModal}
       >
         <Input
@@ -3019,7 +3226,11 @@ export default function App() {
                 }}
               >
                 <span>{project.name}</span>
-                <small>{project.sessions[0]?.name || project.sessions[0]?.firstMessage || t("chat.piSession")}</small>
+                <small>
+                  {project.sessions[0]?.name ||
+                    project.sessions[0]?.firstMessage ||
+                    t("chat.piSession")}
+                </small>
               </button>
             ))}
             {filteredSelectableProjects.length === 0 ? (

@@ -9,9 +9,7 @@ export type PiHistoryTranscriptEntry =
       timestamp: number;
     };
 
-export function groupPiHistoryMessages(
-  messages: PiHistoryMessage[]
-): PiHistoryTranscriptEntry[] {
+export function groupPiHistoryMessages(messages: PiHistoryMessage[]): PiHistoryTranscriptEntry[] {
   const entries: PiHistoryTranscriptEntry[] = [];
   let activeToolGroup: Extract<PiHistoryTranscriptEntry, { role: "tool-group" }> | null = null;
 
@@ -28,7 +26,7 @@ export function groupPiHistoryMessages(
           id: `tool-group-${message.id}`,
           role: "tool-group",
           messages: [message],
-          timestamp: message.timestamp
+          timestamp: message.timestamp,
         };
       } else {
         activeToolGroup.messages.push(message);

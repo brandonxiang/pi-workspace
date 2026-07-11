@@ -18,29 +18,27 @@ const mockState = vi.hoisted(() => ({
       modified: string;
     }>;
   }>,
-  sessionDetail: null as
-    | {
-        session: {
-          id: string;
-          name: string;
-          cwd: string;
-          projectName: string;
-          created: string;
-          modified: string;
-        };
-        messages: PiHistoryMessage[];
-      }
-    | null,
-  pendingChatPromise: null as Promise<Response> | null
+  sessionDetail: null as {
+    session: {
+      id: string;
+      name: string;
+      cwd: string;
+      projectName: string;
+      created: string;
+      modified: string;
+    };
+    messages: PiHistoryMessage[];
+  } | null,
+  pendingChatPromise: null as Promise<Response> | null,
 }));
 
 vi.mock("@ant-design/x/es/x-provider", () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@ant-design/x/es/bubble", () => {
   function BubbleList({
-    items
+    items,
   }: {
     items: Array<{
       key: string | number;
@@ -54,7 +52,13 @@ vi.mock("@ant-design/x/es/bubble", () => {
         <div className="ant-bubble-list-scroll-content">
           {items.map((item) => (
             <div
-              className={item.role === "user" ? "chat-bubble-user" : item.role === "divider" ? "chat-bubble-divider" : "chat-bubble"}
+              className={
+                item.role === "user"
+                  ? "chat-bubble-user"
+                  : item.role === "divider"
+                    ? "chat-bubble-divider"
+                    : "chat-bubble"
+              }
               data-role={item.role}
               key={item.key}
             >
@@ -69,7 +73,7 @@ vi.mock("@ant-design/x/es/bubble", () => {
 
   return {
     default: { List: BubbleList },
-    __esModule: true
+    __esModule: true,
   };
 });
 
@@ -81,7 +85,7 @@ vi.mock("@ant-design/x/es/sender", () => ({
     placeholder,
     disabled,
     onSubmit,
-    loading
+    loading,
   }: {
     value: string;
     onChange: (value: string) => void;
@@ -106,26 +110,22 @@ vi.mock("@ant-design/x/es/sender", () => ({
           }
         }}
       />
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onSubmit?.(value)}
-      >
+      <button type="button" disabled={disabled} onClick={() => onSubmit?.(value)}>
         Submit
       </button>
     </div>
-  )
+  ),
 }));
 
 vi.mock("@ant-design/x/es/suggestion", () => ({
   default: ({
-    children
+    children,
   }: {
     children: (props: {
       onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
       onTrigger: (value: unknown) => void;
     }) => React.ReactNode;
-  }) => <>{children({ onKeyDown: () => {}, onTrigger: () => {} })}</>
+  }) => <>{children({ onKeyDown: () => {}, onTrigger: () => {} })}</>,
 }));
 
 vi.mock("antd/es/modal", () => ({
@@ -133,7 +133,7 @@ vi.mock("antd/es/modal", () => ({
     open,
     title,
     children,
-    footer
+    footer,
   }: {
     open: boolean;
     title?: React.ReactNode;
@@ -146,7 +146,7 @@ vi.mock("antd/es/modal", () => ({
         {children}
         {footer}
       </div>
-    ) : null
+    ) : null,
 }));
 
 vi.mock("antd/es/input", () => ({
@@ -156,7 +156,7 @@ vi.mock("antd/es/input", () => ({
     onKeyDown,
     placeholder,
     disabled,
-    autoFocus
+    autoFocus,
   }: React.InputHTMLAttributes<HTMLInputElement>) => (
     <input
       autoFocus={autoFocus}
@@ -166,14 +166,14 @@ vi.mock("antd/es/input", () => ({
       onChange={onChange}
       onKeyDown={onKeyDown}
     />
-  )
+  ),
 }));
 
 vi.mock("antd/es/select", () => ({
   default: ({
     value,
     onChange,
-    options
+    options,
   }: {
     value: string;
     onChange: (value: string) => void;
@@ -186,12 +186,12 @@ vi.mock("antd/es/select", () => ({
         </option>
       ))}
     </select>
-  )
+  ),
 }));
 
 vi.mock("antd/es/tabs", () => ({
   default: ({
-    items
+    items,
   }: {
     items: Array<{ key: string; label?: React.ReactNode; children: React.ReactNode }>;
   }) => (
@@ -203,7 +203,7 @@ vi.mock("antd/es/tabs", () => ({
         </section>
       ))}
     </div>
-  )
+  ),
 }));
 
 vi.mock("./PiSessionSection", async (importOriginal) => {
@@ -213,7 +213,7 @@ vi.mock("./PiSessionSection", async (importOriginal) => {
     ...actual,
     PiSessionSection: ({
       projects,
-      onSelectSession
+      onSelectSession,
     }: {
       projects: Array<{
         name: string;
@@ -248,32 +248,34 @@ vi.mock("./PiSessionSection", async (importOriginal) => {
           Open first session
         </button>
       </div>
-    )
+    ),
   };
 });
 
 vi.mock("./MarkdownContent", () => ({
-  default: ({ content }: { content: string }) => <div>{content}</div>
+  default: ({ content }: { content: string }) => <div>{content}</div>,
 }));
 
 vi.mock("./Minimap", () => ({
-  default: () => <div data-testid="minimap" />
+  default: () => <div data-testid="minimap" />,
 }));
 
 vi.mock("./TerminalPanel", () => ({
-  TerminalPanel: () => <div className="terminal-panel" data-testid="terminal-panel" tabIndex={0} />
+  TerminalPanel: () => <div className="terminal-panel" data-testid="terminal-panel" tabIndex={0} />,
 }));
 
 import App from "./App";
 
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 function createJsonResponse(body: unknown, ok = true) {
   return new Response(JSON.stringify(body), {
     status: ok ? 200 : 500,
     headers: {
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -284,7 +286,7 @@ function createStreamResponse(events: Array<Record<string, unknown>>) {
     start(controller) {
       controller.enqueue(encoder.encode(payload));
       controller.close();
-    }
+    },
   });
 
   return new Response(stream, { status: 200 });
@@ -297,10 +299,7 @@ async function flushEffects() {
 }
 
 function setTextareaValue(textarea: HTMLTextAreaElement, value: string) {
-  const descriptor = Object.getOwnPropertyDescriptor(
-    HTMLTextAreaElement.prototype,
-    "value"
-  );
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
   descriptor?.set?.call(textarea, value);
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
@@ -344,7 +343,7 @@ function createMemoryStorage(): Storage {
     },
     setItem(key: string, value: string) {
       store.set(key, value);
-    }
+    },
   };
 }
 
@@ -360,10 +359,10 @@ function seedSelectedPiSession() {
           firstMessage: "First message",
           messageCount: 1,
           created: "2026-01-01T00:00:00.000Z",
-          modified: "2026-01-01T00:00:00.000Z"
-        }
-      ]
-    }
+          modified: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    },
   ];
   mockState.sessionDetail = {
     session: {
@@ -372,21 +371,24 @@ function seedSelectedPiSession() {
       cwd: "/tmp/workspace",
       projectName: "workspace",
       created: "2026-01-01T00:00:00.000Z",
-      modified: "2026-01-01T00:00:00.000Z"
+      modified: "2026-01-01T00:00:00.000Z",
     },
-    messages: []
+    messages: [],
   };
   localStorage.setItem("my-pi-active-session-id", "session-1");
   localStorage.setItem("my-pi-active-pi-project-path", "/tmp/workspace");
 }
 
-function dispatchSidebarShortcut(target: EventTarget = document, overrides?: { ctrlKey?: boolean; metaKey?: boolean }) {
+function dispatchSidebarShortcut(
+  target: EventTarget = document,
+  overrides?: { ctrlKey?: boolean; metaKey?: boolean },
+) {
   const event = new KeyboardEvent("keydown", {
     key: "b",
     bubbles: true,
     cancelable: true,
     ctrlKey: overrides?.ctrlKey ?? false,
-    metaKey: overrides?.metaKey ?? true
+    metaKey: overrides?.metaKey ?? true,
   });
   target.dispatchEvent(event);
   return event;
@@ -404,64 +406,67 @@ describe("App sidebar shortcut", () => {
     vi.stubGlobal("localStorage", memoryStorage);
     Object.defineProperty(window, "localStorage", {
       configurable: true,
-      value: memoryStorage
+      value: memoryStorage,
     });
     clearTestStorage();
     window.history.pushState({}, "", "/");
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
 
-      if (url.endsWith("/api/skills")) {
-        return createJsonResponse({ skills: [] });
-      }
-      if (url.endsWith("/api/models")) {
-        return createJsonResponse({ models: [] });
-      }
-      if (url.endsWith("/api/cwd")) {
-        return createJsonResponse({ cwd: "/tmp/workspace" });
-      }
-      if (url.endsWith("/api/versions")) {
-        return createJsonResponse({
-          actionToken: "test-action-token",
-          pi: {
-            currentVersion: "0.80.3",
-            latestVersion: "0.80.6",
-            updateAvailable: true
-          },
-          piWorkspace: {
-            currentVersion: "0.1.0",
-            latestVersion: "0.2.0",
-            updateAvailable: true
-          }
-        });
-      }
-      if (url.endsWith("/api/versions/pi-workspace/upgrade")) {
-        return createJsonResponse({
-          target: "pi-workspace",
-          ok: true,
-          currentVersion: null,
-          restartRequired: true,
-          message: "pi-workspace was upgraded. Restart it to use the new version."
-        });
-      }
-      if (url.endsWith("/api/pi-sessions")) {
-        return createJsonResponse({ projects: mockState.projects });
-      }
-      if (url.includes("/api/pi-sessions/")) {
-        return createJsonResponse(mockState.sessionDetail);
-      }
-      if (url.endsWith("/api/chat/steer")) {
-        return createJsonResponse({ ok: true });
-      }
-      if (url.endsWith("/api/chat")) {
-        if (mockState.pendingChatPromise) {
-          return mockState.pendingChatPromise;
+        if (url.endsWith("/api/skills")) {
+          return createJsonResponse({ skills: [] });
         }
-        return createJsonResponse({});
-      }
+        if (url.endsWith("/api/models")) {
+          return createJsonResponse({ models: [] });
+        }
+        if (url.endsWith("/api/cwd")) {
+          return createJsonResponse({ cwd: "/tmp/workspace" });
+        }
+        if (url.endsWith("/api/versions")) {
+          return createJsonResponse({
+            actionToken: "test-action-token",
+            pi: {
+              currentVersion: "0.80.3",
+              latestVersion: "0.80.6",
+              updateAvailable: true,
+            },
+            piWorkspace: {
+              currentVersion: "0.1.0",
+              latestVersion: "0.2.0",
+              updateAvailable: true,
+            },
+          });
+        }
+        if (url.endsWith("/api/versions/pi-workspace/upgrade")) {
+          return createJsonResponse({
+            target: "pi-workspace",
+            ok: true,
+            currentVersion: null,
+            restartRequired: true,
+            message: "pi-workspace was upgraded. Restart it to use the new version.",
+          });
+        }
+        if (url.endsWith("/api/pi-sessions")) {
+          return createJsonResponse({ projects: mockState.projects });
+        }
+        if (url.includes("/api/pi-sessions/")) {
+          return createJsonResponse(mockState.sessionDetail);
+        }
+        if (url.endsWith("/api/chat/steer")) {
+          return createJsonResponse({ ok: true });
+        }
+        if (url.endsWith("/api/chat")) {
+          if (mockState.pendingChatPromise) {
+            return mockState.pendingChatPromise;
+          }
+          return createJsonResponse({});
+        }
 
-      throw new Error(`Unhandled fetch: ${url}`);
-    }));
+        throw new Error(`Unhandled fetch: ${url}`);
+      }),
+    );
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -611,7 +616,7 @@ describe("App sidebar shortcut", () => {
 
     const composer = container.querySelector("textarea");
     const submitButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Submit"
+      (button) => button.textContent === "Submit",
     );
 
     expect(composer).toBeInstanceOf(HTMLTextAreaElement);
@@ -654,7 +659,7 @@ describe("App sidebar shortcut", () => {
 
     const composer = container.querySelector("textarea");
     const submitButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Submit"
+      (button) => button.textContent === "Submit",
     );
 
     expect(composer).toBeInstanceOf(HTMLTextAreaElement);
@@ -673,19 +678,23 @@ describe("App sidebar shortcut", () => {
     });
 
     await act(async () => {
-      composer?.dispatchEvent(new KeyboardEvent("keydown", {
-        key: "Enter",
-        metaKey: true,
-        bubbles: true,
-        cancelable: true
-      }));
+      composer?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     });
 
     expect((composer as HTMLTextAreaElement).value).toBe("");
     expect(container.textContent).toContain("Steering");
     expect(container.textContent).toContain("Steer now");
     expect(container.textContent).not.toContain("Active Steering");
-    expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).endsWith("/api/chat/steer"))).toBe(true);
+    expect(
+      vi.mocked(fetch).mock.calls.some(([input]) => String(input).endsWith("/api/chat/steer")),
+    ).toBe(true);
   });
 
   it("removes any queued following-up message from the sender queue", async () => {
@@ -702,7 +711,7 @@ describe("App sidebar shortcut", () => {
 
     const composer = container.querySelector("textarea");
     const submitButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Submit"
+      (button) => button.textContent === "Submit",
     );
 
     expect(composer).toBeInstanceOf(HTMLTextAreaElement);
@@ -733,7 +742,7 @@ describe("App sidebar shortcut", () => {
     expect(container.textContent).toContain("Third prompt");
 
     const removeThirdButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.getAttribute("aria-label") === "Remove queued follow-up: Third prompt"
+      (button) => button.getAttribute("aria-label") === "Remove queued follow-up: Third prompt",
     );
     expect(removeThirdButton).toBeInstanceOf(HTMLButtonElement);
 
@@ -781,7 +790,7 @@ describe("App sidebar shortcut", () => {
                 id: "first-user",
                 role: "user",
                 content: "First prompt",
-                timestamp: Date.now()
+                timestamp: Date.now(),
               },
               {
                 id: "first-assistant",
@@ -789,9 +798,9 @@ describe("App sidebar shortcut", () => {
                 content: "First answer",
                 provider: "openai",
                 model: "gpt-4o-mini",
-                timestamp: Date.now() + 1
-              }
-            ]
+                timestamp: Date.now() + 1,
+              },
+            ],
           };
 
           return createStreamResponse([
@@ -802,9 +811,9 @@ describe("App sidebar shortcut", () => {
                 content: "First answer",
                 provider: "openai",
                 model: "gpt-4o-mini",
-                timestamp: Date.now() + 1
-              }
-            }
+                timestamp: Date.now() + 1,
+              },
+            },
           ]);
         }
 
@@ -815,7 +824,7 @@ describe("App sidebar shortcut", () => {
               id: "first-user",
               role: "user",
               content: "First prompt",
-              timestamp: Date.now()
+              timestamp: Date.now(),
             },
             {
               id: "first-assistant",
@@ -823,13 +832,13 @@ describe("App sidebar shortcut", () => {
               content: "First answer",
               provider: "openai",
               model: "gpt-4o-mini",
-              timestamp: Date.now() + 1
+              timestamp: Date.now() + 1,
             },
             {
               id: "second-user",
               role: "user",
               content: "Second prompt",
-              timestamp: Date.now() + 2
+              timestamp: Date.now() + 2,
             },
             {
               id: "second-assistant",
@@ -837,9 +846,9 @@ describe("App sidebar shortcut", () => {
               content: "Second answer",
               provider: "openai",
               model: "gpt-4o-mini",
-              timestamp: Date.now() + 3
-            }
-          ]
+              timestamp: Date.now() + 3,
+            },
+          ],
         };
 
         return createStreamResponse([
@@ -850,9 +859,9 @@ describe("App sidebar shortcut", () => {
               content: "Second answer",
               provider: "openai",
               model: "gpt-4o-mini",
-              timestamp: Date.now() + 3
-            }
-          }
+              timestamp: Date.now() + 3,
+            },
+          },
         ]);
       }
 
@@ -867,7 +876,7 @@ describe("App sidebar shortcut", () => {
 
     const composer = container.querySelector("textarea");
     const submitButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Submit"
+      (button) => button.textContent === "Submit",
     );
 
     expect(composer).toBeInstanceOf(HTMLTextAreaElement);
@@ -909,10 +918,10 @@ describe("App sidebar shortcut", () => {
             firstMessage: "First message",
             messageCount: 1,
             created: "2026-01-01T00:00:00.000Z",
-            modified: "2026-01-01T00:00:00.000Z"
-          }
-        ]
-      }
+            modified: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      },
     ];
     mockState.sessionDetail = {
       session: {
@@ -921,9 +930,9 @@ describe("App sidebar shortcut", () => {
         cwd: "/tmp/workspace",
         projectName: "workspace",
         created: "2026-01-01T00:00:00.000Z",
-        modified: "2026-01-01T00:00:00.000Z"
+        modified: "2026-01-01T00:00:00.000Z",
       },
-      messages: []
+      messages: [],
     };
 
     localStorage.setItem("my-pi-active-session-id", "other-session");
@@ -939,7 +948,9 @@ describe("App sidebar shortcut", () => {
 
     expect(window.location.pathname).toBe("/sessions/session-1");
     expect(window.location.search).toBe("?panel=terminal");
-    expect(container.querySelector('[data-testid="terminal-panel"]')).toBeInstanceOf(HTMLDivElement);
+    expect(container.querySelector('[data-testid="terminal-panel"]')).toBeInstanceOf(
+      HTMLDivElement,
+    );
   });
 
   it("pushes the selected Pi session into the URL", async () => {
@@ -954,10 +965,10 @@ describe("App sidebar shortcut", () => {
             firstMessage: "First message",
             messageCount: 1,
             created: "2026-01-01T00:00:00.000Z",
-            modified: "2026-01-01T00:00:00.000Z"
-          }
-        ]
-      }
+            modified: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      },
     ];
     mockState.sessionDetail = {
       session: {
@@ -966,9 +977,9 @@ describe("App sidebar shortcut", () => {
         cwd: "/tmp/workspace",
         projectName: "workspace",
         created: "2026-01-01T00:00:00.000Z",
-        modified: "2026-01-01T00:00:00.000Z"
+        modified: "2026-01-01T00:00:00.000Z",
       },
-      messages: []
+      messages: [],
     };
 
     window.history.pushState({}, "", "/");
@@ -979,7 +990,7 @@ describe("App sidebar shortcut", () => {
     await flushEffects();
 
     const openSessionButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Open first session"
+      (button) => button.textContent === "Open first session",
     );
     expect(openSessionButton).toBeInstanceOf(HTMLButtonElement);
 
@@ -1004,10 +1015,10 @@ describe("App sidebar shortcut", () => {
             firstMessage: "First message",
             messageCount: 1,
             created: "2026-01-01T00:00:00.000Z",
-            modified: "2026-01-01T00:00:00.000Z"
-          }
-        ]
-      }
+            modified: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      },
     ];
 
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
@@ -1044,7 +1055,7 @@ describe("App sidebar shortcut", () => {
     await flushEffects();
 
     const openSessionButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Open first session"
+      (button) => button.textContent === "Open first session",
     );
     expect(openSessionButton).toBeInstanceOf(HTMLButtonElement);
 
@@ -1055,7 +1066,7 @@ describe("App sidebar shortcut", () => {
 
     expect(container.textContent).not.toContain("Loading Pi session history");
     expect(container.textContent).not.toContain(
-      "Fetching the active branch from your local Pi session store."
+      "Fetching the active branch from your local Pi session store.",
     );
   });
 
@@ -1140,10 +1151,10 @@ describe("App sidebar shortcut", () => {
     expect(container.textContent).toContain("0.2.0");
 
     const upgradePiButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Upgrade Pi"
+      (button) => button.textContent === "Upgrade Pi",
     );
     const upgradeWorkspaceButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Upgrade pi-workspace"
+      (button) => button.textContent === "Upgrade pi-workspace",
     );
     expect(upgradePiButton).toBeInstanceOf(HTMLButtonElement);
     expect(upgradePiButton?.disabled).toBe(false);
@@ -1161,7 +1172,7 @@ describe("App sidebar shortcut", () => {
     await flushEffects();
 
     const upgradeWorkspaceButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Upgrade pi-workspace"
+      (button) => button.textContent === "Upgrade pi-workspace",
     );
     await act(async () => {
       upgradeWorkspaceButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -1172,7 +1183,7 @@ describe("App sidebar shortcut", () => {
     expect(dialog?.textContent).toContain("Upgrade pi-workspace?");
 
     const confirmButton = Array.from(dialog?.querySelectorAll("button") || []).find(
-      (button) => button.textContent === "Upgrade"
+      (button) => button.textContent === "Upgrade",
     );
     await act(async () => {
       confirmButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -1182,12 +1193,14 @@ describe("App sidebar shortcut", () => {
 
     expect(container.textContent).toContain("Restart pi-workspace to use the new version.");
     expect(
-      vi.mocked(fetch).mock.calls.some(
-        ([input, init]) =>
-          String(input).endsWith("/api/versions/pi-workspace/upgrade") &&
-          init?.method === "POST" &&
-          new Headers(init.headers).get("x-pi-workspace-action-token") === "test-action-token"
-      )
+      vi
+        .mocked(fetch)
+        .mock.calls.some(
+          ([input, init]) =>
+            String(input).endsWith("/api/versions/pi-workspace/upgrade") &&
+            init?.method === "POST" &&
+            new Headers(init.headers).get("x-pi-workspace-action-token") === "test-action-token",
+        ),
     ).toBe(true);
   });
 
@@ -1223,7 +1236,7 @@ describe("App sidebar shortcut", () => {
             firstMessage: "Visible message",
             messageCount: 1,
             created: "2026-01-01T00:00:00.000Z",
-            modified: "2026-01-01T00:00:00.000Z"
+            modified: "2026-01-01T00:00:00.000Z",
           },
           {
             id: "session-2",
@@ -1231,10 +1244,10 @@ describe("App sidebar shortcut", () => {
             firstMessage: "Archived message",
             messageCount: 1,
             created: "2026-01-02T00:00:00.000Z",
-            modified: "2026-01-02T00:00:00.000Z"
-          }
-        ]
-      }
+            modified: "2026-01-02T00:00:00.000Z",
+          },
+        ],
+      },
     ];
     localStorage.setItem("my-pi-archived-pi-sessions", JSON.stringify(["session-2"]));
     window.history.pushState({}, "", "/?panel=chat");
@@ -1259,7 +1272,7 @@ describe("App sidebar shortcut", () => {
     expect(container.textContent).toContain("Archived Session Title");
 
     const restoreButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Restore"
+      (button) => button.textContent === "Restore",
     );
     expect(restoreButton).toBeInstanceOf(HTMLButtonElement);
 

@@ -1,9 +1,11 @@
 # ADR-001: Represent Pi Session Views in the URL
 
 ## Status
+
 Accepted
 
 ## Date
+
 2026-07-04
 
 ## Context

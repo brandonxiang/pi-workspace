@@ -12,17 +12,17 @@ describe("buildAgentEndStreamEvent", () => {
             provider: "openai-codex",
             model: "gpt-5.2",
             stopReason: "error",
-            errorMessage: "No API key for provider: openai-codex"
-          }
+            errorMessage: "No API key for provider: openai-codex",
+          },
         ],
         finalText: "",
         provider: "openai-codex",
         model: "gpt-5.2",
-        timestamp: 123
-      })
+        timestamp: 123,
+      }),
     ).toEqual({
       type: "error",
-      error: "No API key for provider: openai-codex"
+      error: "No API key for provider: openai-codex",
     });
   });
 
@@ -36,14 +36,14 @@ describe("buildAgentEndStreamEvent", () => {
             provider: "openai-codex",
             model: "gpt-5.2",
             stopReason: "error",
-            errorMessage: "Provider auth failed"
-          }
+            errorMessage: "Provider auth failed",
+          },
         ],
         finalText: "Partial answer",
         provider: "openai-codex",
         model: "gpt-5.2",
-        timestamp: 123
-      })
+        timestamp: 123,
+      }),
     ).toEqual({
       type: "error",
       error: "Provider auth failed",
@@ -52,8 +52,8 @@ describe("buildAgentEndStreamEvent", () => {
         content: "Partial answer",
         provider: "openai-codex",
         model: "gpt-5.2",
-        timestamp: 123
-      }
+        timestamp: 123,
+      },
     });
   });
 
@@ -64,14 +64,14 @@ describe("buildAgentEndStreamEvent", () => {
           {
             role: "assistant",
             content: [{ type: "text", text: "Done" }],
-            stopReason: "stop"
-          }
+            stopReason: "stop",
+          },
         ],
         finalText: "Done",
         provider: "deepseek",
         model: "deepseek-v4-flash",
-        timestamp: 123
-      })
+        timestamp: 123,
+      }),
     ).toEqual({
       type: "done",
       message: {
@@ -79,8 +79,8 @@ describe("buildAgentEndStreamEvent", () => {
         content: "Done",
         provider: "deepseek",
         model: "deepseek-v4-flash",
-        timestamp: 123
-      }
+        timestamp: 123,
+      },
     });
   });
 });

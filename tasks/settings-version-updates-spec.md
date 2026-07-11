@@ -10,6 +10,7 @@
 6. 升级是有副作用的本地操作，执行前必须二次确认；同一时间只允许执行一个升级任务。
 7. pi-workspace 升级完成后不由当前 HTTP 请求强制重启服务。页面明确提示用户重启 pi-workspace，避免更新过程主动终止承载请求的服务。
 8. 服务目前仅监听 `127.0.0.1`；本功能沿用这一边界，不扩大到远程访问场景。
+9. 升级遇到明确的权限错误时，使用固定命令 `sudo -n` 自动重试；不在网页收集 sudo 密码。若 sudo 尚未授权，提示用户在终端运行 `sudo -v` 后重试。
 
 ## Objective
 
@@ -100,6 +101,7 @@ type VersionsResponse = {
 - `pi-workspace` 在服务端映射到固定命令 `pi-workspace update`。
 - 成功响应包含升级目标、完成状态、升级后的版本信息以及是否需要重启。
 - 命令失败、命令不存在、权限不足或网络失败时返回非 2xx 状态和经过整理的错误消息。
+- 升级命令失败时，服务端终端记录目标、退出码及清理/截断后的 `stderr`（为空时使用 `stdout`）；Settings 页面展示同一原因的精简版本。
 - 第一版等待升级命令完成后返回结果，不实现实时日志流；命令输出必须设置合理大小上限，避免无限积累。
 
 ```ts
@@ -120,8 +122,8 @@ const upgradeCommands = {
   "pi-workspace": {
     command: "pi-workspace",
     args: ["update"],
-    restartRequired: true
-  }
+    restartRequired: true,
+  },
 } as const;
 
 export async function upgradeTarget(target: UpgradeTarget) {
@@ -132,7 +134,7 @@ export async function upgradeTarget(target: UpgradeTarget) {
     target,
     ok: true as const,
     restartRequired: definition.restartRequired,
-    message: result.summary
+    message: result.summary,
   };
 }
 ```
@@ -225,7 +227,7 @@ pnpm run dev
 - 改变 `pi update` 或 `pi-workspace update` 的默认 CLI 语义。
 - 自动升级 Pi 扩展或其他依赖。
 - 自动重启或退出当前 pi-workspace 服务。
-- 为升级增加提权、`sudo`、凭据写入或包管理器修复操作。
+- 为升级增加除已确认的 `sudo -n` 重试之外的提权、凭据写入或包管理器修复操作。
 - 将服务监听地址从 `127.0.0.1` 扩展到局域网或公网。
 - 引入新的第三方依赖。
 

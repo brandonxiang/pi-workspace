@@ -11,7 +11,7 @@ export function readPanelMode(value: string | null): PanelMode | null {
 
 export function resolvePanelMode(
   routePanel: PanelMode | null,
-  storedPanel: string | null
+  storedPanel: string | null,
 ): PanelMode {
   return routePanel ?? readPanelMode(storedPanel) ?? "chat";
 }
@@ -21,7 +21,7 @@ export function parseAppRoute(url: URL): AppRoute {
   if (url.pathname === "/settings") {
     return {
       kind: "settings",
-      panel
+      panel,
     };
   }
 
@@ -31,13 +31,13 @@ export function parseAppRoute(url: URL): AppRoute {
     return {
       kind: "pi-session",
       sessionId: decodeURIComponent(match[1]),
-      panel
+      panel,
     };
   }
 
   return {
     kind: "home",
-    panel
+    panel,
   };
 }
 

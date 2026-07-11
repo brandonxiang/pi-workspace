@@ -16,13 +16,13 @@ import {
   SettingsManager,
   type AgentSession,
   type ContextUsage,
-  type ResourceLoader
+  type ResourceLoader,
 } from "@earendil-works/pi-coding-agent";
 import {
   getModelSupportsImages,
   getPromptOrDefault,
   parseImages,
-  type ImageContent
+  type ImageContent,
 } from "./chat-validation.js";
 import { executeServerLocalAction } from "./pi-local-actions.js";
 import {
@@ -30,7 +30,7 @@ import {
   invalidatePiSessionCatalogCache,
   loadPiSessionContextById,
   loadPiSessionDetailById,
-  loadPiSessionProjects
+  loadPiSessionProjects,
 } from "./pi-sessions.js";
 import { buildAgentEndStreamEvent } from "./chat-streaming.js";
 import { createDefaultVersionManager } from "./version-management.js";
@@ -38,7 +38,7 @@ import { registerVersionRoutes } from "./version-routes.js";
 import {
   findAppSlashCommand,
   isServerAppSlashCommand,
-  type AppSlashCommandName
+  type AppSlashCommandName,
 } from "../shared/slash-commands.js";
 
 interface ChatRequest {
@@ -99,7 +99,9 @@ const terminalPtyMap = new Map<import("ws").WebSocket, import("node-pty").IPty>(
 let terminalWss: WebSocketServer | null = null;
 
 /* ───── Cached resources ───── */
-let skillsCache: { skills: Array<{ name: string; description: string; disableModelInvocation: boolean }> } | null = null;
+let skillsCache: {
+  skills: Array<{ name: string; description: string; disableModelInvocation: boolean }>;
+} | null = null;
 let skillsCacheTime = 0;
 const SKILLS_CACHE_TTL_MS = 60_000; // 1 minute
 
@@ -117,7 +119,7 @@ function buildResourceLoader(systemPrompt: string): ResourceLoader {
     getSystemPrompt: () => systemPrompt,
     getAppendSystemPrompt: () => [],
     extendResources: () => {},
-    reload: async () => {}
+    reload: async () => {},
   };
 }
 
@@ -146,7 +148,7 @@ function readCommandCodeCredential(value: unknown) {
 function readCommandCodeApiKey() {
   const authPaths = [
     path.join(homedir(), ".commandcode", "auth.json"),
-    path.join(homedir(), ".pi", "agent", "auth.json")
+    path.join(homedir(), ".pi", "agent", "auth.json"),
   ];
 
   for (const authPath of authPaths) {
@@ -210,8 +212,8 @@ function parseCommandCodeModels(value: unknown) {
           : {
               supportsDeveloperRole: false,
               supportsReasoningEffort: false,
-              maxTokensField: "max_tokens" as const
-            }
+              maxTokensField: "max_tokens" as const,
+            },
       };
     });
 }
@@ -220,11 +222,11 @@ async function registerCommandCodeProvider(authStorage: AuthStorage, modelRegist
   if (!authStorage.hasAuth("commandcode")) return;
 
   const response = await fetch(commandCodeModelsUrl, {
-    headers: { accept: "application/json" }
+    headers: { accept: "application/json" },
   });
   if (!response.ok) {
     throw new Error(
-      `Failed to fetch Command Code models: ${response.status} ${response.statusText}`
+      `Failed to fetch Command Code models: ${response.status} ${response.statusText}`,
     );
   }
 
@@ -236,9 +238,9 @@ async function registerCommandCodeProvider(authStorage: AuthStorage, modelRegist
     authHeader: true,
     api: "openai-completions",
     headers: {
-      "x-cli-environment": "production"
+      "x-cli-environment": "production",
     },
-    models
+    models,
   });
 }
 
@@ -250,7 +252,7 @@ async function createLocalModelRegistry() {
 
   return {
     authStorage,
-    modelRegistry
+    modelRegistry,
   };
 }
 
@@ -258,7 +260,7 @@ async function getOrCreateSession(
   sessionId: string,
   provider: string,
   modelId: string,
-  systemPrompt: string
+  systemPrompt: string,
 ) {
   const existing = sessions.get(sessionId);
   if (
@@ -293,25 +295,21 @@ async function getOrCreateSession(
     sessionManager: SessionManager.create(process.cwd()),
     settingsManager: SettingsManager.inMemory({
       compaction: { enabled: true },
-      retry: { enabled: true, maxRetries: 1 }
-    })
+      retry: { enabled: true, maxRetries: 1 },
+    }),
   });
 
   sessions.set(sessionId, {
     session,
     provider,
     model: modelId,
-    systemPrompt
+    systemPrompt,
   });
 
   return session;
 }
 
-async function createPersistedPiSession(
-  piSessionId: string,
-  provider?: string,
-  modelId?: string
-) {
+async function createPersistedPiSession(piSessionId: string, provider?: string, modelId?: string) {
   // Reuse a cached Pi agent session if available.
   const cached = piSessions.get(piSessionId);
   if (cached) return cached;
@@ -339,14 +337,14 @@ async function createPersistedPiSession(
     sessionManager: context.sessionManager,
     settingsManager: SettingsManager.inMemory({
       compaction: { enabled: true },
-      retry: { enabled: true, maxRetries: 1 }
-    })
+      retry: { enabled: true, maxRetries: 1 },
+    }),
   });
 
   const record: PiAgentSessionRecord = {
     session,
     provider: model?.provider || resolvedProvider || "unknown",
-    modelId: model?.id || resolvedModelId || "unknown"
+    modelId: model?.id || resolvedModelId || "unknown",
   };
 
   piSessions.set(piSessionId, record);
@@ -392,13 +390,13 @@ async function readSessionName(sessionId: string) {
 
 async function buildServer() {
   const server = Fastify({
-    bodyLimit: 8 * 1024 * 1024
+    bodyLimit: 8 * 1024 * 1024,
   });
 
   await server.register(FastifyVite, {
     root: path.resolve(import.meta.dirname, ".."),
     dev: process.argv.includes("--dev"),
-    spa: true
+    spa: true,
   });
 
   // ──────── API routes ────────
@@ -424,15 +422,15 @@ async function buildServer() {
         cwd: process.cwd(),
         agentDir: getAgentDir(),
         skillPaths: [],
-        includeDefaults: true
+        includeDefaults: true,
       });
 
       skillsCache = {
         skills: result.skills.map((skill) => ({
           name: skill.name,
           description: skill.description,
-          disableModelInvocation: skill.disableModelInvocation
-        }))
+          disableModelInvocation: skill.disableModelInvocation,
+        })),
       };
       skillsCacheTime = now;
 
@@ -440,7 +438,7 @@ async function buildServer() {
     } catch (error) {
       reply.code(500);
       return {
-        error: error instanceof Error ? error.message : "Failed to load skills"
+        error: error instanceof Error ? error.message : "Failed to load skills",
       };
     }
   });
@@ -458,7 +456,7 @@ async function buildServer() {
       path.join(homeDir, "github"),
       path.join(homeDir, "projects"),
       path.join(homeDir, "work"),
-      homeDir
+      homeDir,
     ];
 
     for (const root of roots) {
@@ -505,7 +503,7 @@ async function buildServer() {
     } catch (error) {
       reply.code(500);
       return {
-        error: error instanceof Error ? error.message : "Failed to create Pi session"
+        error: error instanceof Error ? error.message : "Failed to create Pi session",
       };
     }
   });
@@ -517,7 +515,7 @@ async function buildServer() {
     } catch (error) {
       reply.code(500);
       return {
-        error: error instanceof Error ? error.message : "Failed to list Pi sessions"
+        error: error instanceof Error ? error.message : "Failed to list Pi sessions",
       };
     }
   });
@@ -540,7 +538,7 @@ async function buildServer() {
     } catch (error) {
       reply.code(500);
       return {
-        error: error instanceof Error ? error.message : "Failed to load Pi session"
+        error: error instanceof Error ? error.message : "Failed to load Pi session",
       };
     }
   });
@@ -565,7 +563,7 @@ async function buildServer() {
     } catch (error) {
       reply.code(error instanceof Error && error.message === "Session not found" ? 404 : 500);
       return {
-        error: error instanceof Error ? error.message : "Failed to rename session"
+        error: error instanceof Error ? error.message : "Failed to rename session",
       };
     }
   });
@@ -604,7 +602,7 @@ async function buildServer() {
         modelRegistry,
         model,
         sessionManager: context.sessionManager,
-        settingsManager: SettingsManager.inMemory()
+        settingsManager: SettingsManager.inMemory(),
       });
 
       const contextUsage = tempSession.session.getContextUsage();
@@ -614,7 +612,7 @@ async function buildServer() {
     } catch (error) {
       reply.code(500);
       return {
-        error: error instanceof Error ? error.message : "Failed to get context usage"
+        error: error instanceof Error ? error.message : "Failed to get context usage",
       };
     }
   });
@@ -651,15 +649,15 @@ async function buildServer() {
           exportToJsonl: () => persistedSession.session.exportToJsonl(),
           getSessionName: () => readSessionName(piSessionId),
           getSessionStats: () => persistedSession.session.getSessionStats(),
-          setSessionName: (name) => persistSessionName(piSessionId, name).then(() => undefined)
-        }
+          setSessionName: (name) => persistSessionName(piSessionId, name).then(() => undefined),
+        },
       );
 
       return { result };
     } catch (error) {
       reply.code(error instanceof Error && error.message === "Session not found" ? 404 : 500);
       return {
-        error: error instanceof Error ? error.message : "Failed to run local action"
+        error: error instanceof Error ? error.message : "Failed to run local action",
       };
     }
   });
@@ -671,14 +669,14 @@ async function buildServer() {
         provider: model.provider,
         model: model.id,
         label: `${model.name || model.id} (${model.provider})`,
-        supportsImages: getModelSupportsImages(model)
+        supportsImages: getModelSupportsImages(model),
       }));
 
       return { models };
     } catch (error) {
       reply.code(500);
       return {
-        error: error instanceof Error ? error.message : "Failed to load models"
+        error: error instanceof Error ? error.message : "Failed to load models",
       };
     }
   });
@@ -693,12 +691,11 @@ async function buildServer() {
     } catch (error) {
       reply.code(400);
       return {
-        error: error instanceof Error ? error.message : "Invalid image attachment"
+        error: error instanceof Error ? error.message : "Invalid image attachment",
       };
     }
     const prompt = getPromptOrDefault(body.prompt, images);
-    const sessionId =
-      (request.headers["x-session-id"] as string | undefined) || "default";
+    const sessionId = (request.headers["x-session-id"] as string | undefined) || "default";
     const piSessionId = request.headers["x-pi-session-id"] as string | undefined;
     const systemPrompt =
       body.systemPrompt?.trim() ||
@@ -715,7 +712,7 @@ async function buildServer() {
           const persistedSession = await createPersistedPiSession(
             piSessionId,
             requestedProvider,
-            requestedModelId
+            requestedModelId,
           );
           persistedSession?.session.dispose();
 
@@ -724,19 +721,13 @@ async function buildServer() {
             return { error: "Pi session not found" };
           }
 
-          if (
-            persistedSession.provider !== "unknown" &&
-            persistedSession.modelId !== "unknown"
-          ) {
+          if (persistedSession.provider !== "unknown" && persistedSession.modelId !== "unknown") {
             const { modelRegistry } = await createLocalModelRegistry();
-            const model = modelRegistry.find(
-              persistedSession.provider,
-              persistedSession.modelId
-            );
+            const model = modelRegistry.find(persistedSession.provider, persistedSession.modelId);
             if (!model || !getModelSupportsImages(model)) {
               reply.code(400);
               return {
-                error: `Model ${persistedSession.provider}/${persistedSession.modelId} does not support image input`
+                error: `Model ${persistedSession.provider}/${persistedSession.modelId} does not support image input`,
               };
             }
           }
@@ -748,15 +739,14 @@ async function buildServer() {
           if (!model || !getModelSupportsImages(model)) {
             reply.code(400);
             return {
-              error: `Model ${provider}/${modelId} does not support image input`
+              error: `Model ${provider}/${modelId} does not support image input`,
             };
           }
         }
       } catch (error) {
         reply.code(500);
         return {
-          error:
-            error instanceof Error ? error.message : "Failed to validate image model support"
+          error: error instanceof Error ? error.message : "Failed to validate image model support",
         };
       }
     }
@@ -767,7 +757,7 @@ async function buildServer() {
     raw.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive"
+      Connection: "keep-alive",
     });
 
     try {
@@ -778,7 +768,7 @@ async function buildServer() {
       if (piSessionId && !persistedSession) {
         sendEvent(raw, {
           type: "error",
-          error: "Pi session not found"
+          error: "Pi session not found",
         });
         return;
       }
@@ -787,19 +777,11 @@ async function buildServer() {
       const modelId = persistedSession?.modelId || requestedModelId || "gpt-4o-mini";
       const session =
         persistedSession?.session ||
-        (await getOrCreateSession(
-          sessionId,
-          provider,
-          modelId,
-          systemPrompt
-        ));
+        (await getOrCreateSession(sessionId, provider, modelId, systemPrompt));
       let finalText = "";
 
       const unsubscribe = session.subscribe((event) => {
-        if (
-          event.type === "message_update" &&
-          event.assistantMessageEvent.type === "text_delta"
-        ) {
+        if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
           finalText += event.assistantMessageEvent.delta;
           sendEvent(raw, { type: "delta", delta: event.assistantMessageEvent.delta });
         }
@@ -816,7 +798,7 @@ async function buildServer() {
             type: "tool_start",
             toolName: event.toolName,
             toolCallId: event.toolCallId,
-            args: typeof event.args === "string" ? event.args : JSON.stringify(event.args ?? {})
+            args: typeof event.args === "string" ? event.args : JSON.stringify(event.args ?? {}),
           });
         }
 
@@ -825,7 +807,10 @@ async function buildServer() {
             type: "tool_delta",
             toolName: event.toolName,
             toolCallId: event.toolCallId,
-            delta: typeof event.partialResult === "string" ? event.partialResult : JSON.stringify(event.partialResult ?? "")
+            delta:
+              typeof event.partialResult === "string"
+                ? event.partialResult
+                : JSON.stringify(event.partialResult ?? ""),
           });
         }
 
@@ -834,8 +819,9 @@ async function buildServer() {
             type: "tool_end",
             toolName: event.toolName,
             toolCallId: event.toolCallId,
-            content: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? ""),
-            isError: event.isError
+            content:
+              typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? ""),
+            isError: event.isError,
           });
         }
 
@@ -846,8 +832,8 @@ async function buildServer() {
               messages: event.messages,
               finalText,
               provider,
-              model: modelId
-            })
+              model: modelId,
+            }),
           );
         }
       });
@@ -869,7 +855,7 @@ async function buildServer() {
     } catch (error) {
       sendEvent(raw, {
         type: "error",
-        error: error instanceof Error ? error.message : "Unexpected server error"
+        error: error instanceof Error ? error.message : "Unexpected server error",
       });
     } finally {
       raw.end();
@@ -888,7 +874,7 @@ async function buildServer() {
     } catch (error) {
       reply.code(400);
       return {
-        error: error instanceof Error ? error.message : "Invalid image attachment"
+        error: error instanceof Error ? error.message : "Invalid image attachment",
       };
     }
 
@@ -906,7 +892,7 @@ async function buildServer() {
       const persistedSession = await createPersistedPiSession(
         piSessionId,
         requestedProvider,
-        requestedModelId
+        requestedModelId,
       );
 
       if (!persistedSession) {
@@ -918,18 +904,16 @@ async function buildServer() {
         {
           customType: "steering",
           content:
-            images.length > 0
-              ? [{ type: "text" as const, text: prompt }, ...images]
-              : prompt,
-          display: true
+            images.length > 0 ? [{ type: "text" as const, text: prompt }, ...images] : prompt,
+          display: true,
         },
-        { deliverAs: "steer" }
+        { deliverAs: "steer" },
       );
       return { ok: true };
     } catch (error) {
       reply.code(500);
       return {
-        error: error instanceof Error ? error.message : "Failed to steer Pi session"
+        error: error instanceof Error ? error.message : "Failed to steer Pi session",
       };
     }
   });
@@ -971,7 +955,7 @@ function setupTerminalWebSocket(httpServer: import("node:http").Server) {
       pty = spawn(shell, [], {
         cwd,
         name: "xterm-256color",
-        env: { ...process.env } as Record<string, string>
+        env: { ...process.env } as Record<string, string>,
       });
     } catch (err) {
       ws.close(1011, `Failed to spawn PTY: ${err instanceof Error ? err.message : err}`);
@@ -1005,7 +989,11 @@ function setupTerminalWebSocket(httpServer: import("node:http").Server) {
 
       try {
         const parsed = JSON.parse(raw.toString());
-        if (parsed.type === "resize" && typeof parsed.cols === "number" && typeof parsed.rows === "number") {
+        if (
+          parsed.type === "resize" &&
+          typeof parsed.cols === "number" &&
+          typeof parsed.rows === "number"
+        ) {
           pty.resize(parsed.cols, parsed.rows);
         } else if (parsed.type === "input" && typeof parsed.data === "string") {
           pty.write(parsed.data);
@@ -1061,8 +1049,7 @@ async function startWithRetry(
       return;
     } catch (error) {
       const isPortInUse =
-        error instanceof Error &&
-        (error as NodeJS.ErrnoException).code === "EADDRINUSE";
+        error instanceof Error && (error as NodeJS.ErrnoException).code === "EADDRINUSE";
 
       if (isPortInUse && attempt < retries) {
         console.log(`Port ${port} is in use, retrying in 1s (attempt ${attempt}/${retries - 1})…`);

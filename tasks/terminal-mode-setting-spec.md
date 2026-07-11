@@ -36,14 +36,14 @@ Test:      pnpm run test
 
 ## Tech Stack
 
-| 层级 | 技术 | 版本 |
-|------|------|------|
-| 浏览器终端 | `@xterm/xterm` | 6.0.0 |
-| 自动适配容器 | `@xterm/addon-fit` | 0.11.0 |
-| WebSocket 客户端 | 浏览器原生 `WebSocket` | — |
-| WebSocket 服务端 | `ws` | 8.21.0 |
-| 伪终端 | `node-pty` | 1.1.0 |
-| 框架 (已有) | React + Fastify + Vite | — |
+| 层级             | 技术                   | 版本   |
+| ---------------- | ---------------------- | ------ |
+| 浏览器终端       | `@xterm/xterm`         | 6.0.0  |
+| 自动适配容器     | `@xterm/addon-fit`     | 0.11.0 |
+| WebSocket 客户端 | 浏览器原生 `WebSocket` | —      |
+| WebSocket 服务端 | `ws`                   | 8.21.0 |
+| 伪终端           | `node-pty`             | 1.1.0  |
+| 框架 (已有)      | React + Fastify + Vite | —      |
 
 ## Files / 文件变更
 
@@ -118,12 +118,13 @@ EDIT package.json               — 已安装依赖（无需再改）
 
 ```tsx
 interface TerminalPanelProps {
-  cwd: string;          // PTY 启动的工作目录
-  sessionId?: string;   // 对应 session ID（用于日志或后续功能）
+  cwd: string; // PTY 启动的工作目录
+  sessionId?: string; // 对应 session ID（用于日志或后续功能）
 }
 ```
 
 **生命周期:**
+
 1. mount → 创建 xterm.Terminal + FitAddon → 打开到 div 容器 → 建立 WebSocket
 2. cwd 变化 → 关闭旧 WebSocket → kill 旧 PTY → 建立新连接
 3. unmount → 关闭 WebSocket → kill PTY → 销毁 xterm 实例

@@ -67,7 +67,7 @@ function formatTrackedFiles(label: string, files: string[] | undefined) {
 
 function readTrackedFiles(
   details: unknown,
-  key: "readFiles" | "modifiedFiles"
+  key: "readFiles" | "modifiedFiles",
 ): string[] | undefined {
   if (!details || typeof details !== "object") return undefined;
   const value = (details as Record<string, unknown>)[key];
@@ -90,7 +90,7 @@ export function formatCompactionResult(result: SessionCompactionResult): string 
   const readFiles = formatTrackedFiles("Read files", readTrackedFiles(result.details, "readFiles"));
   const modifiedFiles = formatTrackedFiles(
     "Modified files",
-    readTrackedFiles(result.details, "modifiedFiles")
+    readTrackedFiles(result.details, "modifiedFiles"),
   );
 
   if (readFiles) sections.push(readFiles);
@@ -102,24 +102,23 @@ export function formatCompactionResult(result: SessionCompactionResult): string 
 export async function executeServerLocalAction(
   action: Extract<AppSlashCommandName, "session" | "export" | "name" | "compact">,
   args: string,
-  context: ServerLocalActionContext
+  context: ServerLocalActionContext,
 ): Promise<ServerLocalActionResult> {
   switch (action) {
     case "session":
       return {
         title: "Session",
         content: formatSessionStats(context.getSessionStats()),
-        status: "info"
+        status: "info",
       };
 
     case "export": {
       const format = normalizeExportFormat(args);
-      const filePath =
-        format === "html" ? await context.exportToHtml() : context.exportToJsonl();
+      const filePath = format === "html" ? await context.exportToHtml() : context.exportToJsonl();
       return {
         title: "Export",
         content: `Exported the current session as \`${format}\` to \`${filePath}\`.`,
-        status: "success"
+        status: "success",
       };
     }
 
@@ -131,7 +130,7 @@ export async function executeServerLocalAction(
           title: "Name",
           content: `Current session name: **${currentName || "(unnamed)"}**`,
           status: "info",
-          updatedSessionName: currentName || "(unnamed)"
+          updatedSessionName: currentName || "(unnamed)",
         };
       }
 
@@ -141,7 +140,7 @@ export async function executeServerLocalAction(
         content: `Renamed the current session to **${nextName}**.`,
         status: "success",
         updatedSessionName: nextName,
-        refreshProjects: true
+        refreshProjects: true,
       };
     }
 
@@ -151,7 +150,7 @@ export async function executeServerLocalAction(
         title: "Compact",
         content: formatCompactionResult(result),
         status: "success",
-        refreshSessionDetail: true
+        refreshSessionDetail: true,
       };
     }
   }

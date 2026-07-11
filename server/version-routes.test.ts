@@ -7,13 +7,13 @@ const versions: VersionsResponse = {
   pi: {
     currentVersion: "0.80.3",
     latestVersion: "0.80.6",
-    updateAvailable: true
+    updateAvailable: true,
   },
   piWorkspace: {
     currentVersion: "0.1.0",
     latestVersion: "0.2.0",
-    updateAvailable: true
-  }
+    updateAvailable: true,
+  },
 };
 
 async function createServer(manager: VersionManagerApi) {
@@ -27,7 +27,7 @@ describe("version routes", () => {
   it("returns both component version statuses", async () => {
     const server = await createServer({
       getVersions: vi.fn(async () => versions),
-      upgrade: vi.fn()
+      upgrade: vi.fn(),
     });
 
     const response = await server.inject({ method: "GET", url: "/api/versions" });
@@ -43,18 +43,18 @@ describe("version routes", () => {
       ok: true as const,
       currentVersion: null,
       restartRequired: false,
-      message: "Pi was upgraded successfully."
+      message: "Pi was upgraded successfully.",
     }));
     const server = await createServer({
       getVersions: vi.fn(async () => versions),
-      upgrade
+      upgrade,
     });
 
     const response = await server.inject({
       method: "POST",
       url: "/api/versions/pi/upgrade",
       headers: { "x-pi-workspace-action-token": "test-action-token" },
-      payload: { command: "rm", args: ["-rf"] }
+      payload: { command: "rm", args: ["-rf"] },
     });
 
     expect(response.statusCode).toBe(200);
@@ -67,12 +67,12 @@ describe("version routes", () => {
     const upgrade = vi.fn();
     const server = await createServer({
       getVersions: vi.fn(async () => versions),
-      upgrade
+      upgrade,
     });
 
     const response = await server.inject({
       method: "POST",
-      url: "/api/versions/pi/upgrade"
+      url: "/api/versions/pi/upgrade",
     });
 
     expect(response.statusCode).toBe(403);
@@ -86,13 +86,13 @@ describe("version routes", () => {
       getVersions: vi.fn(async () => versions),
       upgrade: vi.fn(async () => {
         throw new VersionManagementError("INVALID_TARGET", "Unsupported upgrade target.");
-      })
+      }),
     });
 
     const response = await server.inject({
       method: "POST",
       url: "/api/versions/other/upgrade",
-      headers: { "x-pi-workspace-action-token": "test-action-token" }
+      headers: { "x-pi-workspace-action-token": "test-action-token" },
     });
 
     expect(response.statusCode).toBe(400);
@@ -105,13 +105,13 @@ describe("version routes", () => {
       getVersions: vi.fn(async () => versions),
       upgrade: vi.fn(async () => {
         throw new VersionManagementError("BUSY", "Another upgrade is already running.");
-      })
+      }),
     });
 
     const response = await server.inject({
       method: "POST",
       url: "/api/versions/pi-workspace/upgrade",
-      headers: { "x-pi-workspace-action-token": "test-action-token" }
+      headers: { "x-pi-workspace-action-token": "test-action-token" },
     });
 
     expect(response.statusCode).toBe(409);

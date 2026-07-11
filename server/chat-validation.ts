@@ -1,4 +1,9 @@
-export const supportedImageMimeTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
+export const supportedImageMimeTypes = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+] as const;
 export const maxImageBytes = 5 * 1024 * 1024;
 export const maxImagesPerMessage = 1;
 
@@ -47,7 +52,10 @@ export function parseImages(value: unknown): ImageContent[] {
     const data = readStringField(image, "data");
     const size = typeof image.size === "number" ? image.size : undefined;
 
-    if (!mimeType || !supportedImageMimeTypes.includes(mimeType as (typeof supportedImageMimeTypes)[number])) {
+    if (
+      !mimeType ||
+      !supportedImageMimeTypes.includes(mimeType as (typeof supportedImageMimeTypes)[number])
+    ) {
       throw new Error("Unsupported image type. Upload PNG, JPEG, WebP, or GIF.");
     }
     if (!data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
@@ -65,7 +73,7 @@ export function parseImages(value: unknown): ImageContent[] {
     return {
       type: "image",
       mimeType,
-      data
+      data,
     };
   });
 }

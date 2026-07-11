@@ -9,9 +9,9 @@ function makePiSessionDetail(name: string) {
       cwd: "/Users/test/project",
       projectName: "project",
       created: "2026-06-01T00:00:00.000Z",
-      modified: "2026-06-13T12:00:00.000Z"
+      modified: "2026-06-13T12:00:00.000Z",
     },
-    messages: []
+    messages: [],
   };
 }
 
@@ -19,7 +19,12 @@ describe("applySessionRename", () => {
   it("updates piSessionDetail.session.name when renaming the active Pi session", () => {
     const detail = makePiSessionDetail("Old name");
 
-    const result = applySessionRename(detail, { kind: "pi", sessionId: "pi-session-1" }, "pi-session-1", "New name");
+    const result = applySessionRename(
+      detail,
+      { kind: "pi", sessionId: "pi-session-1" },
+      "pi-session-1",
+      "New name",
+    );
 
     expect(result?.session.name).toBe("New name");
     expect(result?.session.id).toBe("pi-session-1");
@@ -31,13 +36,23 @@ describe("applySessionRename", () => {
   it("returns unchanged detail when renaming a different session than the active Pi session", () => {
     const detail = makePiSessionDetail("Active session");
 
-    const result = applySessionRename(detail, { kind: "pi", sessionId: "pi-session-123" }, "other-session-id", "New name");
+    const result = applySessionRename(
+      detail,
+      { kind: "pi", sessionId: "pi-session-123" },
+      "other-session-id",
+      "New name",
+    );
 
     expect(result?.session.name).toBe("Active session");
   });
 
   it("returns null when piSessionDetail is null", () => {
-    const result = applySessionRename(null, { kind: "pi", sessionId: "pi-session-1" }, "pi-session-1", "New name");
+    const result = applySessionRename(
+      null,
+      { kind: "pi", sessionId: "pi-session-1" },
+      "pi-session-1",
+      "New name",
+    );
 
     expect(result).toBeNull();
   });

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { accessSync, constants } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -29,18 +30,14 @@ export type CommandResult = {
 export type CommandRunner = (
   command: string,
   args: string[],
-  options?: CommandOptions
+  options?: CommandOptions,
 ) => Promise<CommandResult>;
 
 export class VersionManagementError extends Error {
   constructor(
-    public readonly code:
-      | "BUSY"
-      | "COMMAND_FAILED"
-      | "INVALID_TARGET"
-      | "OUTPUT_LIMIT"
-      | "TIMEOUT",
-    message: string
+    public readonly code: "BUSY" | "COMMAND_FAILED" | "INVALID_TARGET" | "OUTPUT_LIMIT" | "TIMEOUT",
+    message: string,
+    public readonly logDetail?: string,
   ) {
     super(message);
     this.name = "VersionManagementError";
@@ -80,21 +77,85 @@ type VersionManagerDependencies = {
   readWorkspaceVersion(): Promise<string>;
   workspaceBinPath: string;
   nodePath: string;
+  piCommand?: string | null;
+  logError?(message: string): void;
 };
+
+export function resolveGlobalPiCommand(
+  pathValue: string | undefined,
+  options: {
+    delimiter?: string;
+    isExecutable?(candidate: string): boolean;
+  } = {},
+) {
+  const delimiter = options.delimiter || path.delimiter;
+  const executableNames = process.platform === "win32" ? ["pi.cmd", "pi.exe", "pi"] : ["pi"];
+  const isExecutable =
+    options.isExecutable ||
+    ((candidate: string) => {
+      try {
+        accessSync(candidate, constants.X_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+  for (const directory of (pathValue || "").split(delimiter)) {
+    if (!directory) continue;
+    const normalizedDirectory = directory.replace(/\\/g, "/").replace(/\/+$/, "");
+    if (normalizedDirectory.endsWith("/node_modules/.bin")) continue;
+
+    for (const executableName of executableNames) {
+      const candidate = path.join(directory, executableName);
+      if (isExecutable(candidate)) return candidate;
+    }
+  }
+
+  return null;
+}
+
+function sanitizeCommandOutput(output: string, maxLength: number) {
+  const sanitized = output
+    .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return sanitized.length > maxLength ? `${sanitized.slice(0, maxLength - 1)}…` : sanitized;
+}
+
+function asVersionManagementError(error: unknown) {
+  return error instanceof VersionManagementError
+    ? error
+    : new VersionManagementError("COMMAND_FAILED", "The version command failed.");
+}
+
+function isPermissionFailure(error: VersionManagementError) {
+  const detail = `${error.message} ${error.logDetail || ""}`;
+  return /\b(?:EACCES|EPERM)\b|permission denied|operation not permitted|insufficient permissions?|requires? (?:root|administrator)|must be run as root/i.test(
+    detail,
+  );
+}
+
+function isSudoAuthorizationFailure(error: VersionManagementError) {
+  const detail = `${error.message} ${error.logDetail || ""}`;
+  return /password is required|no tty present|a terminal is required|authentication is required/i.test(
+    detail,
+  );
+}
 
 async function buildVersionStatus(
   currentVersionPromise: Promise<string>,
   latestVersionPromise: Promise<string>,
-  labels: { current: string; latest: string }
+  labels: { current: string; latest: string },
 ): Promise<VersionStatus> {
   const [currentResult, latestResult] = await Promise.allSettled([
     currentVersionPromise.then(normalizeVersion),
-    latestVersionPromise.then(normalizeVersion)
+    latestVersionPromise.then(normalizeVersion),
   ]);
-  const currentVersion =
-    currentResult.status === "fulfilled" ? currentResult.value : null;
-  const latestVersion =
-    latestResult.status === "fulfilled" ? latestResult.value : null;
+  const currentVersion = currentResult.status === "fulfilled" ? currentResult.value : null;
+  const latestVersion = latestResult.status === "fulfilled" ? latestResult.value : null;
   const errors: string[] = [];
 
   if (currentResult.status === "rejected") errors.push(labels.current);
@@ -105,34 +166,45 @@ async function buildVersionStatus(
     latestVersion,
     updateAvailable:
       currentVersion && latestVersion ? isNewerVersion(latestVersion, currentVersion) : null,
-    ...(errors.length > 0 ? { error: errors.join(" ") } : {})
+    ...(errors.length > 0 ? { error: errors.join(" ") } : {}),
   };
 }
 
 export function createVersionManager(dependencies: VersionManagerDependencies) {
   let upgradeRunning = false;
+  const piCommand = dependencies.piCommand === undefined ? "pi" : dependencies.piCommand;
+
+  function requirePiCommand() {
+    if (piCommand) return piCommand;
+    throw new VersionManagementError("COMMAND_FAILED", "Global Pi CLI was not found.");
+  }
 
   return {
     async getVersions(): Promise<VersionsResponse> {
       const [pi, piWorkspace] = await Promise.all([
         buildVersionStatus(
-          dependencies
-            .runCommand("pi", ["--version"], { timeoutMs: 15_000, maxOutputBytes: 4_096 })
+          Promise.resolve()
+            .then(() =>
+              dependencies.runCommand(requirePiCommand(), ["--version"], {
+                timeoutMs: 15_000,
+                maxOutputBytes: 4_096,
+              }),
+            )
             .then((result) => result.stdout),
           dependencies.fetchLatestVersion("@earendil-works/pi-coding-agent"),
           {
             current: "Unable to read the current Pi version.",
-            latest: "Unable to check the latest Pi version."
-          }
+            latest: "Unable to check the latest Pi version.",
+          },
         ),
         buildVersionStatus(
           dependencies.readWorkspaceVersion(),
           dependencies.fetchLatestVersion("pi-workspace"),
           {
             current: "Unable to read the current pi-workspace version.",
-            latest: "Unable to check the latest pi-workspace version."
-          }
-        )
+            latest: "Unable to check the latest pi-workspace version.",
+          },
+        ),
       ]);
 
       return { pi, piWorkspace };
@@ -150,15 +222,41 @@ export function createVersionManager(dependencies: VersionManagerDependencies) {
       try {
         const definition =
           target === "pi"
-            ? { command: "pi", args: ["update"] }
+            ? { command: requirePiCommand(), args: ["update"] }
             : {
                 command: dependencies.nodePath,
-                args: [dependencies.workspaceBinPath, "update"]
+                args: [dependencies.workspaceBinPath, "update"],
               };
-        await dependencies.runCommand(definition.command, definition.args, {
-          timeoutMs: 10 * 60_000,
-          maxOutputBytes: 65_536
-        });
+        const commandOptions = { timeoutMs: 10 * 60_000, maxOutputBytes: 65_536 };
+
+        try {
+          await dependencies.runCommand(definition.command, definition.args, commandOptions);
+        } catch (initialError) {
+          const managedInitialError = asVersionManagementError(initialError);
+          if (!isPermissionFailure(managedInitialError)) throw managedInitialError;
+
+          dependencies.logError?.(
+            `[version-upgrade] ${target} permission denied; retrying with sudo -n: ${managedInitialError.logDetail || managedInitialError.message}`,
+          );
+
+          try {
+            await dependencies.runCommand(
+              "sudo",
+              ["-n", definition.command, ...definition.args],
+              commandOptions,
+            );
+          } catch (sudoError) {
+            const managedSudoError = asVersionManagementError(sudoError);
+            if (isSudoAuthorizationFailure(managedSudoError)) {
+              throw new VersionManagementError(
+                "COMMAND_FAILED",
+                "Administrator permission is required. Run `sudo -v` in a terminal, then try again.",
+                managedSudoError.logDetail,
+              );
+            }
+            throw managedSudoError;
+          }
+        }
 
         return {
           target: target as UpgradeTarget,
@@ -168,12 +266,18 @@ export function createVersionManager(dependencies: VersionManagerDependencies) {
           message:
             target === "pi-workspace"
               ? "pi-workspace was upgraded. Restart it to use the new version."
-              : "Pi was upgraded successfully."
+              : "Pi was upgraded successfully.",
         };
+      } catch (error) {
+        const managedError = asVersionManagementError(error);
+        dependencies.logError?.(
+          `[version-upgrade] ${target} failed: ${managedError.logDetail || managedError.message}`,
+        );
+        throw managedError;
       } finally {
         upgradeRunning = false;
       }
-    }
+    },
   };
 }
 
@@ -198,8 +302,13 @@ export const runCommand: CommandRunner = (command, args, options) =>
     const appendOutput = (target: "stdout" | "stderr", chunk: Buffer) => {
       outputBytes += chunk.byteLength;
       if (outputBytes > maxOutputBytes) {
+        const detail = sanitizeCommandOutput(stderr || stdout, 16_384);
         finishWithError(
-          new VersionManagementError("OUTPUT_LIMIT", "The version command produced too much output.")
+          new VersionManagementError(
+            "OUTPUT_LIMIT",
+            "The version command produced too much output.",
+            detail || undefined,
+          ),
         );
         return;
       }
@@ -207,14 +316,31 @@ export const runCommand: CommandRunner = (command, args, options) =>
       else stderr += chunk.toString();
     };
     timeout = setTimeout(() => {
-      finishWithError(new VersionManagementError("TIMEOUT", "The version command timed out."));
+      const detail = sanitizeCommandOutput(stderr || stdout, 16_384);
+      const publicDetail = sanitizeCommandOutput(stderr || stdout, 4_096);
+      finishWithError(
+        new VersionManagementError(
+          "TIMEOUT",
+          publicDetail
+            ? `The version command timed out: ${publicDetail}`
+            : "The version command timed out.",
+          detail || undefined,
+        ),
+      );
     }, timeoutMs);
 
     child.stdout.on("data", (chunk: Buffer) => appendOutput("stdout", chunk));
     child.stderr.on("data", (chunk: Buffer) => appendOutput("stderr", chunk));
-    child.on("error", () => {
+    child.on("error", (error) => {
+      const detail = sanitizeCommandOutput(error.message, 16_384);
       finishWithError(
-        new VersionManagementError("COMMAND_FAILED", "The version command could not be started.")
+        new VersionManagementError(
+          "COMMAND_FAILED",
+          detail
+            ? `The version command could not be started: ${sanitizeCommandOutput(detail, 4_096)}`
+            : "The version command could not be started.",
+          detail || undefined,
+        ),
       );
     });
     child.on("close", (code) => {
@@ -222,7 +348,17 @@ export const runCommand: CommandRunner = (command, args, options) =>
       if (settled) return;
       settled = true;
       if (code !== 0) {
-        reject(new VersionManagementError("COMMAND_FAILED", "The version command failed."));
+        const detail = sanitizeCommandOutput(stderr || stdout, 16_384);
+        const publicDetail = sanitizeCommandOutput(stderr || stdout, 4_096);
+        reject(
+          new VersionManagementError(
+            "COMMAND_FAILED",
+            publicDetail
+              ? `The version command failed with exit code ${code ?? "unknown"}: ${publicDetail}`
+              : `The version command failed with exit code ${code ?? "unknown"}.`,
+            detail || undefined,
+          ),
+        );
         return;
       }
       resolve({ stdout, stderr });
@@ -232,11 +368,12 @@ export const runCommand: CommandRunner = (command, args, options) =>
 async function fetchLatestVersion(packageName: string) {
   const response = await fetch(
     `https://registry.npmjs.org/${encodeURIComponent(packageName)}/latest`,
-    { headers: { accept: "application/json" } }
+    { headers: { accept: "application/json" } },
   );
   if (!response.ok) throw new Error("Registry request failed");
   const body = (await response.json()) as { version?: unknown };
-  if (typeof body.version !== "string") throw new Error("Registry response did not include a version");
+  if (typeof body.version !== "string")
+    throw new Error("Registry response did not include a version");
   return body.version;
 }
 
@@ -248,11 +385,15 @@ export function createDefaultVersionManager() {
     runCommand,
     fetchLatestVersion,
     async readWorkspaceVersion() {
-      const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8")) as { version?: unknown };
+      const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8")) as {
+        version?: unknown;
+      };
       if (typeof packageJson.version !== "string") throw new Error("Missing package version");
       return packageJson.version;
     },
     workspaceBinPath: path.join(projectRoot, "bin", "pi-workspace.mjs"),
-    nodePath: process.execPath
+    nodePath: process.execPath,
+    piCommand: resolveGlobalPiCommand(process.env.PATH),
+    logError: (message) => console.error(message),
   });
 }

@@ -9,7 +9,7 @@ describe("groupPiHistoryMessages", () => {
         id: "user-1",
         role: "user",
         content: "Question",
-        timestamp: 1
+        timestamp: 1,
       },
       {
         id: "tool-1",
@@ -18,7 +18,7 @@ describe("groupPiHistoryMessages", () => {
         content: "file output",
         isError: false,
         expandable: true,
-        timestamp: 2
+        timestamp: 2,
       },
       {
         id: "tool-2",
@@ -27,7 +27,7 @@ describe("groupPiHistoryMessages", () => {
         content: "search output",
         isError: false,
         expandable: true,
-        timestamp: 3
+        timestamp: 3,
       },
       {
         id: "assistant-1",
@@ -35,8 +35,8 @@ describe("groupPiHistoryMessages", () => {
         content: "Answer",
         provider: "openai",
         model: "gpt-4o-mini",
-        timestamp: 4
-      }
+        timestamp: 4,
+      },
     ];
 
     expect(groupPiHistoryMessages(messages)).toEqual([
@@ -45,9 +45,9 @@ describe("groupPiHistoryMessages", () => {
         id: "tool-group-tool-1",
         role: "tool-group",
         messages: [messages[1], messages[2]],
-        timestamp: 2
+        timestamp: 2,
       },
-      messages[3]
+      messages[3],
     ]);
   });
 
@@ -60,7 +60,7 @@ describe("groupPiHistoryMessages", () => {
         content: "file output",
         isError: false,
         expandable: true,
-        timestamp: 1
+        timestamp: 1,
       },
       {
         id: "assistant-1",
@@ -68,7 +68,7 @@ describe("groupPiHistoryMessages", () => {
         content: "Answer",
         provider: "openai",
         model: "gpt-4o-mini",
-        timestamp: 2
+        timestamp: 2,
       },
       {
         id: "tool-2",
@@ -77,8 +77,8 @@ describe("groupPiHistoryMessages", () => {
         content: "search output",
         isError: false,
         expandable: true,
-        timestamp: 3
-      }
+        timestamp: 3,
+      },
     ];
 
     expect(groupPiHistoryMessages(messages)).toEqual([
@@ -86,15 +86,15 @@ describe("groupPiHistoryMessages", () => {
         id: "tool-group-tool-1",
         role: "tool-group",
         messages: [messages[0]],
-        timestamp: 1
+        timestamp: 1,
       },
       messages[1],
       {
         id: "tool-group-tool-2",
         role: "tool-group",
         messages: [messages[2]],
-        timestamp: 3
-      }
+        timestamp: 3,
+      },
     ]);
   });
 });

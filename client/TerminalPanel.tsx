@@ -59,11 +59,11 @@ export function TerminalPanel({ cwd, initialCommand, locale }: TerminalPanelProp
         brightBlue: "#569cd6",
         brightMagenta: "#c586c0",
         brightCyan: "#9cdcfe",
-        brightWhite: "#ffffff"
+        brightWhite: "#ffffff",
       },
       allowProposedApi: true,
       cols: 80,
-      rows: 24
+      rows: 24,
     });
 
     const fitAddon = new FitAddon();

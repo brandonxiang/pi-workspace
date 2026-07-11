@@ -2,7 +2,7 @@ export const LOCALE_STORAGE_KEY = "my-pi-locale";
 
 export const localeOptions = [
   { value: "en", label: "English" },
-  { value: "zh-CN", label: "简体中文" }
+  { value: "zh-CN", label: "简体中文" },
 ] as const;
 
 export type Locale = (typeof localeOptions)[number]["value"];
@@ -41,26 +41,33 @@ const translations = {
     "composer.placeholder": "Ask the agent to reason, plan, or draft...",
     "composer.remove": "Remove",
     "errors.imageTooLarge": "Image must be smaller than 5 MB.",
-    "errors.noImageSupport": "The selected model does not support image input. Choose a vision-capable model.",
+    "errors.noImageSupport":
+      "The selected model does not support image input. Choose a vision-capable model.",
     "errors.readImageFailed": "Failed to read image file.",
-    "errors.removedImageUnsupported": "Removed the attached image because the selected model does not support image input.",
+    "errors.removedImageUnsupported":
+      "Removed the attached image because the selected model does not support image input.",
     "errors.streamMissing": "No response stream returned.",
     "errors.unexpectedChat": "Unexpected chat error",
     "errors.uploadSupportedImage": "Upload a PNG, JPEG, WebP, or GIF image.",
-    "hotkeys.modeToggleDescription": "Switch between Chat and Terminal view without opening Settings.",
+    "hotkeys.modeToggleDescription":
+      "Switch between Chat and Terminal view without opening Settings.",
     "hotkeys.modeToggleLabel": "Toggle panel mode ({shortcut})",
     "hotkeys.open": "Keyboard shortcuts",
-    "hotkeys.sidebarToggleDescription": "Toggle the left sidebar without leaving your current Session flow.",
+    "hotkeys.sidebarToggleDescription":
+      "Toggle the left sidebar without leaving your current Session flow.",
     "hotkeys.sidebarToggleLabel": "Toggle sidebar ({shortcut})",
     "hotkeys.title": "Keyboard shortcuts",
     "launcher.addProject": "Add new project",
-    "launcher.body": "Pi Agent Desktop now works through Pi Sessions only. Start a new Pi Session or jump back into an existing project.",
+    "launcher.body":
+      "Pi Agent Desktop now works through Pi Sessions only. Start a new Pi Session or jump back into an existing project.",
     "launcher.newPiSession": "New Pi Session",
-    "launcher.newPiSessionBody": "Choose an existing project or add a local folder to create its first Pi Session immediately.",
+    "launcher.newPiSessionBody":
+      "Choose an existing project or add a local folder to create its first Pi Session immediately.",
     "launcher.noProjectsFound": "No matching projects found",
     "launcher.searchProjects": "Search projects",
     "launcher.selectPiSession": "Select a Pi Session",
-    "launcher.selectPiSessionBody": "Search by project name and open that project's most recent Pi Session.",
+    "launcher.selectPiSessionBody":
+      "Search by project name and open that project's most recent Pi Session.",
     "launcher.title": "What should we build in {workspace}?",
     "panel.loadingTerminalBody": "Fetching Pi session details to launch in terminal mode.",
     "panel.loadingTerminalTitle": "Loading terminal…",
@@ -84,7 +91,8 @@ const translations = {
     "settings.systemPrompt": "System prompt",
     "settings.terminalMode": "Terminal mode",
     "settings.thinkingLevel": "Thinking level",
-    "settings.thinkingLevelHelp": "Controls how much the model thinks before responding. Higher levels may improve reasoning at the cost of latency.",
+    "settings.thinkingLevelHelp":
+      "Controls how much the model thinks before responding. Higher levels may improve reasoning at the cost of latency.",
     "settings.thinkingOff": "Off",
     "settings.thinkingMinimal": "Minimal",
     "settings.thinkingLow": "Low",
@@ -106,7 +114,8 @@ const translations = {
     "settings.title": "Settings",
     "settings.upgrade": "Upgrade",
     "settings.upgradeComplete": "Upgrade completed.",
-    "settings.upgradeConfirmBody": "The upgrade runs a local CLI command and may modify the installed package or current source tree.",
+    "settings.upgradeConfirmBody":
+      "The upgrade runs a local CLI command and may modify the installed package or current source tree.",
     "settings.upgradeConfirmTitle": "Upgrade {name}?",
     "settings.upgradeFailed": "Upgrade failed.",
     "settings.upgradePi": "Upgrade Pi",
@@ -115,7 +124,8 @@ const translations = {
     "settings.updateAvailable": "Update available",
     "settings.upToDate": "Up to date",
     "settings.versionCheckFailed": "Failed to check versions.",
-    "settings.versionHelp": "Check the globally installed Pi CLI and this pi-workspace installation.",
+    "settings.versionHelp":
+      "Check the globally installed Pi CLI and this pi-workspace installation.",
     "settings.versionPermissionMissing": "Reload the version information before upgrading.",
     "settings.versionTitle": "Version management",
     "settings.versionUnknown": "Version status unavailable",
@@ -133,7 +143,8 @@ const translations = {
     "sidebar.showLess": "Show less",
     "sidebar.showMore": "Show more ({count})",
     "sidebar.startTitle": "Start with a task or question.",
-    "sidebar.startBody": "Try asking for a product plan, code review checklist, deployment runbook, or implementation strategy.",
+    "sidebar.startBody":
+      "Try asking for a product plan, code review checklist, deployment runbook, or implementation strategy.",
     "slash.changelog": "Show changelog entries",
     "slash.clone": "Duplicate current session branch",
     "slash.compact": "Compact session context",
@@ -161,7 +172,7 @@ const translations = {
     "workspace.newPiSession": "New Pi session in this project",
     "workspace.noneFound": "No Pi sessions found",
     "workspace.resolving": "Resolving path…",
-    "workspace.title": "Add workspace"
+    "workspace.title": "Add workspace",
   },
   "zh-CN": {
     "actions.archive": "归档",
@@ -207,7 +218,8 @@ const translations = {
     "hotkeys.sidebarToggleLabel": "切换侧边栏（{shortcut}）",
     "hotkeys.title": "键盘快捷键",
     "launcher.addProject": "添加新项目",
-    "launcher.body": "Pi Agent Desktop 现在只围绕 Pi 会话工作。你可以新建 Pi 会话，或回到已有项目中的会话。",
+    "launcher.body":
+      "Pi Agent Desktop 现在只围绕 Pi 会话工作。你可以新建 Pi 会话，或回到已有项目中的会话。",
     "launcher.newPiSession": "新建 Pi 会话",
     "launcher.newPiSessionBody": "选择已有项目，或添加本地文件夹，并立即为它创建第一个 Pi 会话。",
     "launcher.noProjectsFound": "未找到匹配的项目",
@@ -237,7 +249,8 @@ const translations = {
     "settings.systemPrompt": "系统提示词",
     "settings.terminalMode": "终端模式",
     "settings.thinkingLevel": "思考深度",
-    "settings.thinkingLevelHelp": "控制模型在响应前的思考深度。较高的级别可能改善推理能力，但会增加延迟。",
+    "settings.thinkingLevelHelp":
+      "控制模型在响应前的思考深度。较高的级别可能改善推理能力，但会增加延迟。",
     "settings.thinkingOff": "关闭",
     "settings.thinkingMinimal": "最低",
     "settings.thinkingLow": "低",
@@ -259,7 +272,8 @@ const translations = {
     "settings.title": "设置",
     "settings.upgrade": "升级",
     "settings.upgradeComplete": "升级完成。",
-    "settings.upgradeConfirmBody": "升级会运行本地 CLI 命令，并可能修改已安装的软件包或当前源码目录。",
+    "settings.upgradeConfirmBody":
+      "升级会运行本地 CLI 命令，并可能修改已安装的软件包或当前源码目录。",
     "settings.upgradeConfirmTitle": "升级 {name}？",
     "settings.upgradeFailed": "升级失败。",
     "settings.upgradePi": "升级 Pi",
@@ -314,8 +328,8 @@ const translations = {
     "workspace.newPiSession": "在这个项目中新建 Pi 会话",
     "workspace.noneFound": "未找到 Pi 会话",
     "workspace.resolving": "正在解析路径…",
-    "workspace.title": "添加工作区"
-  }
+    "workspace.title": "添加工作区",
+  },
 } as const;
 
 export type TranslationKey = keyof (typeof translations)["en"];

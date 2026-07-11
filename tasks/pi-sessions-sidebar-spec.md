@@ -9,6 +9,7 @@
 **用户：** 既使用 `pi` CLI 也使用本 Web 界面的开发者。
 
 **成功标准：**
+
 - 左侧边栏展示 `<project-name>` 分组，每个分组下列出该项目的 Pi 会话
 - 每个 Pi 会话显示：首条消息摘要、消息数量、最后活动时间
 - 点击 Pi 会话条目可加载对话到聊天面板（只读或可继续对话）
@@ -18,12 +19,12 @@
 
 ## Tech Stack
 
-| 层 | 技术 |
-|---|---|
+| 层   | 技术                                                           |
+| ---- | -------------------------------------------------------------- |
 | 后端 | Fastify 5 + `@earendil-works/pi-coding-agent` (SessionManager) |
-| 前端 | React 19 + Ant Design X |
-| 构建 | Vite 8 + `@fastify/vite` |
-| 类型 | TypeScript 5 |
+| 前端 | React 19 + Ant Design X                                        |
+| 构建 | Vite 8 + `@fastify/vite`                                       |
+| 类型 | TypeScript 5                                                   |
 
 ---
 
@@ -103,6 +104,7 @@ const { data: piSessions, loading: piLoading } = useFetch("/api/pi-sessions");
 ```
 
 Key conventions:
+
 - **Server:** Error handling with `try/catch` + HTTP status codes; data via `return`
 - **Client:** Hooks at top, derived state via `useMemo`, async via `useEffect`
 - **Styles:** CSS custom properties (same design tokens)
@@ -112,13 +114,14 @@ Key conventions:
 
 ## Testing Strategy
 
-| Test level | Framework | Where | What |
-|---|---|---|---|
-| Unit (server) | Vitest | `server/*.test.ts` | Validation logic, session parsing |
-| Unit (client) | Vitest | `client/*.test.ts` (new) | Grouping logic, formatting |
-| Integration | Manual / E2E | Browser | Sidebar rendering, API response, project grouping |
+| Test level    | Framework    | Where                    | What                                              |
+| ------------- | ------------ | ------------------------ | ------------------------------------------------- |
+| Unit (server) | Vitest       | `server/*.test.ts`       | Validation logic, session parsing                 |
+| Unit (client) | Vitest       | `client/*.test.ts` (new) | Grouping logic, formatting                        |
+| Integration   | Manual / E2E | Browser                  | Sidebar rendering, API response, project grouping |
 
 **Coverage expectations:**
+
 - Session grouping logic: 100% branch coverage
 - API route error handling: tested via mock SessionManager
 
@@ -150,12 +153,13 @@ Key conventions:
 ## Success Criteria
 
 1. **API endpoint `/api/pi-sessions`** returns projects grouped with sessions:
+
    ```json
    {
      "projects": [
        {
-        "name": "pi-gui",
-        "path": "/Users/me/github/pi-gui",
+         "name": "pi-gui",
+         "path": "/Users/me/github/pi-gui",
          "sessions": [
            {
              "id": "019ec12b-...",

@@ -18,12 +18,12 @@ export default {
           if (id.includes("antd") || id.includes("@ant-design")) {
             return "ui-vendor";
           }
-        }
-      }
-    }
+        },
+      },
+    },
   },
   // Vitest config — relative to vite root (client/)
   test: {
-    include: ["**/*.test.ts", "**/*.test.tsx", "../server/**/*.test.ts"]
-  }
+    include: ["**/*.test.ts", "**/*.test.tsx", "../server/**/*.test.ts"],
+  },
 };

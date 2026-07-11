@@ -40,14 +40,14 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Client | React, TypeScript, Ant Design X `Bubble.List` |
-| Styling | CSS modules not used; global styles in `client/styles.css` |
-| Server | Fastify, TypeScript |
-| Session SDK | `@earendil-works/pi-coding-agent@0.75.5` |
-| Tests | Vitest |
-| Build | Vite + Rolldown |
+| Layer       | Technology                                                 |
+| ----------- | ---------------------------------------------------------- |
+| Client      | React, TypeScript, Ant Design X `Bubble.List`              |
+| Styling     | CSS modules not used; global styles in `client/styles.css` |
+| Server      | Fastify, TypeScript                                        |
+| Session SDK | `@earendil-works/pi-coding-agent@0.75.5`                   |
+| Tests       | Vitest                                                     |
+| Build       | Vite + Rolldown                                            |
 
 现有数据流约束：
 
@@ -106,7 +106,7 @@ type PiHistoryTranscriptEntry =
 function buildAssistantTurn(
   finalMessage: Extract<PiHistoryMessage, { role: "assistant" }>,
   thinking: Extract<PiHistoryMessage, { role: "thinking" }> | undefined,
-  tools: Extract<PiHistoryMessage, { role: "tool" }>[]
+  tools: Extract<PiHistoryMessage, { role: "tool" }>[],
 ): PiHistoryTranscriptEntry {
   return {
     id: `assistant-turn-${finalMessage.id}`,
@@ -114,7 +114,7 @@ function buildAssistantTurn(
     finalMessage,
     thinking,
     tools,
-    timestamp: finalMessage.timestamp
+    timestamp: finalMessage.timestamp,
   };
 }
 ```
