@@ -97,7 +97,9 @@ only after adding authentication and permission controls.
 
 The package ships as a CLI that bundles both the API server and the frontend:
 
-- `npm publish` runs `prepack`, which builds `dist/client` and `dist-server`
+- `pnpm release` runs the test/build checks, prompts for the next version, creates
+  the release commit and Git tag, pushes them, and publishes to npm
+- npm publishing runs `prepack`, which builds `dist/client` and `dist-server`
 - the published tarball includes only the CLI entrypoint and built runtime assets
 - `pi-workspace` starts the bundled production server directly from
   `dist-server/index.mjs`

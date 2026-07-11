@@ -87,7 +87,9 @@ pnpm start       # 构建后启动生产模式
 
 CLI 包同时包含了 API 服务端和前端静态资源：
 
-- `npm publish` 会先运行 `prepack`，构建 `dist/client` 和 `dist-server`
+- `pnpm release` 会运行测试和构建检查、提示选择新版本、创建 release commit
+  与 Git tag、推送并发布到 npm
+- npm 发布会运行 `prepack`，构建 `dist/client` 和 `dist-server`
 - 发布包只包含 CLI 入口和构建产物
 - `pi-workspace` 直接从 `dist-server/index.mjs` 启动生产服务
 
