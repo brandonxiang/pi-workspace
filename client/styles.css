@@ -249,7 +249,21 @@ h2 {
 .field select:focus,
 .field textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(86, 69, 212, 0.16);
+  outline: none;
+}
+
+/* Suppress Ant Design blue focus ring on all inputs */
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector,
+.ant-select-selector:focus,
+.ant-select-selector:focus-within,
+.ant-picker-focused,
+.ant-picker:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .secondary-button {
@@ -1821,6 +1835,19 @@ h2 {
   min-width: 0;
   font-size: 14px;
   line-height: 1.5;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.chat-sender .ant-sender-input:focus,
+.chat-sender .ant-sender-input:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.chat-sender .ant-sender-input textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .chat-sender .ant-sender-actions-btn .ant-btn-primary {
