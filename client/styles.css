@@ -105,6 +105,40 @@ textarea {
     transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ───── Thin, low-opacity scrollbars ───── */
+
+.session-list,
+.pi-sessions-list,
+.chat-bubble-list .ant-bubble-list-scroll-box {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+}
+
+.session-list::-webkit-scrollbar,
+.pi-sessions-list::-webkit-scrollbar,
+.chat-bubble-list .ant-bubble-list-scroll-box::-webkit-scrollbar {
+  width: 5px;
+}
+
+.session-list::-webkit-scrollbar-track,
+.pi-sessions-list::-webkit-scrollbar-track,
+.chat-bubble-list .ant-bubble-list-scroll-box::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.session-list::-webkit-scrollbar-thumb,
+.pi-sessions-list::-webkit-scrollbar-thumb,
+.chat-bubble-list .ant-bubble-list-scroll-box::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.session-list::-webkit-scrollbar-thumb:hover,
+.pi-sessions-list::-webkit-scrollbar-thumb:hover,
+.chat-bubble-list .ant-bubble-list-scroll-box::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
+
 /* Move outer padding to children so scrollable areas sit flush with sidebar edge */
 .sidebar-top-row {
   padding: 12px;
@@ -524,21 +558,6 @@ h2 {
   padding-right: 8px;
   min-height: 0;
   flex: 1;
-  scrollbar-width: thin;
-  scrollbar-color: var(--sidebar-border) transparent;
-}
-
-.pi-sessions-list::-webkit-scrollbar {
-  width: 5px;
-}
-
-.pi-sessions-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.pi-sessions-list::-webkit-scrollbar-thumb {
-  background: var(--sidebar-border);
-  border-radius: 3px;
 }
 
 .pi-project-group {
