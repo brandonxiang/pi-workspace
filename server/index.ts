@@ -33,6 +33,8 @@ import {
   loadPiSessionProjects
 } from "./pi-sessions.js";
 import { buildAgentEndStreamEvent } from "./chat-streaming.js";
+import { createDefaultVersionManager } from "./version-management.js";
+import { registerVersionRoutes } from "./version-routes.js";
 import {
   findAppSlashCommand,
   isServerAppSlashCommand,
@@ -404,6 +406,8 @@ async function buildServer() {
   server.get("/api/health", async (_request, _reply) => {
     return { ok: true };
   });
+
+  registerVersionRoutes(server, createDefaultVersionManager());
 
   server.get("/api/cwd", async (_request, _reply) => {
     return { cwd: process.cwd() };

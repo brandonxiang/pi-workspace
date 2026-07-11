@@ -420,6 +420,30 @@ describe("App sidebar shortcut", () => {
       if (url.endsWith("/api/cwd")) {
         return createJsonResponse({ cwd: "/tmp/workspace" });
       }
+      if (url.endsWith("/api/versions")) {
+        return createJsonResponse({
+          actionToken: "test-action-token",
+          pi: {
+            currentVersion: "0.80.3",
+            latestVersion: "0.80.6",
+            updateAvailable: true
+          },
+          piWorkspace: {
+            currentVersion: "0.1.0",
+            latestVersion: "0.2.0",
+            updateAvailable: true
+          }
+        });
+      }
+      if (url.endsWith("/api/versions/pi-workspace/upgrade")) {
+        return createJsonResponse({
+          target: "pi-workspace",
+          ok: true,
+          currentVersion: null,
+          restartRequired: true,
+          message: "pi-workspace was upgraded. Restart it to use the new version."
+        });
+      }
       if (url.endsWith("/api/pi-sessions")) {
         return createJsonResponse({ projects: mockState.projects });
       }
@@ -1096,6 +1120,75 @@ describe("App sidebar shortcut", () => {
     expect(container.querySelector(".sidebar")).toBeNull();
     expect(container.querySelector(".app-shell")).toBeNull();
     expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it("shows Pi and pi-workspace versions in the settings version tab", async () => {
+    window.history.pushState({}, "", "/settings?panel=chat");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.textContent).toContain("Version");
+    expect(container.textContent).toContain("Pi CLI");
+    expect(container.textContent).toContain("0.80.3");
+    expect(container.textContent).toContain("0.80.6");
+    expect(container.textContent).toContain("pi-workspace");
+    expect(container.textContent).toContain("0.1.0");
+    expect(container.textContent).toContain("0.2.0");
+
+    const upgradePiButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Upgrade Pi"
+    );
+    const upgradeWorkspaceButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Upgrade pi-workspace"
+    );
+    expect(upgradePiButton).toBeInstanceOf(HTMLButtonElement);
+    expect(upgradePiButton?.disabled).toBe(false);
+    expect(upgradeWorkspaceButton).toBeInstanceOf(HTMLButtonElement);
+    expect(upgradeWorkspaceButton?.disabled).toBe(false);
+  });
+
+  it("confirms a pi-workspace upgrade and shows the restart result", async () => {
+    window.history.pushState({}, "", "/settings?panel=chat");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const upgradeWorkspaceButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Upgrade pi-workspace"
+    );
+    await act(async () => {
+      upgradeWorkspaceButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog).toBeInstanceOf(HTMLElement);
+    expect(dialog?.textContent).toContain("Upgrade pi-workspace?");
+
+    const confirmButton = Array.from(dialog?.querySelectorAll("button") || []).find(
+      (button) => button.textContent === "Upgrade"
+    );
+    await act(async () => {
+      confirmButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.textContent).toContain("Restart pi-workspace to use the new version.");
+    expect(
+      vi.mocked(fetch).mock.calls.some(
+        ([input, init]) =>
+          String(input).endsWith("/api/versions/pi-workspace/upgrade") &&
+          init?.method === "POST" &&
+          new Headers(init.headers).get("x-pi-workspace-action-token") === "test-action-token"
+      )
+    ).toBe(true);
   });
 
   it("returns to the home route when the settings back button is clicked", async () => {

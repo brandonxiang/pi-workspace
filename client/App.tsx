@@ -112,6 +112,18 @@ type LocalActionResult = {
   refreshProjects?: boolean;
   refreshSessionDetail?: boolean;
 };
+type VersionStatus = {
+  currentVersion: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean | null;
+  error?: string;
+};
+type VersionsResponse = {
+  pi: VersionStatus;
+  piWorkspace: VersionStatus;
+  actionToken: string;
+};
+type VersionUpgradeTarget = "pi" | "pi-workspace";
 type ChatSession = {
   id: string;
   title: string;
@@ -755,6 +767,14 @@ export default function App() {
   const [messagesEl, setMessagesEl] = useState<HTMLElement | null>(null);
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [versions, setVersions] = useState<VersionsResponse | null>(null);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versionError, setVersionError] = useState<string | null>(null);
+  const [versionNotice, setVersionNotice] = useState<string | null>(null);
+  const [versionUpgradeTarget, setVersionUpgradeTarget] =
+    useState<VersionUpgradeTarget | null>(null);
+  const [versionUpgradeRunning, setVersionUpgradeRunning] =
+    useState<VersionUpgradeTarget | null>(null);
 
   const didHydrateSelectionRef = useRef(false);
   const piSessionRequestIdRef = useRef(0);
@@ -812,7 +832,66 @@ export default function App() {
   const panelModeShortcutLabel = isMacLikePlatform ? "⌘'" : "Ctrl+'";
   const isSettingsPage = routeKind === "settings";
   const isAnyModalOpen =
-    isHotkeysOpen || renameTargetId !== null || launcherMode !== null;
+    isHotkeysOpen || renameTargetId !== null || launcherMode !== null || versionUpgradeTarget !== null;
+
+  const loadVersions = useCallback(async () => {
+    setVersionsLoading(true);
+    setVersionError(null);
+
+    try {
+      const response = await fetch("/api/versions");
+      const body = (await response.json()) as VersionsResponse & { error?: string };
+      if (!response.ok) throw new Error(body.error || t("settings.versionCheckFailed"));
+      setVersions(body);
+    } catch (loadError) {
+      setVersions(null);
+      setVersionError(
+        loadError instanceof Error ? loadError.message : t("settings.versionCheckFailed")
+      );
+    } finally {
+      setVersionsLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (!isSettingsPage) return;
+    void loadVersions();
+  }, [isSettingsPage, loadVersions]);
+
+  async function confirmVersionUpgrade() {
+    const target = versionUpgradeTarget;
+    if (!target || versionUpgradeRunning) return;
+
+    setVersionUpgradeTarget(null);
+    setVersionUpgradeRunning(target);
+    setVersionError(null);
+    setVersionNotice(null);
+
+    try {
+      const actionToken = versions?.actionToken;
+      if (!actionToken) throw new Error(t("settings.versionPermissionMissing"));
+      const response = await fetch(`/api/versions/${target}/upgrade`, {
+        method: "POST",
+        headers: { "x-pi-workspace-action-token": actionToken }
+      });
+      const body = (await response.json()) as {
+        error?: string;
+        message?: string;
+        restartRequired?: boolean;
+      };
+      if (!response.ok) throw new Error(body.error || t("settings.upgradeFailed"));
+      setVersionNotice(
+        body.restartRequired ? t("settings.restartPiWorkspace") : body.message || t("settings.upgradeComplete")
+      );
+      await loadVersions();
+    } catch (upgradeError) {
+      setVersionError(
+        upgradeError instanceof Error ? upgradeError.message : t("settings.upgradeFailed")
+      );
+    } finally {
+      setVersionUpgradeRunning(null);
+    }
+  }
 
   function updateQueuedFollowUps(
     updater: (current: QueuedComposerMessage[]) => QueuedComposerMessage[]
@@ -2309,6 +2388,79 @@ export default function App() {
                     )}
                   </div>
                 )
+              },
+              {
+                key: "version",
+                label: t("settings.tabVersion"),
+                children: (
+                  <div className="settings-tab-content settings-version-tab">
+                    <div className="settings-version-header">
+                      <div>
+                        <div className="settings-version-title">{t("settings.versionTitle")}</div>
+                        <small className="field-note">{t("settings.versionHelp")}</small>
+                      </div>
+                      <button
+                        className="settings-btn settings-btn-cancel"
+                        type="button"
+                        disabled={versionsLoading || versionUpgradeRunning !== null}
+                        onClick={() => void loadVersions()}
+                      >
+                        {versionsLoading ? t("settings.checkingVersions") : t("settings.recheckVersions")}
+                      </button>
+                    </div>
+
+                    {versionError ? <div className="error-banner" role="alert">{versionError}</div> : null}
+                    {versionNotice ? <div className="settings-version-notice" role="status">{versionNotice}</div> : null}
+
+                    <div className="settings-version-list">
+                      {([
+                        ["pi", t("settings.piCli"), versions?.pi, t("settings.upgradePi")],
+                        [
+                          "pi-workspace",
+                          "pi-workspace",
+                          versions?.piWorkspace,
+                          t("settings.upgradePiWorkspace")
+                        ]
+                      ] as const).map(([target, label, status, buttonLabel]) => (
+                        <section className="settings-version-item" key={target}>
+                          <div className="settings-version-copy">
+                            <div className="settings-version-component">{label}</div>
+                            <div className="settings-version-numbers">
+                              <span>
+                                {t("settings.currentVersion")}: <strong>{status?.currentVersion || "—"}</strong>
+                              </span>
+                              <span>
+                                {t("settings.latestVersion")}: <strong>{status?.latestVersion || "—"}</strong>
+                              </span>
+                            </div>
+                            <div className={`settings-version-status settings-version-status-${status?.error ? "error" : status?.updateAvailable ? "available" : "current"}`}>
+                              {versionsLoading && !status
+                                ? t("settings.checkingVersions")
+                                : status?.error ||
+                                  (status?.updateAvailable === true
+                                    ? t("settings.updateAvailable")
+                                    : status?.updateAvailable === false
+                                      ? t("settings.upToDate")
+                                      : t("settings.versionUnknown"))}
+                            </div>
+                          </div>
+                          <button
+                            className="settings-btn settings-btn-confirm"
+                            type="button"
+                            disabled={
+                              status?.updateAvailable !== true ||
+                              versionsLoading ||
+                              versionUpgradeRunning !== null
+                            }
+                            onClick={() => setVersionUpgradeTarget(target)}
+                          >
+                            {versionUpgradeRunning === target ? t("settings.upgrading") : buttonLabel}
+                          </button>
+                        </section>
+                      ))}
+                    </div>
+                  </div>
+                )
               }
             ]}
           />
@@ -2716,6 +2868,34 @@ export default function App() {
         {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
         onChange={handleBrowseChange}
       />
+      <Modal
+        centered
+        open={versionUpgradeTarget !== null}
+        title={t("settings.upgradeConfirmTitle", {
+          name: versionUpgradeTarget === "pi" ? "Pi" : "pi-workspace"
+        })}
+        footer={
+          <div className="settings-footer">
+            <button
+              className="settings-btn settings-btn-cancel"
+              type="button"
+              onClick={() => setVersionUpgradeTarget(null)}
+            >
+              {t("settings.cancel")}
+            </button>
+            <button
+              className="settings-btn settings-btn-confirm"
+              type="button"
+              onClick={() => void confirmVersionUpgrade()}
+            >
+              {t("settings.upgrade")}
+            </button>
+          </div>
+        }
+        onCancel={() => setVersionUpgradeTarget(null)}
+      >
+        <p>{t("settings.upgradeConfirmBody")}</p>
+      </Modal>
       <Modal
         centered
         open={isHotkeysOpen}
