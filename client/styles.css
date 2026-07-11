@@ -601,27 +601,88 @@ h2 {
   cursor: grab;
 }
 
+.pi-project-settings-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sidebar-text-muted);
+  cursor: pointer;
+  opacity: 0.4;
+  transition:
+    opacity 0.12s,
+    background 0.12s,
+    color 0.12s;
+  padding: 0;
+}
+
+.pi-project-header-row:hover .pi-project-settings-trigger {
+  opacity: 0.7;
+}
+
+.pi-project-settings-trigger:hover {
+  opacity: 1 !important;
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text);
+}
+
+.pi-project-settings-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.pi-project-settings-btn:hover {
+  background: var(--sidebar-hover);
+}
+
+.pi-project-settings-popover .ant-popover-inner {
+  padding: 4px;
+  min-width: 140px;
+}
+
 .pi-new-session-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--sidebar-border);
-  border-radius: 8px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
   background: transparent;
   color: var(--sidebar-text-muted);
   cursor: pointer;
+  opacity: 0.4;
+  padding: 0;
   transition:
+    opacity 0.12s,
     background 0.12s,
-    color 0.12s,
-    border-color 0.12s;
+    color 0.12s;
+}
+
+.pi-project-header-row:hover .pi-new-session-btn {
+  opacity: 0.7;
 }
 
 .pi-new-session-btn:hover:not(:disabled) {
+  opacity: 1;
   background: var(--sidebar-hover);
-  border-color: var(--sidebar-border);
   color: var(--sidebar-text);
 }
 

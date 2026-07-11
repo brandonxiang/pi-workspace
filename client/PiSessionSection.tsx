@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Dropdown from "antd/es/dropdown";
+import Popover from "antd/es/popover";
 import type { MenuProps } from "antd";
 import {
   createTranslator,
@@ -25,6 +26,8 @@ interface PiSessionSectionProps {
   onArchive: (sessionId: string) => void;
   onRestore: (sessionId: string) => void;
   onCreateSessionInProject: (projectPath: string) => void;
+  onDeleteProject: (projectPath: string) => void;
+  onRevealProject: (projectPath: string) => void;
 }
 
 function buildMenuItems(
@@ -176,6 +179,8 @@ export function PiSessionSection({
   onArchive,
   onRestore,
   onCreateSessionInProject,
+  onDeleteProject,
+  onRevealProject,
 }: PiSessionSectionProps) {
   const t = createTranslator(locale);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
@@ -415,6 +420,48 @@ export function PiSessionSection({
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
                   </button>
+                  <Popover
+                    content={
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <button
+                          className="pi-project-settings-btn"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteProject(project.path);
+                          }}
+                        >
+                          {t("sidebar.deleteProject")}
+                        </button>
+                        <button
+                          className="pi-project-settings-btn"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRevealProject(project.path);
+                          }}
+                        >
+                          {t("sidebar.revealProject")}
+                        </button>
+                      </div>
+                    }
+                    overlayClassName="pi-project-settings-popover"
+                    placement="bottomRight"
+                    trigger="click"
+                  >
+                    <button
+                      className="pi-project-settings-trigger"
+                      type="button"
+                      title={t("sidebar.projectSettings")}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                      </svg>
+                    </button>
+                  </Popover>
                 </div>
 
                 {isExpanded ? (

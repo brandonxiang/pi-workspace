@@ -1,10 +1,11 @@
 import Fastify from "fastify";
 import FastifyVite from "@fastify/vite";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { WebSocketServer } from "ws";
 import { spawn } from "node-pty";
+import { execSync } from "node:child_process";
 import {
   AuthStorage,
   createAgentSession,
@@ -17,6 +18,7 @@ import {
   type AgentSession,
   type ResourceLoader,
 } from "@earendil-works/pi-coding-agent";
+
 import {
   getModelSupportsImages,
   getPromptOrDefault,
@@ -563,6 +565,66 @@ async function buildServer() {
       reply.code(error instanceof Error && error.message === "Session not found" ? 404 : 500);
       return {
         error: error instanceof Error ? error.message : "Failed to rename session",
+      };
+    }
+  });
+
+  server.delete("/api/pi-sessions/:encodedProjectPath", async (request, reply) => {
+    const { encodedProjectPath } = request.params as { encodedProjectPath?: string };
+    if (!encodedProjectPath?.trim()) {
+      reply.code(400);
+      return { error: "projectPath is required" };
+    }
+
+    try {
+      const projectPath = decodeURIComponent(encodedProjectPath);
+      if (!projectPath.trim()) {
+        reply.code(400);
+        return { error: "Invalid project path" };
+      }
+
+      // Compute default session directory for this project
+      const resolvedCwd = path.resolve(projectPath);
+      const agentDir = getAgentDir();
+      const safePath = `--${resolvedCwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+      const sessionDir = path.join(agentDir, "sessions", safePath);
+
+      if (existsSync(sessionDir)) {
+        rmSync(sessionDir, { recursive: true, force: true });
+      }
+
+      // Clean up any Pi agent sessions cached in memory for this project
+      const projectSessions = (await loadPiSessionProjects()).find((p) => p.path === projectPath);
+      if (projectSessions) {
+        for (const session of projectSessions.sessions) {
+          piSessions.delete(session.id);
+        }
+      }
+
+      invalidatePiSessionCatalogCache();
+      return { ok: true };
+    } catch (error) {
+      reply.code(500);
+      return {
+        error: error instanceof Error ? error.message : "Failed to delete project",
+      };
+    }
+  });
+
+  server.post("/api/reveal-project", async (request, reply) => {
+    const { path: projectPath } = request.body as { path?: string };
+    if (!projectPath?.trim()) {
+      reply.code(400);
+      return { error: "path is required" };
+    }
+
+    try {
+      execSync(`open "${projectPath}"`, { timeout: 5000 });
+      return { ok: true };
+    } catch (error) {
+      reply.code(500);
+      return {
+        error: error instanceof Error ? error.message : "Failed to reveal project",
       };
     }
   });

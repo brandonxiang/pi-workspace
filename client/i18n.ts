@@ -142,6 +142,11 @@ const translations = {
     "sidebar.piSessions": "Pi Sessions",
     "sidebar.showLess": "Show less",
     "sidebar.showMore": "Show more ({count})",
+    "sidebar.projectSettings": "Project settings",
+    "sidebar.deleteProject": "Delete project",
+    "sidebar.revealProject": "Reveal the project",
+    "sidebar.deleteProjectConfirm":
+      "Delete all Pi sessions for this project? This cannot be undone.",
     "sidebar.startTitle": "Start with a task or question.",
     "sidebar.startBody":
       "Try asking for a product plan, code review checklist, deployment runbook, or implementation strategy.",
@@ -299,6 +304,10 @@ const translations = {
     "sidebar.piSessions": "Pi 会话",
     "sidebar.showLess": "收起",
     "sidebar.showMore": "显示更多（{count}）",
+    "sidebar.projectSettings": "项目设置",
+    "sidebar.deleteProject": "删除项目",
+    "sidebar.revealProject": "在访达中打开",
+    "sidebar.deleteProjectConfirm": "删除该项目所有的 Pi 会话？此操作不可撤销。",
     "sidebar.startTitle": "从一个任务或问题开始。",
     "sidebar.startBody": "可以试着让它生成产品计划、代码审查清单、部署手册或实现策略。",
     "slash.changelog": "查看更新日志",

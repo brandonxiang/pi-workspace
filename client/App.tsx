@@ -1470,6 +1470,50 @@ export default function App() {
     });
   }
 
+  async function handleDeleteProject(projectPath: string) {
+    const encodedPath = encodeURIComponent(projectPath);
+
+    try {
+      const response = await fetch(`/api/pi-sessions/${encodedPath}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error || `Request failed with ${response.status}`);
+      }
+
+      // Clear selection if it was in the deleted project
+      if (selectedPiSessionId) {
+        const deletedProject = projects.find((p) => p.path === projectPath);
+        if (deletedProject?.sessions.some((s) => s.id === selectedPiSessionId)) {
+          clearSelectedPiSession();
+        }
+      }
+
+      await refreshPiProjects();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete project");
+    }
+  }
+
+  async function handleRevealProject(projectPath: string) {
+    try {
+      const response = await fetch("/api/reveal-project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: projectPath }),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error || `Request failed with ${response.status}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reveal project");
+    }
+  }
+
   async function createPiSessionInProject(projectPath: string) {
     if (isStreaming) return;
     setLauncherError(null);
@@ -2625,6 +2669,8 @@ export default function App() {
                 archivedSessionIds={archivedPiSessionIds}
                 onArchive={archivePiSession}
                 onRestore={restorePiSession}
+                onDeleteProject={handleDeleteProject}
+                onRevealProject={handleRevealProject}
               />
             </div>
           </aside>
