@@ -1,19 +1,19 @@
-- [x] Task: Add failing tests for archived-session filtering and Archived Chat tab behavior
-  - Acceptance: Tests prove archived Pi sessions disappear from the home sidebar, appear in the third settings tab, and can be restored from there
-  - Verify: `pnpm run test -- client/App.test.tsx`
-  - Files: `client/App.test.tsx`
+- [ ] Task: Establish the independent website build and typed bilingual content
+  - Acceptance: Website dev/test/build commands exist, build output is isolated, and English/Chinese content has identical typed structure
+  - Verify: `vp run website:test`; `vp run website:build`
+  - Files: `package.json`, `vite.website.config.ts`, `tsconfig.website.json`, `website/index.html`, `website/src/content.ts`, `website/src/content.test.ts`
 
-- [x] Task: Filter archived Pi sessions out of the home sidebar list
-  - Acceptance: Archived session IDs are excluded from sidebar project session rows without breaking non-archived session selection
-  - Verify: `pnpm run test -- client/App.test.tsx`
-  - Files: `client/App.tsx`, `client/PiSessionSection.tsx`
+- [ ] Task: Implement tested locale and install-command interactions
+  - Acceptance: Locale initializes safely, switches without reload, persists, updates `document.lang`, and copy feedback handles success/failure accessibly
+  - Verify: `vp run website:test`
+  - Files: `website/src/locale.ts`, `website/src/locale.test.ts`, `website/src/components/InstallCommand.tsx`, `website/src/components/InstallCommand.test.tsx`, `website/src/Website.tsx`
 
-- [x] Task: Add the third Archived Chat tab with title display and restore action
-  - Acceptance: Settings page shows archived sessions in a dedicated tab, each row exposes the session title, and restore updates the page immediately
-  - Verify: `pnpm run test -- client/App.test.tsx`
-  - Files: `client/App.tsx`, `client/styles.css`, `client/i18n.ts`
+- [ ] Task: Compose the complete responsive Workspace blueprint page
+  - Acceptance: Every specified section renders in both locales with semantic landmarks, real product concepts, responsive layout, focus visibility, and reduced motion
+  - Verify: `vp run website:test`; `vp run website:check`; `vp run website:build`
+  - Files: `website/src/Website.tsx`, `website/src/Website.test.tsx`, `website/src/main.tsx`, `website/src/styles.css`, `website/src/components/ProductStage.tsx`
 
-- [x] Task: Run end-to-end verification for archive and restore
-  - Acceptance: Automated tests, build, and manual browser flow all confirm archive -> hidden from home -> visible in settings -> restored to home
-  - Verify: `pnpm run test`, `pnpm run build`, `pnpm run dev`
-  - Files: none
+- [ ] Task: Perform browser and repository-wide verification
+  - Acceptance: Desktop and 320px mobile flows have no console errors, broken assets, overflow, or keyboard blockers; existing application remains green
+  - Verify: `vp check`; `vp test`; `npm run build`; manual `agent-browser` checks against `vp run website:dev`
+  - Files: none unless verification exposes a defect

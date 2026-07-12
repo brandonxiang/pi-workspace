@@ -1,58 +1,73 @@
-# Implementation Plan: Archived Chat in Settings
+# Implementation Plan: pi-workspace Official Website
 
 ## Overview
 
-Add a third `Archived Chat` tab to the routed settings page, move archived Pi sessions out of the home sidebar, and let users restore archived sessions from that tab without involving the settings save button.
+Build the approved bilingual `pi-workspace` marketing site as an independent React/Vite+ static entry point. The work proceeds in test-first vertical slices: establish the isolated build and typed content contract, add the two required interactions, then compose and verify the responsive Workspace blueprint experience.
 
 ## Architecture Decisions
 
-- Reuse the existing `archivedPiSessionIds` local state and `localStorage` persistence instead of adding a backend archive API.
-- Derive two views from the same `projects` data: visible sessions for the home sidebar and archived sessions for the settings tab.
-- Implement `Archived Chat` as the third tab in the existing settings page, not as a new route or nested page.
-- Keep restore as an immediate action in the archived tab; do not fold it into the settings draft/save flow.
+- Keep all website source under `website/` and build to `dist-website`; do not import website code into `client/` or alter application routes.
+- Reuse the repository's React, TypeScript, Vitest, and Vite+ dependencies. Add no runtime dependencies.
+- Store English and Simplified Chinese content in one statically typed module so missing locale keys fail type checking and tests.
+- Use local component state plus `localStorage` for locale selection; the site has no backend or application API calls.
+- Render the product proof as semantic HTML/CSS based on real product concepts instead of shipping a fake interactive terminal or remote screenshot dependency.
+
+## Dependency Graph
+
+```text
+website build config
+  -> typed bilingual content
+     -> locale and clipboard behavior
+        -> page composition and product stage
+           -> responsive/browser verification
+```
 
 ## Task List
 
-### Phase 1: Foundation
+### Phase 1: Independent foundation
 
-- [ ] Add failing tests for hiding archived sessions from the home sidebar
-- [ ] Add failing tests for the Archived Chat tab empty state and restore flow
+- [ ] Add independent website Vite+, TypeScript, and package scripts.
+- [ ] RED: add tests for translation parity and locale resolution.
+- [ ] GREEN: implement the typed bilingual content and locale utilities.
 
 ### Checkpoint: Foundation
 
-- [ ] New archived-session tests fail against the current implementation
-- [ ] Existing settings-route tests still describe the current routed settings page
+- [ ] `vp run website:test` passes.
+- [ ] `vp run website:build` emits `dist-website` without changing existing build output.
 
-### Phase 2: Core Features
+### Phase 2: Required interactions
 
-- [ ] Filter archived Pi sessions out of the home sidebar project/session lists
-- [ ] Add the third Archived Chat tab to the settings page, showing archived sessions grouped with display titles and restore actions
-- [ ] Wire restore so the archived tab updates immediately and restored sessions reappear on the home page
+- [ ] RED: add component tests for language switching, document language, locale persistence, clipboard success, and clipboard failure.
+- [ ] GREEN: implement the language control and accessible install command component.
 
-### Checkpoint: Core Features
+### Checkpoint: Interactions
 
-- [ ] Archived-session tests pass
-- [ ] Existing session selection, terminal route, and settings save tests still pass
+- [ ] Focused website tests pass.
+- [ ] The interactions work without external services or new dependencies.
 
-### Phase 3: Polish
+### Phase 3: Complete interface
 
-- [ ] Add clear empty-state and archived-list styling for the new tab
-- [ ] Run full test suite and production build
-- [ ] Verify archive -> settings -> restore in a browser
+- [ ] RED: add a bilingual render smoke test for required landmarks, sections, headings, and links.
+- [ ] GREEN: implement the Workspace blueprint page, product-stage composition, responsive styles, focus states, and reduced motion.
+- [ ] Verify desktop/mobile layouts, keyboard interaction, console, and local assets with `agent-browser`.
+- [ ] Run repository-wide checks and production builds.
 
 ### Checkpoint: Complete
 
-- [ ] Acceptance criteria in the spec are satisfied
-- [ ] Ready for review
+- [ ] All specification success criteria are met.
+- [ ] Existing workspace tests and build remain green.
+- [ ] Browser verification is captured at desktop and 320px mobile widths.
 
 ## Risks and Mitigations
 
-| Risk                                                                         | Impact | Mitigation                                                                                      |
-| ---------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
-| Filtering archived sessions breaks project counts or empty-project rendering | High   | Derive filtered project lists in one place and cover both visible and archived views with tests |
-| Archived tab accidentally mixes with settings draft/save semantics           | Medium | Keep restore as a separate immediate action and verify save flow regressions with tests         |
-| Restored sessions fail to reappear on home due to stale derived state        | Medium | Drive both views from the same source state and assert reappearance in App tests                |
+| Risk                                                  | Impact | Mitigation                                                                            |
+| ----------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
+| Website config interferes with the existing app build | High   | Use a dedicated config, tsconfig, root, and output directory; run both builds         |
+| Chinese and English content drift                     | Medium | Define one shared content type and assert structural parity                           |
+| Clipboard permission fails                            | Medium | Keep command text selectable and expose a polite manual-copy message                  |
+| Product mockup feels generic or unreadable on mobile  | Medium | Use real domain labels, limit decoration, and verify screenshots at 320px and desktop |
+| Remote fonts hurt resilience or privacy               | Low    | Use local system-first stacks with named font fallbacks and no external requests      |
 
 ## Open Questions
 
-- None. The user confirmed that Archived Chat is the third settings tab and only supports restore.
+- None. The user's instruction to implement immediately is treated as approval of the specification and this execution sequence.
