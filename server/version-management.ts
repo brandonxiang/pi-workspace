@@ -38,6 +38,7 @@ export class VersionManagementError extends Error {
     public readonly code: "BUSY" | "COMMAND_FAILED" | "INVALID_TARGET" | "OUTPUT_LIMIT" | "TIMEOUT",
     message: string,
     public readonly logDetail?: string,
+    public readonly interactiveSudoCommand?: string,
   ) {
     super(message);
     this.name = "VersionManagementError";
@@ -172,7 +173,7 @@ function asVersionManagementError(error: unknown) {
 
 function isPermissionFailure(error: VersionManagementError) {
   const detail = `${error.message} ${error.logDetail || ""}`;
-  return /\b(?:EACCES|EPERM)\b|permission denied|operation not permitted|insufficient permissions?|requires? (?:root|administrator)|must be run as root/i.test(
+  return /\b(?:EACCES|EPERM)\b|permission denied|operation not permitted|install path is not writable|insufficient permissions?|requires? (?:root|administrator)|must be run as root/i.test(
     detail,
   );
 }
@@ -182,6 +183,11 @@ function isSudoAuthorizationFailure(error: VersionManagementError) {
   return /password is required|no tty present|a terminal is required|authentication is required/i.test(
     detail,
   );
+}
+
+function buildInteractiveSudoCommand(command: string, args: string[]) {
+  const quote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+  return `sudo ${[command, ...args].map(quote).join(" ")}`;
 }
 
 async function buildVersionStatus(
@@ -291,6 +297,7 @@ export function createVersionManager(dependencies: VersionManagerDependencies) {
                 "COMMAND_FAILED",
                 "Administrator permission is required. Run `sudo -v` in a terminal, then try again.",
                 managedSudoError.logDetail,
+                buildInteractiveSudoCommand(definition.command, definition.args),
               );
             }
             throw managedSudoError;

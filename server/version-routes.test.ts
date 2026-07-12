@@ -118,4 +118,30 @@ describe("version routes", () => {
     expect(response.json()).toEqual({ error: "Another upgrade is already running." });
     await server.close();
   });
+
+  it("returns the fixed interactive sudo command when terminal authorization is required", async () => {
+    const server = await createServer({
+      getVersions: vi.fn(async () => versions),
+      upgrade: vi.fn(async () => {
+        throw Object.assign(
+          new VersionManagementError("COMMAND_FAILED", "Administrator permission is required."),
+          { interactiveSudoCommand: "sudo '/global/bin/pi' 'update'" },
+        );
+      }),
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/versions/pi/upgrade",
+      headers: { "x-pi-workspace-action-token": "test-action-token" },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({
+      error: "Administrator permission is required.",
+      requiresInteractiveSudo: true,
+      interactiveCommand: "sudo '/global/bin/pi' 'update'",
+    });
+    await server.close();
+  });
 });

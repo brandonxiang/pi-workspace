@@ -261,7 +261,14 @@ vi.mock("./Minimap", () => ({
 }));
 
 vi.mock("./TerminalPanel", () => ({
-  TerminalPanel: () => <div className="terminal-panel" data-testid="terminal-panel" tabIndex={0} />,
+  TerminalPanel: ({ initialCommand }: { initialCommand?: string }) => (
+    <div
+      className="terminal-panel"
+      data-initial-command={initialCommand || ""}
+      data-testid="terminal-panel"
+      tabIndex={0}
+    />
+  ),
 }));
 
 import App from "./App";
@@ -1206,6 +1213,54 @@ describe("App sidebar shortcut", () => {
             new Headers(init.headers).get("x-pi-workspace-action-token") === "test-action-token",
         ),
     ).toBe(true);
+  });
+
+  it("opens an interactive terminal when sudo needs password or Touch ID authorization", async () => {
+    window.history.pushState({}, "", "/settings?panel=chat");
+    const defaultFetch = vi.mocked(fetch).getMockImplementation();
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (toUrlString(input).endsWith("/api/versions/pi/upgrade")) {
+        return createJsonResponse(
+          {
+            error: "Administrator permission is required.",
+            requiresInteractiveSudo: true,
+            interactiveCommand: "sudo '/global/bin/pi' 'update'",
+          },
+          false,
+        );
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch implementation");
+      return defaultFetch(input, init);
+    });
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const upgradePiButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Upgrade Pi",
+    );
+    await act(async () => {
+      upgradePiButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const confirmation = container.querySelector('[role="dialog"]');
+    const confirmButton = Array.from(confirmation?.querySelectorAll("button") || []).find(
+      (button) => button.textContent === "Upgrade",
+    );
+    await act(async () => {
+      confirmButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.textContent).toContain("Administrator authorization");
+    expect(
+      container
+        .querySelector('[data-testid="terminal-panel"]')
+        ?.getAttribute("data-initial-command"),
+    ).toBe("sudo '/global/bin/pi' 'update'");
   });
 
   it("returns to the home route when the settings back button is clicked", async () => {

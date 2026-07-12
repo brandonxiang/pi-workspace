@@ -14,7 +14,6 @@ import type { PiSessionProject } from "./types";
 const DEFAULT_VISIBLE_SESSION_COUNT = 10;
 
 interface PiSessionSectionProps {
-  isStreaming: boolean;
   locale: Locale;
   projects: PiSessionProject[];
   loading: boolean;
@@ -167,7 +166,6 @@ export function filterProjectsByArchiveState(
 }
 
 export function PiSessionSection({
-  isStreaming,
   locale,
   projects,
   loading,
@@ -361,7 +359,6 @@ export function PiSessionSection({
               <div
                 className={"pi-project-group" + (isDragOver ? " pi-project-group-drag-over" : "")}
                 key={project.path}
-                draggable={!isStreaming}
                 onDragStart={() => handleProjectDragStart(project.path)}
                 onDragOver={(event) => handleProjectDragOver(event, project.path)}
                 onDragLeave={handleProjectDragLeave}
@@ -371,7 +368,6 @@ export function PiSessionSection({
                 <div className="pi-project-header-row">
                   <button
                     className="pi-project-header"
-                    disabled={isStreaming}
                     type="button"
                     onClick={() => toggleProject(project.path)}
                   >
@@ -398,7 +394,6 @@ export function PiSessionSection({
                   </button>
                   <button
                     className="pi-new-session-btn"
-                    disabled={isStreaming}
                     type="button"
                     title={t("workspace.newPiSession")}
                     onClick={(event) => {
@@ -477,7 +472,6 @@ export function PiSessionSection({
                             (isArchived ? " pi-session-row-archived" : "")
                           }
                           key={session.id}
-                          disabled={isStreaming}
                           type="button"
                           onClick={() => onSelectSession(session.id)}
                         >
@@ -518,7 +512,6 @@ export function PiSessionSection({
                     {visibleSessions.hiddenCount > 0 ? (
                       <button
                         className="pi-session-show-more"
-                        disabled={isStreaming}
                         type="button"
                         onClick={() => toggleProjectSessions(project.path)}
                       >
@@ -530,7 +523,6 @@ export function PiSessionSection({
                     {showAllSessions && project.sessions.length > DEFAULT_VISIBLE_SESSION_COUNT ? (
                       <button
                         className="pi-session-show-more"
-                        disabled={isStreaming}
                         type="button"
                         onClick={() => toggleProjectSessions(project.path)}
                       >

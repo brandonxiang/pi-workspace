@@ -47,7 +47,15 @@ export function registerVersionRoutes(
     } catch (error) {
       if (error instanceof VersionManagementError) {
         reply.code(error.code === "INVALID_TARGET" ? 400 : error.code === "BUSY" ? 409 : 500);
-        return { error: error.message };
+        return {
+          error: error.message,
+          ...(error.interactiveSudoCommand
+            ? {
+                requiresInteractiveSudo: true,
+                interactiveCommand: error.interactiveSudoCommand,
+              }
+            : {}),
+        };
       }
 
       reply.code(500);

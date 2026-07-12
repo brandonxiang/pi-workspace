@@ -134,6 +134,10 @@ type VersionsResponse = {
   actionToken: string;
 };
 type VersionUpgradeTarget = "pi" | "pi-workspace";
+type InteractiveSudoUpgrade = {
+  target: VersionUpgradeTarget;
+  command: string;
+};
 
 type ActivePanelView = { kind: "empty" } | { kind: "pi"; sessionId: string };
 type LauncherMode = "new" | "select" | null;
@@ -156,7 +160,7 @@ type HistoryWriteMode = "push" | "replace" | "skip";
 
 const THINKING_LEVEL_STORAGE_KEY = "my-pi-thinking-level";
 const SIDEBAR_SHORTCUT_KEY = "b";
-const PANEL_MODE_SHORTCUT_KEY = "'";
+const PANEL_MODE_SHORTCUT_KEYS = ["'", "j"];
 
 const defaultSystemPrompt =
   "You are My Pi, an online agent conversation assistant. Be concise, practical, and explicit about assumptions.";
@@ -232,7 +236,7 @@ function isPanelModeShortcut(
   event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
 ) {
   return (
-    event.key === PANEL_MODE_SHORTCUT_KEY &&
+    PANEL_MODE_SHORTCUT_KEYS.includes(event.key.toLowerCase()) &&
     !event.altKey &&
     !event.shiftKey &&
     (event.metaKey || event.ctrlKey)
@@ -679,6 +683,8 @@ export default function App() {
   const [versionUpgradeRunning, setVersionUpgradeRunning] = useState<VersionUpgradeTarget | null>(
     null,
   );
+  const [interactiveSudoUpgrade, setInteractiveSudoUpgrade] =
+    useState<InteractiveSudoUpgrade | null>(null);
 
   const didHydrateSelectionRef = useRef(false);
   const piSessionRequestIdRef = useRef(0);
@@ -731,13 +737,14 @@ export default function App() {
     return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   }, []);
   const sidebarShortcutLabel = isMacLikePlatform ? "⌘B" : "Ctrl+B";
-  const panelModeShortcutLabel = isMacLikePlatform ? "⌘'" : "Ctrl+'";
+  const panelModeShortcutLabel = isMacLikePlatform ? "⌘' / ⌘J" : "Ctrl+' / Ctrl+J";
   const isSettingsPage = routeKind === "settings";
   const isAnyModalOpen =
     isHotkeysOpen ||
     renameTargetId !== null ||
     launcherMode !== null ||
-    versionUpgradeTarget !== null;
+    versionUpgradeTarget !== null ||
+    interactiveSudoUpgrade !== null;
 
   const loadVersions = useCallback(async () => {
     setVersionsLoading(true);
@@ -781,10 +788,18 @@ export default function App() {
       });
       const body = (await response.json()) as {
         error?: string;
+        interactiveCommand?: string;
         message?: string;
+        requiresInteractiveSudo?: boolean;
         restartRequired?: boolean;
       };
-      if (!response.ok) throw new Error(body.error || t("settings.upgradeFailed"));
+      if (!response.ok) {
+        if (body.requiresInteractiveSudo && body.interactiveCommand) {
+          setInteractiveSudoUpgrade({ target, command: body.interactiveCommand });
+          return;
+        }
+        throw new Error(body.error || t("settings.upgradeFailed"));
+      }
       setVersionNotice(
         body.restartRequired
           ? t("settings.restartPiWorkspace")
@@ -2569,7 +2584,6 @@ export default function App() {
                 <div className="sidebar-actions">
                   <button
                     className="icon-button"
-                    disabled={isStreaming}
                     type="button"
                     title={t("sidebar.newPiSession")}
                     onClick={openNewSessionLauncher}
@@ -2654,7 +2668,6 @@ export default function App() {
 
               <PiSessionSection
                 error={projectsError}
-                isStreaming={isStreaming}
                 locale={locale}
                 loading={projectsLoading}
                 onCreateSessionInProject={(projectPath) => {
@@ -3024,6 +3037,40 @@ export default function App() {
         onCancel={() => setVersionUpgradeTarget(null)}
       >
         <p>{t("settings.upgradeConfirmBody")}</p>
+      </Modal>
+      <Modal
+        centered
+        width={820}
+        open={interactiveSudoUpgrade !== null}
+        title={t("settings.administratorAuthorization")}
+        footer={
+          <div className="settings-footer">
+            <button
+              className="settings-btn settings-btn-cancel"
+              type="button"
+              onClick={() => {
+                setInteractiveSudoUpgrade(null);
+                void loadVersions();
+              }}
+            >
+              {t("settings.close")}
+            </button>
+          </div>
+        }
+        onCancel={() => setInteractiveSudoUpgrade(null)}
+      >
+        <p className="field-note">{t("settings.sudoAuthorizationHelp")}</p>
+        {interactiveSudoUpgrade ? (
+          <Suspense fallback={<div>{t("panel.loadingTerminalTitle")}</div>}>
+            <div className="settings-sudo-terminal">
+              <TerminalPanel
+                cwd={serverCwd || "."}
+                initialCommand={interactiveSudoUpgrade.command}
+                locale={locale}
+              />
+            </div>
+          </Suspense>
+        ) : null}
       </Modal>
       <Modal
         centered

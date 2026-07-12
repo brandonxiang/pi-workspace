@@ -167,8 +167,8 @@ describe("createVersionManager", () => {
       if (command !== "sudo") {
         throw new VersionManagementError(
           "COMMAND_FAILED",
-          "The version command failed with exit code 1: permission denied",
-          "permission denied",
+          "The version command failed with exit code 1: pi cannot self-update this installation. This installation is managed by a global npm install, but the install path is not writable",
+          "pi cannot self-update this installation. This installation is managed by a global npm install, but the install path is not writable",
         );
       }
       return { stdout: "updated", stderr: "" };
@@ -247,6 +247,7 @@ describe("createVersionManager", () => {
     await expect(manager.upgrade("pi")).rejects.toMatchObject({
       code: "COMMAND_FAILED",
       message: "Administrator permission is required. Run `sudo -v` in a terminal, then try again.",
+      interactiveSudoCommand: "sudo '/Users/test/.local/bin/pi' 'update'",
     });
   });
 

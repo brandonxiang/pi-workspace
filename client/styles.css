@@ -2195,6 +2195,18 @@ h2 {
   font-weight: 600;
 }
 
+.settings-sudo-terminal {
+  height: 360px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #1e1e1e;
+}
+
+.settings-sudo-terminal .terminal-panel {
+  height: 100%;
+}
+
 .settings-btn:disabled {
   cursor: not-allowed;
   opacity: 0.52;
