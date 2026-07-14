@@ -1101,7 +1101,7 @@ describe("App sidebar shortcut", () => {
         {
           id: "assistant-1",
           role: "assistant",
-          content: "Final answer",
+          content: "First update",
           provider: "openai",
           model: "gpt-4o-mini",
           timestamp: 3,
@@ -1114,6 +1114,20 @@ describe("App sidebar shortcut", () => {
           isError: false,
           expandable: true,
           timestamp: 4,
+        },
+        {
+          id: "thinking-2",
+          role: "thinking",
+          content: " + Plan B",
+          timestamp: 5,
+        },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "Final answer",
+          provider: "openai",
+          model: "gpt-4o-mini",
+          timestamp: 6,
         },
       ],
     };
@@ -1130,9 +1144,11 @@ describe("App sidebar shortcut", () => {
 
     expect(assistantBubbles).toHaveLength(1);
     expect(container.textContent).toContain("Final answer");
-    expect(container.textContent).toContain("Thinking");
+    expect(container.textContent).toContain("Earlier updates");
+    expect(container.textContent).toContain("Thinking trace");
     expect(container.textContent).toContain("Tool activity");
-    expect(container.textContent).toContain("Plan A");
+    expect(container.textContent).toContain("First update");
+    expect(container.textContent).toContain("Plan A + Plan B");
     expect(container.textContent).toContain("file output");
   });
 

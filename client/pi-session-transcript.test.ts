@@ -51,6 +51,7 @@ describe("groupPiHistoryMessages", () => {
         id: "assistant-turn-assistant-1",
         role: "assistant-turn",
         finalMessage: messages[2],
+        previousMessages: [],
         thinking: messages[1],
         tools: [messages[3], messages[4]],
         timestamp: 3,
@@ -94,6 +95,7 @@ describe("groupPiHistoryMessages", () => {
         id: "assistant-turn-assistant-1",
         role: "assistant-turn",
         finalMessage: messages[1],
+        previousMessages: [],
         tools: [messages[2]],
         timestamp: 2,
       },
@@ -129,6 +131,7 @@ describe("groupPiHistoryMessages", () => {
         id: "assistant-turn-assistant-1",
         role: "assistant-turn",
         finalMessage: messages[2],
+        previousMessages: [],
         thinking: {
           id: "thinking-group-thinking-1",
           role: "thinking",
@@ -137,6 +140,72 @@ describe("groupPiHistoryMessages", () => {
         },
         tools: [],
         timestamp: 3,
+      },
+    ]);
+  });
+
+  it("collapses multiple assistant updates in the same user turn under the final reply", () => {
+    const messages: PiHistoryMessage[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: "Question",
+        timestamp: 1,
+      },
+      {
+        id: "thinking-1",
+        role: "thinking",
+        content: "Plan A",
+        timestamp: 2,
+      },
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "First update",
+        provider: "openai",
+        model: "gpt-4o-mini",
+        timestamp: 3,
+      },
+      {
+        id: "tool-1",
+        role: "tool",
+        toolName: "bash",
+        content: "step 1",
+        isError: false,
+        expandable: true,
+        timestamp: 4,
+      },
+      {
+        id: "thinking-2",
+        role: "thinking",
+        content: " + Plan B",
+        timestamp: 5,
+      },
+      {
+        id: "assistant-2",
+        role: "assistant",
+        content: "Final answer",
+        provider: "openai",
+        model: "gpt-4o-mini",
+        timestamp: 6,
+      },
+    ];
+
+    expect(groupPiHistoryMessages(messages)).toEqual([
+      messages[0],
+      {
+        id: "assistant-turn-assistant-2",
+        role: "assistant-turn",
+        finalMessage: messages[5],
+        previousMessages: [messages[2]],
+        thinking: {
+          id: "thinking-group-thinking-1",
+          role: "thinking",
+          content: "Plan A + Plan B",
+          timestamp: 2,
+        },
+        tools: [messages[3]],
+        timestamp: 6,
       },
     ]);
   });

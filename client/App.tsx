@@ -330,6 +330,30 @@ function PiThinkingDisclosureContent({
   );
 }
 
+function PiPreviousAssistantMessagesContent({
+  t,
+  messages,
+}: {
+  t: Translator;
+  messages: Extract<PiHistoryMessage, { role: "assistant" }>[];
+}) {
+  return (
+    <details className="pi-assistant-history-card">
+      <summary>
+        <span>{t("chat.previousAssistantUpdates")}</span>
+        <small>{t("chat.clickToExpand")}</small>
+      </summary>
+      <div className="pi-assistant-history-list">
+        {messages.map((message) => (
+          <section className="pi-assistant-history-item" key={message.id}>
+            <RenderMarkdown content={message.content} />
+          </section>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function PiToolGroupContent({
   t,
   messages,
@@ -373,6 +397,9 @@ function PiAssistantTurnContent({
       <div className="pi-assistant-turn-response">
         <RenderMarkdown content={entry.finalMessage.content} />
       </div>
+      {entry.previousMessages.length > 0 ? (
+        <PiPreviousAssistantMessagesContent t={t} messages={entry.previousMessages} />
+      ) : null}
       {entry.thinking ? <PiThinkingDisclosureContent t={t} message={entry.thinking} /> : null}
       {entry.tools.length > 0 ? <PiToolGroupContent t={t} messages={entry.tools} /> : null}
     </div>

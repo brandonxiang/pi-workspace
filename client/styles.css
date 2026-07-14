@@ -1390,6 +1390,57 @@ h2 {
   margin-bottom: 0;
 }
 
+.pi-assistant-history-card {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--canvas-soft);
+  overflow: hidden;
+}
+
+.pi-assistant-history-card summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink-secondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pi-assistant-history-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.pi-assistant-history-card summary small {
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pi-assistant-history-list {
+  display: grid;
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+
+.pi-assistant-history-item {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+}
+
+.pi-assistant-history-item > :first-child {
+  margin-top: 0;
+}
+
+.pi-assistant-history-item > :last-child {
+  margin-bottom: 0;
+}
+
 .thinking-block-title {
   display: flex;
   align-items: center;
