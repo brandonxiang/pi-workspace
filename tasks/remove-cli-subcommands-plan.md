@@ -19,19 +19,19 @@ worktree.
 
 ### Phase 1: Executable behavior
 
-- [ ] RED: add process tests for help, removed commands, and retained version output.
-- [ ] GREEN: remove `start` and `build` parsing, dispatch, and help entries.
+- [x] RED: add process tests for help, removed commands, and retained version output.
+- [x] GREEN: remove `start` and `build` parsing, dispatch, and help entries.
 
 ### Checkpoint: CLI
 
-- [ ] Focused CLI tests pass.
-- [ ] Type checking passes.
+- [x] Focused CLI tests pass.
+- [x] Type checking passes.
 
 ### Phase 2: Documentation and verification
 
-- [ ] Remove CLI build examples from English and Chinese READMEs.
-- [ ] Run `vp check`, `vp test`, and `npm run build`.
-- [ ] Review the complete diff and merge it into the main worktree.
+- [x] Remove CLI build examples from English and Chinese READMEs.
+- [x] Run `vp check`, `vp test`, and `npm run build`.
+- [x] Review the complete diff and merge it into the main worktree.
 
 ## Risks and Mitigations
 
