@@ -114,6 +114,12 @@ export type PiHistoryMessage =
     }
   | {
       id: string;
+      role: "thinking";
+      content: string;
+      timestamp: number;
+    }
+  | {
+      id: string;
       role: "tool";
       toolName: string;
       content: string;
@@ -262,16 +268,17 @@ function isToolCallContent(value: unknown): value is PiToolCallContent {
 function normalizeRichContent(
   content: unknown,
   entryId: string,
-): { text: string; images: PiHistoryImage[]; toolCalls: PiToolCallContent[] } {
+): { text: string; thinking: string; images: PiHistoryImage[]; toolCalls: PiToolCallContent[] } {
   if (typeof content === "string") {
-    return { text: content, images: [], toolCalls: [] };
+    return { text: content, thinking: "", images: [], toolCalls: [] };
   }
 
   if (!Array.isArray(content)) {
-    return { text: "", images: [], toolCalls: [] };
+    return { text: "", thinking: "", images: [], toolCalls: [] };
   }
 
   const textParts: string[] = [];
+  const thinkingParts: string[] = [];
   const images: PiHistoryImage[] = [];
   const toolCalls: PiToolCallContent[] = [];
   let imageIndex = 0;
@@ -299,11 +306,17 @@ function normalizeRichContent(
     }
 
     if (isThinkingContent(item)) {
+      thinkingParts.push(item.thinking);
       continue;
     }
   }
 
-  return { text: textParts.join("\n\n").trim(), images, toolCalls };
+  return {
+    text: textParts.join("\n\n").trim(),
+    thinking: thinkingParts.join(""),
+    images,
+    toolCalls,
+  };
 }
 
 function formatToolArguments(argumentsValue: unknown) {
@@ -360,6 +373,15 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
   if (message.role === "assistant") {
     const normalized = normalizeRichContent(message.content, entry.id);
     const result: PiHistoryMessage[] = [];
+
+    if (normalized.thinking) {
+      result.push({
+        id: `${entry.id}:thinking`,
+        role: "thinking",
+        content: normalized.thinking,
+        timestamp,
+      });
+    }
 
     if (normalized.text) {
       result.push({

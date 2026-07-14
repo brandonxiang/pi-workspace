@@ -31,6 +31,7 @@ export type PiSessionStreamingState = {
   thinkingVisible: boolean;
   visibleThinking: string;
   bufferedThinking: string;
+  completedThinking: string;
   acceptsThinking: boolean;
   assistant: string;
   activeToolMessages: Map<string, PiSessionStreamingToolMessage>;
@@ -47,6 +48,7 @@ export function createPiSessionStreamingState(
     thinkingVisible: panelMode === "chat",
     visibleThinking: "",
     bufferedThinking: "",
+    completedThinking: "",
     acceptsThinking: panelMode === "chat",
     assistant: "",
     activeToolMessages: new Map(),
@@ -156,10 +158,13 @@ export function applyPiSessionStreamingEvent(
   }
 
   if (event.type === "done") {
+    const completedThinking = state.visibleThinking + state.bufferedThinking;
+
     return {
       ...state,
       thinkingVisible: false,
       bufferedThinking: "",
+      completedThinking,
       finalMessage: event.message,
     };
   }
@@ -168,6 +173,7 @@ export function applyPiSessionStreamingEvent(
     ...state,
     thinkingVisible: false,
     bufferedThinking: "",
+    completedThinking: "",
     finalMessage: event.message || null,
     error: event.error,
   };

@@ -84,6 +84,12 @@ export type PiHistoryMessage =
     }
   | {
       id: string;
+      role: "thinking";
+      content: string;
+      timestamp: number;
+    }
+  | {
+      id: string;
       role: "tool";
       toolName: string;
       content: string;

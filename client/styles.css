@@ -1377,6 +1377,19 @@ h2 {
   margin-bottom: 0;
 }
 
+.pi-assistant-turn {
+  display: grid;
+  gap: 12px;
+}
+
+.pi-assistant-turn-response > :first-child {
+  margin-top: 0;
+}
+
+.pi-assistant-turn-response > :last-child {
+  margin-bottom: 0;
+}
+
 .thinking-block-title {
   display: flex;
   align-items: center;

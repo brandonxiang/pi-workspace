@@ -281,7 +281,7 @@ describe("findSessionById", () => {
 });
 
 describe("normalizeBranchEntries", () => {
-  it("normalizes user, assistant, tool and summary entries in branch order", () => {
+  it("normalizes user, thinking, assistant, tool and summary entries in branch order", () => {
     const entries = [
       makeEntry({
         id: "user-1",
@@ -364,6 +364,12 @@ describe("normalizeBranchEntries", () => {
         content: "Show me the saved session",
         images: undefined,
         timestamp: 1,
+      },
+      {
+        id: "assistant-1:thinking",
+        role: "thinking",
+        content: "internal notes",
+        timestamp: 2,
       },
       {
         id: "assistant-1",
@@ -476,6 +482,48 @@ describe("normalizeBranchEntries", () => {
           },
         ],
         timestamp: 10,
+      },
+      {
+        id: "assistant-thinking-only:thinking",
+        role: "thinking",
+        content: "not for display",
+        timestamp: 11,
+      },
+    ]);
+  });
+
+  it("preserves thinking tokens in their original order", () => {
+    const entries = [
+      makeEntry({
+        id: "assistant-1",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "Plan A" },
+            { type: "thinking", thinking: " + Plan B" },
+            { type: "text", text: "Done" },
+          ],
+          provider: "openai",
+          model: "gpt-4o-mini",
+          timestamp: 20,
+        },
+      }),
+    ];
+
+    expect(normalizeBranchEntries(entries)).toEqual([
+      {
+        id: "assistant-1:thinking",
+        role: "thinking",
+        content: "Plan A + Plan B",
+        timestamp: 20,
+      },
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "Done",
+        provider: "openai",
+        model: "gpt-4o-mini",
+        timestamp: 20,
       },
     ]);
   });

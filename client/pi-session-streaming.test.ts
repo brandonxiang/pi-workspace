@@ -114,6 +114,7 @@ describe("Pi Session streaming transcript state", () => {
         content: "Final answer",
       },
     ]);
+    expect(state.completedThinking).toBe("Plan A");
     expect(state.completedToolMessages).toEqual([
       {
         toolName: "read_file",
