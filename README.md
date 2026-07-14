@@ -58,7 +58,6 @@ and change `PORT`.
 
 ```bash
 npm exec -- pi-workspace        # start the built service
-npm exec -- pi-workspace build  # build client + server bundles
 npm exec -- pi-workspace --help # show all options
 ```
 
