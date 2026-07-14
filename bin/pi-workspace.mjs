@@ -4,6 +4,7 @@ import { spawn, execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Command } from "commander";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
@@ -12,65 +13,6 @@ const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 const cliName = "pi-workspace";
 const currentVersion = pkg.version;
 const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-
-// ── Help ──
-
-function printHelp() {
-  console.log(
-    [
-      `${cliName} v${currentVersion} - start the bundled pi-workspace service`,
-      "",
-      "Usage:",
-      `  ${cliName}             Start the built service`,
-      `  ${cliName} update      Check for updates and upgrade to the latest version`,
-      `  ${cliName} --version   Show the installed version`,
-      `  ${cliName} --help      Show this help message`,
-      "",
-      "Options:",
-      "  --port <number>        Override PORT for the service",
-    ].join("\n"),
-  );
-}
-
-// ── Argument parser ──
-
-function parseArgs(argv) {
-  let command = "serve";
-  let port;
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-
-    if (arg === "--help" || arg === "-h") {
-      command = "help";
-      continue;
-    }
-
-    if (arg === "--version" || arg === "-v") {
-      command = "version";
-      continue;
-    }
-
-    if (arg === "--port") {
-      const value = argv[index + 1];
-      if (!value || value.startsWith("-")) {
-        throw new Error("Missing value for --port");
-      }
-      port = value;
-      index += 1;
-      continue;
-    }
-
-    if (arg === "help" || arg === "check" || arg === "update") {
-      command = arg;
-      continue;
-    }
-
-    throw new Error(`Unknown argument: ${arg}`);
-  }
-
-  return { command, port };
-}
 
 // ── Process runner ──
 
@@ -209,38 +151,68 @@ async function ensureBuild(env) {
   await run(npmCmd, ["run", "build"], env);
 }
 
+// ── CLI ──
+
+function createProgram() {
+  const program = new Command();
+
+  program
+    .name(cliName)
+    .description("Start the built service")
+    .usage("[options] [command]")
+    .version(`v${currentVersion}`, "-v, --version", "Show the installed version")
+    .helpOption("-h, --help", "Show this help message")
+    .option("--port <number>", "Override PORT for the service")
+    .argument("[command]")
+    .addHelpText(
+      "after",
+      [
+        "",
+        "Commands:",
+        "  check               Check whether a newer version is available",
+        "  update              Check for updates and upgrade to the latest version",
+        "  help                Show this help message",
+      ].join("\n"),
+    )
+    .action(async (command) => {
+      const { port } = program.opts();
+
+      if (command === undefined) {
+        const env = port ? { PORT: port } : {};
+
+        await ensureBuild(env);
+        await run(process.execPath, ["dist-server/index.mjs"], {
+          ...env,
+          NODE_ENV: "production",
+        });
+        return;
+      }
+
+      if (command === "help") {
+        program.outputHelp();
+        return;
+      }
+
+      if (command === "check") {
+        await checkForUpdate();
+        return;
+      }
+
+      if (command === "update") {
+        await handleUpdate();
+        return;
+      }
+
+      throw new Error(`Unknown argument: ${command}`);
+    });
+
+  return program;
+}
+
 // ── Entry point ──
 
 async function main() {
-  const { command, port } = parseArgs(process.argv.slice(2));
-
-  if (command === "help") {
-    printHelp();
-    return;
-  }
-
-  if (command === "version") {
-    console.log(`v${currentVersion}`);
-    return;
-  }
-
-  if (command === "check") {
-    await checkForUpdate();
-    return;
-  }
-
-  if (command === "update") {
-    await handleUpdate();
-    return;
-  }
-
-  const env = port ? { PORT: port } : {};
-
-  await ensureBuild(env);
-  await run(process.execPath, ["dist-server/index.mjs"], {
-    ...env,
-    NODE_ENV: "production",
-  });
+  await createProgram().parseAsync(process.argv);
 }
 
 main().catch((error) => {
