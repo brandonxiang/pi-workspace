@@ -56,7 +56,6 @@ npm exec -- pi-workspace
 
 ```bash
 npm exec -- pi-workspace        # 启动服务
-npm exec -- pi-workspace build  # 构建 client + server
 npm exec -- pi-workspace --help # 查看所有选项
 ```
 
