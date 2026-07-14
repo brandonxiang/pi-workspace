@@ -8,7 +8,7 @@
 4. 默认信息层级应当是“最终回复最醒目，thinking 和 tool use 默认折叠，但用户一点击就能看到大块内容”，而不是把所有信息拆成许多零碎气泡。
 5. 保持现有 `/api/chat` 流式返回协议，不新增需要客户端和 SDK 同步升级的后端协议层改造。
 
-如果这些假设有偏差，进入 Plan 之前应先修正。
+这些假设当前已被接受，后续实现按此推进。
 
 ## Objective
 
@@ -124,6 +124,8 @@ function buildAssistantTurn(
 - 服务端输出稳定、有限、面向展示的数据结构，不把 raw SDK content 直接暴露给客户端。
 - 客户端用聚合组件表达“一轮 assistant 输出”，而不是把最终回复、thinking、tool history 当成完全无关的独立消息。
 - 折叠内容默认关闭，命名与 aria 文案清晰可读。
+- thinking 文本按 token 原样保留，不在服务端或客户端进行摘要、重写或语义压缩。
+- tool use 在展开后按原记录顺序平铺展示，不额外改造成参数/结果二级结构。
 
 ## Testing Strategy
 
@@ -135,9 +137,11 @@ function buildAssistantTurn(
 - `client/pi-session-transcript.test.ts`
   - 覆盖历史消息会被聚合成单个 assistant-turn entry。
   - 覆盖没有 thinking 或没有 tools 时的退化情况。
+  - 覆盖多段 thinking、多条 tool 记录被聚合进同一 assistant-turn。
 - `server/pi-sessions.test.ts`
   - 覆盖历史 branch 中的 thinking content 不再被丢弃。
   - 覆盖 assistant/tool/thinking 的顺序被正确保留并可供客户端聚合。
+  - 覆盖 thinking content 按 token 原样透传。
 - `client/App.test.tsx`
   - 覆盖完成态默认只看到最终回复。
   - 覆盖点击“思考过程”或“工具调用”后可以看到完整块内容。
@@ -161,12 +165,15 @@ function buildAssistantTurn(
 - 一次 Pi 运行完成后，如果本轮包含 thinking，则最终回复下方会出现一个默认折叠的“思考过程”块；展开后可看到完整 thinking 文本。
 - 一次 Pi 运行完成后，如果本轮包含 tool use / tool result，则最终回复下方会出现一个默认折叠的“工具调用”块；展开后可看到该轮全部工具内容。
 - 同一轮 assistant 的最终回复、thinking、tool use 在视觉上属于一个“回合”，而不是散落为多条互不关联的气泡。
+- 若同一回合中出现多段 thinking 或多轮 tool 调用，允许聚合成单个折叠块展示。
+- 展开后的 thinking 内容与底层 token 流一致，不做总结性改写。
+- 该交互仅作用于 `Pi session` 相关视图，不影响普通本地 browser conversation。
 - 重新打开同一个 Pi session 历史时，若底层 branch 中存在 thinking/tool records，则页面展示结构与刚完成时一致。
 - 现有测试更新通过，且 `npm run build` 通过。
 
-## Open Questions
+## Resolved Decisions
 
-1. “历史思考过程”是否应该逐 token 原样保留，还是允许在完成态里按段落合并后展示？
-2. tool use 折叠块内是否需要继续区分“调用参数”和“调用结果”两个小节，还是保留现有按记录顺序平铺即可？
-3. 如果一个 assistant 回合里出现多段 thinking 或多轮 tool 调用穿插，是否接受把它们聚合成单个折叠块，还是需要按阶段分别折叠？
-4. 这个交互是否只要求作用于 `Pi session` 相关视图，还是也希望普通本地 browser conversation 在未来复用同样结构？
+1. 历史思考过程按 token 原样保留。
+2. tool use 展开后保持原记录顺序平铺。
+3. 同一 assistant 回合内的多段 thinking / 多轮 tool use 允许聚合到单个折叠块。
+4. 本功能仅作用于 `Pi session` 相关视图。

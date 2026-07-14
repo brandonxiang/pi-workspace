@@ -1081,6 +1081,77 @@ describe("App sidebar shortcut", () => {
     );
   });
 
+  it("renders Pi session thinking and tool history inside a single assistant turn", async () => {
+    seedSelectedPiSession();
+    mockState.sessionDetail = {
+      session: mockState.sessionDetail!.session,
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: "Question",
+          timestamp: 1,
+        },
+        {
+          id: "thinking-1",
+          role: "thinking",
+          content: "Plan A",
+          timestamp: 2,
+        },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "First update",
+          provider: "openai",
+          model: "gpt-4o-mini",
+          timestamp: 3,
+        },
+        {
+          id: "tool-1",
+          role: "tool",
+          toolName: "read_file",
+          content: "file output",
+          isError: false,
+          expandable: true,
+          timestamp: 4,
+        },
+        {
+          id: "thinking-2",
+          role: "thinking",
+          content: " + Plan B",
+          timestamp: 5,
+        },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "Final answer",
+          provider: "openai",
+          model: "gpt-4o-mini",
+          timestamp: 6,
+        },
+      ],
+    };
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const assistantBubbles = container.querySelectorAll(
+      ".ant-bubble-list-scroll-content > .chat-bubble",
+    );
+
+    expect(assistantBubbles).toHaveLength(1);
+    expect(container.textContent).toContain("Final answer");
+    expect(container.textContent).toContain("Earlier updates");
+    expect(container.textContent).toContain("Thinking trace");
+    expect(container.textContent).toContain("Tool activity");
+    expect(container.textContent).toContain("First update");
+    expect(container.textContent).toContain("Plan A + Plan B");
+    expect(container.textContent).toContain("file output");
+  });
+
   it("updates the URL when the panel mode changes", async () => {
     seedSelectedPiSession();
     window.history.pushState({}, "", "/sessions/session-1?panel=chat");

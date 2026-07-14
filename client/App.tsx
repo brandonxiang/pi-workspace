@@ -312,12 +312,54 @@ function PiToolMessageContent({
   );
 }
 
+function PiThinkingDisclosureContent({
+  t,
+  message,
+}: {
+  t: Translator;
+  message: Extract<PiHistoryMessage, { role: "thinking" }>;
+}) {
+  return (
+    <details className="thinking-block">
+      <summary>
+        <span>{t("chat.thinkingHistory")}</span>
+        <small>{t("chat.clickToExpand")}</small>
+      </summary>
+      <div className="thinking-content">{message.content}</div>
+    </details>
+  );
+}
+
+function PiPreviousAssistantMessagesContent({
+  t,
+  messages,
+}: {
+  t: Translator;
+  messages: Extract<PiHistoryMessage, { role: "assistant" }>[];
+}) {
+  return (
+    <details className="pi-assistant-history-card">
+      <summary>
+        <span>{t("chat.previousAssistantUpdates")}</span>
+        <small>{t("chat.clickToExpand")}</small>
+      </summary>
+      <div className="pi-assistant-history-list">
+        {messages.map((message) => (
+          <section className="pi-assistant-history-item" key={message.id}>
+            <RenderMarkdown content={message.content} />
+          </section>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function PiToolGroupContent({
   t,
   messages,
 }: {
   t: Translator;
-  messages: Extract<PiHistoryTranscriptEntry, { role: "tool-group" }>["messages"];
+  messages: Extract<PiHistoryMessage, { role: "tool" }>[];
 }) {
   const hasError = messages.some((message) => message.isError);
 
@@ -340,6 +382,27 @@ function PiToolGroupContent({
         ))}
       </div>
     </details>
+  );
+}
+
+function PiAssistantTurnContent({
+  t,
+  entry,
+}: {
+  t: Translator;
+  entry: Extract<PiHistoryTranscriptEntry, { role: "assistant-turn" }>;
+}) {
+  return (
+    <div className="pi-assistant-turn">
+      <div className="pi-assistant-turn-response">
+        <RenderMarkdown content={entry.finalMessage.content} />
+      </div>
+      {entry.previousMessages.length > 0 ? (
+        <PiPreviousAssistantMessagesContent t={t} messages={entry.previousMessages} />
+      ) : null}
+      {entry.thinking ? <PiThinkingDisclosureContent t={t} message={entry.thinking} /> : null}
+      {entry.tools.length > 0 ? <PiToolGroupContent t={t} messages={entry.tools} /> : null}
+    </div>
   );
 }
 
@@ -405,15 +468,19 @@ function createPiHistoryBubbleItem(
   locale: Locale,
   t: Translator,
 ): BubbleItemType {
-  if (entry.role === "tool-group") {
+  if (entry.role === "assistant-turn") {
     return {
       key: `${entry.role}-${entry.timestamp}-${index}`,
       role: "assistant",
-      content: <PiToolGroupContent t={t} messages={entry.messages} />,
+      content: <PiAssistantTurnContent t={t} entry={entry} />,
       header: (
         <MessageHeader
-          label={t("chat.tool")}
-          meta={t("chat.toolSummary", { count: entry.messages.length })}
+          label={t("chat.piSession")}
+          meta={
+            entry.finalMessage.provider && entry.finalMessage.model
+              ? `${entry.finalMessage.provider}/${entry.finalMessage.model}`
+              : t("chat.assistant")
+          }
         />
       ),
     };
@@ -441,6 +508,15 @@ function createPiHistoryBubbleItem(
           }
         />
       ),
+    };
+  }
+
+  if (entry.role === "thinking") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "assistant",
+      content: <PiThinkingDisclosureContent t={t} message={entry} />,
+      header: <MessageHeader label={t("chat.piSession")} meta={t("chat.thinkingHistory")} />,
     };
   }
 
@@ -1923,8 +1999,15 @@ export default function App() {
           images: userMessage.images,
           timestamp: userMessage.timestamp,
         };
-        const toolBaseTimestamp =
-          finalAssistantMsg.timestamp - streamState.completedToolMessages.length;
+        const thinkingMessage = streamState.completedThinking
+          ? ({
+              id: `thinking-${Date.now()}`,
+              role: "thinking",
+              content: streamState.completedThinking,
+              timestamp: finalAssistantMsg.timestamp - 1,
+            } as Extract<PiHistoryMessage, { role: "thinking" }>)
+          : null;
+        const toolBaseTimestamp = finalAssistantMsg.timestamp + 1;
         const toolMsgs: Extract<PiHistoryMessage, { role: "tool" }>[] =
           streamState.completedToolMessages.map(
             (tool, index) =>
@@ -1949,7 +2032,7 @@ export default function App() {
                 messages: [
                   ...current.messages,
                   pendingUserMsg,
-                  ...toolMsgs,
+                  ...(thinkingMessage ? [thinkingMessage] : []),
                   {
                     id: finalAssistantMsg.content.slice(0, 32),
                     role: "assistant",
@@ -1958,6 +2041,7 @@ export default function App() {
                     model: finalAssistantMsg.model,
                     timestamp: finalAssistantMsg.timestamp,
                   } as Extract<PiHistoryMessage, { role: "assistant" }>,
+                  ...toolMsgs,
                 ],
               }
             : current,
