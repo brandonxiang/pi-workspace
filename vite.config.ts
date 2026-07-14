@@ -8,10 +8,24 @@ export default {
     "*": "vp check --fix",
   },
   fmt: {
-    ignorePatterns: ["dist/**", "dist-server/**", "node_modules/**", ".env", ".env.*"],
+    ignorePatterns: [
+      "dist/**",
+      "dist-server/**",
+      "dist-website/**",
+      "node_modules/**",
+      ".env",
+      ".env.*",
+    ],
   },
   lint: {
-    ignorePatterns: ["dist/**", "dist-server/**", "node_modules/**", ".env", ".env.*"],
+    ignorePatterns: [
+      "dist/**",
+      "dist-server/**",
+      "dist-website/**",
+      "node_modules/**",
+      ".env",
+      ".env.*",
+    ],
     options: {
       typeAware: true,
       typeCheck: true,
