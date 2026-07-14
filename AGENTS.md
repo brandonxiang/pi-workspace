@@ -21,6 +21,8 @@ Build and maintain a browser-based agent dialogue tool backed by
 
 ## Implementation Rules
 
+- Place unit tests in the `__tests__/` subdirectory of the directory containing
+  the code under test.
 - Keep API keys on the server. Do not expose model provider keys in frontend code.
 - Server auth should read local Pi credentials from `~/.pi/agent/auth.json` by default,
   with `.env` provider keys as runtime overrides.
