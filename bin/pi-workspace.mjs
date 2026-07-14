@@ -22,8 +22,6 @@ function printHelp() {
       "",
       "Usage:",
       `  ${cliName}             Start the built service`,
-      `  ${cliName} start       Start the built production server`,
-      `  ${cliName} build       Build client and server bundles`,
       `  ${cliName} update      Check for updates and upgrade to the latest version`,
       `  ${cliName} --version   Show the installed version`,
       `  ${cliName} --help      Show this help message`,
@@ -37,7 +35,7 @@ function printHelp() {
 // ── Argument parser ──
 
 function parseArgs(argv) {
-  let command = "start";
+  let command = "serve";
   let port;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -63,13 +61,7 @@ function parseArgs(argv) {
       continue;
     }
 
-    if (
-      arg === "start" ||
-      arg === "build" ||
-      arg === "help" ||
-      arg === "check" ||
-      arg === "update"
-    ) {
+    if (arg === "help" || arg === "check" || arg === "update") {
       command = arg;
       continue;
     }
@@ -243,11 +235,6 @@ async function main() {
   }
 
   const env = port ? { PORT: port } : {};
-
-  if (command === "build") {
-    await run(npmCmd, ["run", "build"], env);
-    return;
-  }
 
   await ensureBuild(env);
   await run(process.execPath, ["dist-server/index.mjs"], {
