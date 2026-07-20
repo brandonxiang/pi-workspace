@@ -4,7 +4,7 @@ import { lazyPlugins } from "vite-plus";
 
 export default {
   root: resolve(import.meta.dirname, "website"),
-  base: "/my-pi/",
+  base: "/pi-workspace/",
   plugins: lazyPlugins(() => [viteReact()]),
   build: {
     emptyOutDir: true,
