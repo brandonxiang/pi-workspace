@@ -34,6 +34,7 @@ import {
   loadPiSessionProjects,
 } from "./pi-sessions.js";
 import { buildAgentEndStreamEvent } from "./chat-streaming.js";
+import { createPiPluginDependencies, listPiPlugins, registerPiPluginRoutes } from "./pi-plugins.js";
 import { createDefaultVersionManager } from "./version-management.js";
 import { registerVersionRoutes } from "./version-routes.js";
 import {
@@ -336,10 +337,7 @@ async function createPersistedPiSession(piSessionId: string, provider?: string, 
     modelRegistry,
     model,
     sessionManager: context.sessionManager,
-    settingsManager: SettingsManager.inMemory({
-      compaction: { enabled: true },
-      retry: { enabled: true, maxRetries: 1 },
-    }),
+    settingsManager: SettingsManager.create(context.session.cwd, getAgentDir()),
   });
 
   const record: PiAgentSessionRecord = {
@@ -407,6 +405,23 @@ async function buildServer() {
   });
 
   registerVersionRoutes(server, createDefaultVersionManager());
+  registerPiPluginRoutes(server, {
+    resolveSessionCommands: async (sessionId) => {
+      const record = await createPersistedPiSession(sessionId);
+      if (!record) return null;
+
+      const dependencies = createPiPluginDependencies(record.session.sessionManager.getCwd());
+      const result = await listPiPlugins({
+        packageManager: dependencies.packageManager,
+        resourceLoader: record.session.resourceLoader,
+      });
+      return result.commands;
+    },
+    resolveSessionCwd: async (sessionId) => {
+      const context = await loadPiSessionContextById(sessionId);
+      return context?.session.cwd ?? null;
+    },
+  });
 
   server.get("/api/cwd", async (_request, _reply) => {
     return { cwd: process.cwd() };

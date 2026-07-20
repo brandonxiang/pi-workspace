@@ -29,11 +29,12 @@ import {
 } from "./i18n";
 import {
   findAppSlashCommand,
-  findMatchingAppSlashCommands,
+  findMatchingSlashCommands,
   getSlashAutocompleteValue,
   isServerAppSlashCommand,
   parseSlashCommandInput,
   shouldShowSlashSuggestions,
+  type PluginSlashCommand,
 } from "../shared/slash-commands.js";
 import type {
   AssistantMessage,
@@ -42,6 +43,9 @@ import type {
   PiHistoryMessage,
   PiSessionProject,
   PiSessionDetailResponse,
+  PiPluginCommand,
+  PiPluginsResponse,
+  PiPluginSummary,
   StreamEvent,
   UserMessage,
 } from "./types";
@@ -572,10 +576,11 @@ function readFileAsBase64(file: File) {
 function getSlashSuggestionItems(
   t: Translator,
   skills: Skill[],
+  pluginCommands: PluginSlashCommand[],
   info?: SlashSuggestionInfo,
 ): SuggestionItem[] {
   const query = info?.query.toLowerCase() || "";
-  const matchedCommands = findMatchingAppSlashCommands(query);
+  const matchedCommands = findMatchingSlashCommands(query, pluginCommands);
   const matchedSkills = skills.filter((skill) => skill.name.toLowerCase().includes(query));
 
   return [
@@ -583,13 +588,13 @@ function getSlashSuggestionItems(
       label: (
         <div className="slash-command-option">
           <span>/{command.name}</span>
-          <small>{t(command.descriptionKey as TranslationKey)}</small>
+          <small>{getSlashCommandDescription(command, t)}</small>
         </div>
       ),
       value: `/${command.name}`,
       extra: (
         <span className={`slash-command-source slash-command-badge-${command.source}`}>
-          {command.source}
+          {"descriptionKey" in command ? command.source : `${command.source} · ${command.scope}`}
         </span>
       ),
     })),
@@ -604,6 +609,27 @@ function getSlashSuggestionItems(
       extra: <span className="slash-command-source slash-command-badge-skill">skill</span>,
     })),
   ];
+}
+
+function getSlashCommandDescription(
+  command: ReturnType<typeof findMatchingSlashCommands>[number],
+  t: Translator,
+) {
+  return "descriptionKey" in command
+    ? t(command.descriptionKey as TranslationKey)
+    : command.description || command.packageSource || "";
+}
+
+function toPluginSlashCommand(command: PiPluginCommand): PluginSlashCommand {
+  return {
+    name: command.name,
+    description: command.description,
+    source: command.source,
+    scope: command.scope,
+    origin: command.origin,
+    path: command.path,
+    packageSource: command.packageSource,
+  };
 }
 
 function getWorkspaceName(cwd: string) {
@@ -749,6 +775,11 @@ export default function App() {
   const [messagesEl, setMessagesEl] = useState<HTMLElement | null>(null);
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [pluginCommands, setPluginCommands] = useState<PluginSlashCommand[]>([]);
+  const [piPlugins, setPiPlugins] = useState<PiPluginsResponse | null>(null);
+  const [piPluginsLoading, setPiPluginsLoading] = useState(false);
+  const [piPluginsReloading, setPiPluginsReloading] = useState(false);
+  const [piPluginsError, setPiPluginsError] = useState<string | null>(null);
   const [versions, setVersions] = useState<VersionsResponse | null>(null);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [versionError, setVersionError] = useState<string | null>(null);
@@ -841,10 +872,65 @@ export default function App() {
     }
   }, [t]);
 
+  const loadPiPlugins = useCallback(async (reload = false) => {
+    setPiPluginsError(null);
+    if (reload) {
+      setPiPluginsReloading(true);
+    } else {
+      setPiPluginsLoading(true);
+    }
+
+    try {
+      const response = await fetch(reload ? "/api/pi-plugins/reload" : "/api/pi-plugins", {
+        method: reload ? "POST" : "GET",
+      });
+      const body = (await response.json().catch(() => null)) as PiPluginsResponse & {
+        error?: string;
+      };
+      if (!response.ok) throw new Error(body.error || "Failed to load Pi plugins");
+      setPiPlugins(body);
+    } catch (loadError) {
+      setPiPluginsError(
+        loadError instanceof Error ? loadError.message : "Failed to load Pi plugins",
+      );
+    } finally {
+      setPiPluginsLoading(false);
+      setPiPluginsReloading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isSettingsPage) return;
     void loadVersions();
   }, [isSettingsPage, loadVersions]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadActiveSessionCommands() {
+      setPluginCommands([]);
+      if (!selectedPiSessionId) return;
+
+      try {
+        const response = await fetch(
+          `/api/pi-sessions/${encodeURIComponent(selectedPiSessionId)}/commands`,
+        );
+        const body = (await response.json().catch(() => null)) as {
+          commands?: PiPluginCommand[];
+        } | null;
+        if (!cancelled && response.ok) {
+          setPluginCommands((body?.commands || []).map(toPluginSlashCommand));
+        }
+      } catch {
+        if (!cancelled) setPluginCommands([]);
+      }
+    }
+
+    void loadActiveSessionCommands();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPiSessionId]);
 
   async function confirmVersionUpgrade() {
     const target = versionUpgradeTarget;
@@ -1397,6 +1483,7 @@ export default function App() {
       })
       .catch(() => {});
 
+    void loadPiPlugins();
     void loadModels();
     fetch("/api/cwd")
       .then((res) => res.json())
@@ -1411,7 +1498,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadPiPlugins]);
 
   useEffect(() => {
     if (piSessionDetail) {
@@ -2395,6 +2482,101 @@ export default function App() {
                 ),
               },
               {
+                key: "plugins",
+                label: t("settings.tabPlugins"),
+                children: (
+                  <div
+                    className="settings-tab-content settings-plugins-tab"
+                    data-testid="plugins-settings"
+                  >
+                    <div className="settings-plugins-header">
+                      <div>
+                        <div className="settings-version-title">{t("settings.pluginsTitle")}</div>
+                        <small className="field-note">{t("settings.pluginsHelp")}</small>
+                      </div>
+                      <button
+                        className="settings-btn settings-btn-cancel"
+                        type="button"
+                        disabled={piPluginsLoading || piPluginsReloading}
+                        onClick={() => void loadPiPlugins(true)}
+                      >
+                        {piPluginsReloading
+                          ? t("settings.pluginsRefreshing")
+                          : t("settings.pluginsRefresh")}
+                      </button>
+                    </div>
+
+                    {piPluginsError ? (
+                      <div className="error-banner" role="alert">
+                        {piPluginsError}
+                      </div>
+                    ) : null}
+
+                    {piPluginsLoading ? (
+                      <div className="settings-plugins-empty">{t("settings.pluginsLoading")}</div>
+                    ) : piPlugins?.plugins.length ? (
+                      <div className="settings-plugins-list">
+                        {piPlugins.plugins.map((plugin) => (
+                          <article
+                            className="settings-plugin-item"
+                            data-testid="pi-plugin-item"
+                            key={`${plugin.scope}:${plugin.source}`}
+                          >
+                            <div className="settings-plugin-copy">
+                              <div className="settings-plugin-title">
+                                <strong>{plugin.source}</strong>
+                                <span className="settings-plugin-badge">{plugin.scope}</span>
+                                <span
+                                  className={`settings-plugin-status settings-plugin-status-${plugin.status}`}
+                                >
+                                  {plugin.status}
+                                </span>
+                              </div>
+                              <div className="settings-plugin-meta">
+                                {plugin.sourceType} ·{" "}
+                                {plugin.filtered
+                                  ? t("settings.pluginsFiltered")
+                                  : t("settings.pluginsEnabled")}
+                              </div>
+                              <div className="settings-plugin-resources">
+                                {Object.entries(plugin.resources).map(([resource, count]) => (
+                                  <span key={resource}>
+                                    {resource}: {count}
+                                  </span>
+                                ))}
+                              </div>
+                              {plugin.diagnostics.map((message) => (
+                                <div className="settings-plugin-diagnostic" key={message}>
+                                  {message}
+                                </div>
+                              ))}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="settings-plugins-empty">{t("settings.pluginsEmpty")}</div>
+                    )}
+
+                    {piPlugins?.diagnostics.length ? (
+                      <section className="settings-plugins-diagnostics">
+                        <div className="settings-plugin-diagnostics-title">
+                          {t("settings.pluginsDiagnostics")}
+                        </div>
+                        {piPlugins.diagnostics.map((diagnostic, index) => (
+                          <div
+                            className="settings-plugin-diagnostic"
+                            key={`${diagnostic.message}-${index}`}
+                          >
+                            <strong>{diagnostic.type}</strong> {diagnostic.message}
+                          </div>
+                        ))}
+                      </section>
+                    ) : null}
+                  </div>
+                ),
+              },
+              {
                 key: "model",
                 label: t("settings.tabModel"),
                 children: (
@@ -3025,7 +3207,7 @@ export default function App() {
                   <Suggestion<SlashSuggestionInfo>
                     block
                     className="slash-command-suggestion"
-                    items={(info) => getSlashSuggestionItems(t, skills, info)}
+                    items={(info) => getSlashSuggestionItems(t, skills, pluginCommands, info)}
                     onSelect={handleSlashSelect}
                   >
                     {({ onKeyDown, onTrigger }) => (
@@ -3062,6 +3244,7 @@ export default function App() {
                             const autocompleteValue = getSlashAutocompleteValue(
                               input,
                               skills.map((skill) => skill.name),
+                              pluginCommands,
                             );
 
                             if (autocompleteValue) {

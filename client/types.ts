@@ -133,3 +133,46 @@ export interface ContextUsage {
   contextWindow: number;
   percent: number | null;
 }
+
+export type PiPluginCommandSource = "extension" | "prompt" | "skill";
+export type PiPluginScope = "user" | "project" | "temporary";
+export type PiPluginOrigin = "package" | "top-level";
+
+export interface PiPluginCommand {
+  name: string;
+  description?: string;
+  source: PiPluginCommandSource;
+  scope: PiPluginScope;
+  origin: PiPluginOrigin;
+  path?: string;
+  packageSource?: string;
+}
+
+export interface PiPluginSummary {
+  source: string;
+  scope: Exclude<PiPluginScope, "temporary">;
+  sourceType: "npm" | "git" | "local path";
+  status: "installed" | "missing" | "error";
+  filtered: boolean;
+  installedPath?: string;
+  resources: {
+    extensions: number;
+    skills: number;
+    prompts: number;
+    themes: number;
+  };
+  diagnostics: string[];
+}
+
+export interface PiPluginDiagnostic {
+  type: "warning" | "error" | "collision";
+  message: string;
+  path?: string;
+  packageSource?: string;
+}
+
+export interface PiPluginsResponse {
+  plugins: PiPluginSummary[];
+  commands: PiPluginCommand[];
+  diagnostics: PiPluginDiagnostic[];
+}

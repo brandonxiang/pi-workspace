@@ -459,8 +459,40 @@ describe("App sidebar shortcut", () => {
             message: "pi-workspace was upgraded. Restart it to use the new version.",
           });
         }
+        if (url.endsWith("/api/pi-plugins") || url.endsWith("/api/pi-plugins/reload")) {
+          return createJsonResponse({
+            plugins: [
+              {
+                source: "npm:@acme/pi-preview",
+                scope: "project",
+                sourceType: "npm",
+                status: "installed",
+                filtered: false,
+                resources: { extensions: 1, skills: 0, prompts: 0, themes: 0 },
+                diagnostics: [],
+              },
+            ],
+            commands: [],
+            diagnostics: [],
+          });
+        }
         if (url.endsWith("/api/pi-sessions")) {
           return createJsonResponse({ projects: mockState.projects });
+        }
+        if (url.endsWith("/commands")) {
+          return createJsonResponse({
+            commands: [
+              {
+                name: "skill:deploy-checklist",
+                description: "Run the deployment checklist",
+                source: "skill",
+                scope: "project",
+                origin: "package",
+                path: "/tmp/workspace/skills/deploy/SKILL.md",
+                packageSource: "npm:@acme/pi-preview",
+              },
+            ],
+          });
         }
         if (url.includes("/api/pi-sessions/")) {
           return createJsonResponse(mockState.sessionDetail);
@@ -1242,6 +1274,49 @@ describe("App sidebar shortcut", () => {
     expect(upgradePiButton?.disabled).toBe(false);
     expect(upgradeWorkspaceButton).toBeInstanceOf(HTMLButtonElement);
     expect(upgradeWorkspaceButton?.disabled).toBe(false);
+  });
+
+  it("shows configured Pi plugins and only exposes refresh in Settings", async () => {
+    window.history.pushState({}, "", "/settings?panel=chat");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="plugins-settings"]')).not.toBeNull();
+    expect(container.textContent).toContain("Plugins");
+    expect(container.textContent).toContain("npm:@acme/pi-preview");
+    expect(container.textContent).toContain("project");
+    expect(container.textContent).not.toContain("Install");
+    expect(container.textContent).not.toContain("Remove");
+  });
+
+  it("loads plugin slash commands for the active Pi session", async () => {
+    seedSelectedPiSession();
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const composer = container.querySelector("textarea");
+    expect(composer).toBeInstanceOf(HTMLTextAreaElement);
+
+    await act(async () => {
+      setTextareaValue(composer as HTMLTextAreaElement, "/skill:dep");
+      composer?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Tab",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+    expect((composer as HTMLTextAreaElement).value).toBe("/skill:deploy-checklist ");
   });
 
   it("confirms a pi-workspace upgrade and shows the restart result", async () => {

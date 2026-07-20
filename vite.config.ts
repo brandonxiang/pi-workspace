@@ -61,6 +61,6 @@ export default {
   },
   // Vitest config — relative to vite root (client/)
   test: {
-    include: ["**/*.test.ts", "**/*.test.tsx", "../server/**/*.test.ts"],
+    include: ["**/*.test.ts", "**/*.test.tsx", "../server/**/*.test.ts", "../shared/**/*.test.ts"],
   },
 };
