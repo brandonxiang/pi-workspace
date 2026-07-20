@@ -1,0 +1,1049 @@
+/* ── Design Tokens (Notion-inspired per DESIGN.md) ── */
+
+:root {
+  /* Colors */
+  --primary: #0075de;
+  --primary-active: #005bab;
+  --secondary: #213183;
+  --on-primary: #ffffff;
+  --canvas: #ffffff;
+  --canvas-soft: #f6f5f4;
+  --surface: #ffffff;
+  --ink: #000000;
+  --ink-secondary: #31302e;
+  --ink-muted: #615d59;
+  --ink-faint: #a39e98;
+  --hairline: #e6e6e6;
+
+  /* Typography — Inter as NotionInter substitute */
+  --font-family: "Inter", -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+
+  /* Spacing (8px base unit) */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 28px;
+  --space-xxl: 32px;
+
+  /* Border radius */
+  --radius-xs: 4px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Shadows — barely-there layered elevation */
+  --shadow-soft:
+    0 0.175px 1.041px rgba(0, 0, 0, 0.01), 0 0.8px 2.925px rgba(0, 0, 0, 0.02),
+    0 2.025px 7.847px rgba(0, 0, 0, 0.027), 0 4px 18px rgba(0, 0, 0, 0.04);
+
+  /* Layout */
+  --max-width: 1200px;
+}
+
+/* ── Reset & Base ── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--canvas-soft);
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+/* ── Typography ── */
+
+h1 {
+  font-family: var(--font-family);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-family: var(--font-family);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.23;
+  letter-spacing: -0.024em;
+}
+
+h3 {
+  font-family: var(--font-family);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.27;
+  letter-spacing: -0.011em;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.33;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  margin-bottom: var(--space-sm);
+}
+
+/* ── Shell & Container ── */
+
+.site-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+main {
+  flex: 1;
+}
+
+/* ── Header / Nav ── */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--canvas);
+  box-shadow: 0 1px 0 var(--hairline);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  font-weight: 700;
+  background: var(--ink);
+  color: var(--on-primary);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.site-nav a {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink-secondary);
+}
+
+.site-nav a:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.language-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.language-control button {
+  padding: var(--space-xxs) var(--space-xs);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-faint);
+  font: inherit;
+  cursor: pointer;
+}
+
+.language-control button[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--canvas-soft);
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  padding: var(--space-xxs) 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+}
+
+.github-link:hover {
+  text-decoration: none;
+  background: var(--canvas-soft);
+}
+
+/* ── Hero Section (hero-band — deep indigo) ── */
+
+.hero-section {
+  background: var(--secondary);
+  color: var(--on-primary);
+  padding: 64px var(--space-lg);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xxl);
+  align-items: center;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.hero-copy {
+  max-width: 520px;
+}
+
+.hero-copy .eyebrow {
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: var(--space-md);
+}
+
+.hero-copy h1 {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--on-primary);
+  margin-bottom: var(--space-lg);
+}
+
+.hero-description {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: var(--space-lg);
+  max-width: 460px;
+}
+
+/* Install command inside hero */
+.hero-copy .install-command-wrap {
+  margin-bottom: var(--space-lg);
+}
+
+.hero-copy .install-command {
+  background: var(--on-primary);
+  color: var(--ink);
+  border: none;
+  border-radius: var(--radius-full);
+}
+
+.hero-copy .install-command:hover {
+  background: #f0f0f0;
+}
+
+.hero-copy .terminal-prompt {
+  color: var(--ink-faint);
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  font-size: 14px;
+}
+
+.hero-meta > span {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.hero-meta a {
+  color: var(--on-primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Section Shared ── */
+
+.capabilities-section,
+.workflow-section,
+.trust-section,
+.install-section {
+  padding: 80px var(--space-lg);
+}
+
+.section-intro {
+  text-align: center;
+  max-width: 620px;
+  margin: 0 auto 48px;
+}
+
+.section-intro .eyebrow {
+  display: inline-block;
+  padding: var(--space-xxs) var(--space-xs);
+  background: var(--surface);
+  color: var(--primary);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.33;
+  letter-spacing: 0.01em;
+  margin-bottom: var(--space-md);
+}
+
+.section-intro h2 {
+  margin-bottom: var(--space-md);
+}
+
+.section-intro > p {
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* ── Capabilities ── */
+
+.capability-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.capability {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.capability-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.capability-icon-sessions {
+  background: #e8f0fe;
+  color: var(--primary);
+}
+
+.capability-icon-dialogue {
+  background: #1a1a1a;
+  color: var(--on-primary);
+}
+
+.capability-icon-terminal {
+  background: #f0f0f0;
+  color: var(--ink);
+}
+
+.capability h3 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  margin-bottom: var(--space-xs);
+}
+
+.capability p {
+  font-size: 15px;
+  color: var(--ink-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.capability small {
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+/* ── Workflow ── */
+
+.workflow-intro {
+  margin-bottom: 48px;
+}
+
+.workflow-path {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.workflow-path article {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.workflow-path .workflow-focus {
+  box-shadow: var(--shadow-soft);
+  border-color: transparent;
+}
+
+.workflow-path h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+
+.workflow-path p {
+  font-size: 14px;
+  color: var(--ink-muted);
+}
+
+.workflow-symbol {
+  display: block;
+  font-size: 24px;
+  margin-bottom: var(--space-sm);
+  color: var(--ink-faint);
+}
+
+.workflow-focus .brand-mark {
+  margin: 0 auto var(--space-sm);
+}
+
+.workflow-connector {
+  font-size: 20px;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+/* ── Trust ── */
+
+.trust-heading {
+  text-align: center;
+  max-width: 620px;
+  margin: 0 auto 48px;
+}
+
+.trust-heading .eyebrow {
+  display: inline-block;
+  padding: var(--space-xxs) var(--space-xs);
+  background: var(--surface);
+  color: var(--primary);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.33;
+  letter-spacing: 0.01em;
+  margin-bottom: var(--space-md);
+}
+
+.trust-heading h2 {
+  margin-bottom: var(--space-md);
+}
+
+.trust-heading > p {
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+.trust-points {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.trust-points article {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.trust-points article > span {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: var(--space-md);
+  letter-spacing: 0.01em;
+}
+
+.trust-points h3 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  margin-bottom: var(--space-xs);
+}
+
+.trust-points p {
+  font-size: 15px;
+  color: var(--ink-secondary);
+}
+
+/* ── Install Section ── */
+
+.install-section {
+  text-align: center;
+}
+
+.install-section .eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  letter-spacing: 0.01em;
+  margin-bottom: var(--space-md);
+}
+
+.install-section h2 {
+  margin-bottom: var(--space-sm);
+}
+
+.install-section > div > p {
+  font-size: 15px;
+  color: var(--ink-muted);
+  margin-bottom: var(--space-lg);
+}
+
+.install-section .install-command-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ── Install Command Component ── */
+
+.install-command-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.install-command {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 16px;
+  font-weight: 500;
+  font-family: var(--font-family);
+  color: var(--on-primary);
+  background: var(--primary);
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.install-command:hover {
+  background: var(--primary-active);
+}
+
+.install-command:active {
+  transform: scale(0.97);
+}
+
+.terminal-prompt {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  margin-right: var(--space-xxs);
+}
+
+.install-command code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: inherit;
+}
+
+.copy-icon {
+  font-size: 14px;
+  margin-left: var(--space-xxs);
+  opacity: 0.7;
+}
+
+.copy-status {
+  font-size: 12px;
+  font-weight: 500;
+  min-height: 16px;
+  transition: color 0.2s;
+}
+
+.copy-status-idle {
+  color: var(--ink-faint);
+}
+
+.copy-status-copied {
+  color: #1aae39;
+}
+
+.copy-status-failed {
+  color: #dd5b00;
+}
+
+/* ── Product Stage (hero mockup) ── */
+
+.product-stage {
+  position: relative;
+  padding: var(--space-lg) 0;
+}
+
+.stage-path {
+  position: absolute;
+  left: -20px;
+  width: 100px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.stage-path-top {
+  top: 0;
+}
+
+.stage-path-bottom {
+  bottom: 0;
+}
+
+.product-window {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.window-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--canvas-soft);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.window-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--ink);
+  color: var(--on-primary);
+  border-radius: var(--radius-xs);
+}
+
+.window-bar strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.window-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+.window-status i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1aae39;
+}
+
+.workspace-preview {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  min-height: 280px;
+}
+
+.preview-sidebar {
+  background: var(--canvas-soft);
+  padding: var(--space-md);
+  border-right: 1px solid var(--hairline);
+}
+
+.preview-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  margin-bottom: var(--space-sm);
+}
+
+.preview-session {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-xxs);
+  color: var(--ink-muted);
+}
+
+.preview-session-active {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.session-glyph {
+  color: var(--primary);
+}
+
+.preview-session-muted > span:first-child {
+  color: var(--ink-faint);
+}
+
+.preview-session-muted > span:last-child {
+  display: inline-block;
+  width: 70%;
+  height: 8px;
+  background: var(--hairline);
+  border-radius: var(--radius-full);
+}
+
+.preview-main {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-tabs {
+  display: flex;
+  gap: var(--space-xxs);
+  margin-bottom: var(--space-md);
+}
+
+.preview-tab {
+  padding: var(--space-xxs) var(--space-sm);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.preview-tab-active {
+  background: var(--ink);
+  color: var(--on-primary);
+}
+
+.preview-dialogue {
+  flex: 1;
+  margin-bottom: var(--space-md);
+}
+
+.thinking-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-bottom: var(--space-md);
+}
+
+.thinking-pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: thinking-pulse-anim 1.5s ease-in-out infinite;
+}
+
+@keyframes thinking-pulse-anim {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.assistant-line {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: flex-start;
+}
+
+.assistant-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--ink);
+  color: var(--on-primary);
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.assistant-line p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-secondary);
+}
+
+.preview-terminal {
+  background: #1a1a1a;
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.preview-terminal code {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.preview-terminal code:first-child {
+  color: #a0c3ec;
+  margin-bottom: var(--space-xxs);
+}
+
+.stage-node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.stage-node span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.stage-node-local {
+  top: -28px;
+  right: 0;
+}
+
+.stage-node-session {
+  bottom: -28px;
+  left: 0;
+}
+
+/* ── Footer ── */
+
+.site-footer {
+  background: var(--canvas-soft);
+  border-top: 1px solid var(--hairline);
+  padding: var(--space-xxl) var(--space-lg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+.footer-brand .brand {
+  font-size: 15px;
+  margin-bottom: var(--space-xs);
+}
+
+.footer-brand p {
+  font-size: 14px;
+  color: var(--ink-muted);
+}
+
+.footer-links {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.footer-links a {
+  font-size: 14px;
+  color: var(--ink-secondary);
+}
+
+.footer-links a:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.attribution {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--ink-faint);
+  padding-top: var(--space-md);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 840px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .hero-copy {
+    max-width: 100%;
+  }
+
+  .product-stage {
+    order: -1;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .capability-list,
+  .trust-points {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+  }
+
+  .workflow-path {
+    flex-direction: column;
+    max-width: 480px;
+  }
+
+  .workflow-connector {
+    transform: rotate(90deg);
+  }
+
+  .site-nav {
+    display: none;
+  }
+
+  .hero-copy h1 {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 600px) {
+  .hero-section {
+    padding: 40px var(--space-md);
+  }
+
+  .capabilities-section,
+  .workflow-section,
+  .trust-section,
+  .install-section {
+    padding: 56px var(--space-md);
+  }
+
+  .hero-copy h1 {
+    font-size: 28px;
+  }
+
+  h2 {
+    font-size: 22px;
+  }
+
+  .workspace-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-sidebar {
+    display: none;
+  }
+
+  .site-footer {
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+  }
+
+  .hero-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+
+  .install-command {
+    font-size: 14px;
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .install-command code {
+    font-size: 13px;
+  }
+}
