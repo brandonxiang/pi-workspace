@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { PiSessionProject } from "./types.js";
-import { resolveInitialPiSessionSelection } from "./pi-session-launch.js";
+import type { PiSessionProject } from "../types.js";
+import { resolveInitialPiSessionSelection } from "../pi-session-launch.js";
 
 function makeProject(
   path: string,
@@ -16,6 +16,7 @@ function makeProject(
       messageCount: 1,
       created: session.modified,
       modified: session.modified,
+      status: "in_progress",
     })),
   };
 }

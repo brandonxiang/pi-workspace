@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { LOCALE_STORAGE_KEY, persistLocale, resolveInitialLocale } from "./locale";
+import { LOCALE_STORAGE_KEY, persistLocale, resolveInitialLocale } from "../locale";
 
 describe("website locale", () => {
   it("prefers a supported stored locale over the browser language", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { groupPiHistoryMessages } from "./pi-session-transcript";
-import type { PiHistoryMessage } from "./types";
+import { groupPiHistoryMessages } from "../pi-session-transcript";
+import type { PiHistoryMessage } from "../types";
 
 describe("groupPiHistoryMessages", () => {
   it("groups Pi assistant final output, thinking, and tool records into a single turn", () => {

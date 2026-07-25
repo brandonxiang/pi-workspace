@@ -3,11 +3,17 @@ import {
   filterProjectsByArchiveState,
   ensureExpandedProjectPaths,
   getVisibleProjectSessions,
+  getStatusEmoji,
+  getStatusTransitions,
   sortProjectsByOrder,
-} from "./PiSessionSection";
-import type { PiSessionProject } from "./types";
+} from "../PiSessionSection";
+import type { PiSessionProject } from "../types";
 
-function createProject(path: string, sessionIds: string[]): PiSessionProject {
+function createProject(
+  path: string,
+  sessionIds: string[],
+  status: import("../types").SessionStatus = "in_progress",
+): PiSessionProject {
   return {
     path,
     name: path.split("/").at(-1) ?? path,
@@ -18,6 +24,7 @@ function createProject(path: string, sessionIds: string[]): PiSessionProject {
       messageCount: 1,
       created: new Date(2026, 0, index + 1).toISOString(),
       modified: new Date(2026, 0, index + 1).toISOString(),
+      status,
     })),
   };
 }
@@ -98,6 +105,34 @@ describe("filterProjectsByArchiveState", () => {
         ...projects[1],
         sessions: [projects[1].sessions[0]],
       },
+    ]);
+  });
+});
+
+describe("session status", () => {
+  it("renders 🆕 for initializing, 🔄 for in_progress, 👀 for pending_review, ✅ for completed", () => {
+    expect(getStatusEmoji("initializing")).toBe("🆕");
+    expect(getStatusEmoji("in_progress")).toBe("🔄");
+    expect(getStatusEmoji("pending_review")).toBe("👀");
+    expect(getStatusEmoji("completed")).toBe("✅");
+  });
+
+  it("computes available transitions for each status", () => {
+    expect(getStatusTransitions("initializing")).toEqual([
+      { value: "in_progress", label: "Mark in progress", emoji: "🔄" },
+    ]);
+
+    expect(getStatusTransitions("in_progress")).toEqual([
+      { value: "pending_review", label: "Mark pending review", emoji: "👀" },
+      { value: "completed", label: "Mark completed", emoji: "✅" },
+    ]);
+
+    expect(getStatusTransitions("pending_review")).toEqual([
+      { value: "completed", label: "Mark completed", emoji: "✅" },
+    ]);
+
+    expect(getStatusTransitions("completed")).toEqual([
+      { value: "in_progress", label: "Reopen", emoji: "🔄" },
     ]);
   });
 });

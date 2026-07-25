@@ -823,6 +823,13 @@ h2 {
   white-space: nowrap;
 }
 
+.pi-session-status-emoji {
+  margin-right: 6px;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .pi-session-meta {
   display: flex;
   align-items: center;

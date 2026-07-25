@@ -7,7 +7,7 @@ import {
   isServerAppSlashCommand,
   parseSlashCommandInput,
   shouldShowSlashSuggestions,
-} from "../shared/slash-commands.js";
+} from "../../shared/slash-commands.js";
 
 describe("parseSlashCommandInput", () => {
   it("parses a single-line slash command and its args", () => {

@@ -32,6 +32,10 @@ import {
   loadPiSessionContextById,
   loadPiSessionDetailById,
   loadPiSessionProjects,
+  readAllSessionStatuses,
+  registerSessionStatusRoutes,
+  writeAllSessionStatuses,
+  type SessionStatus,
 } from "./pi-sessions.js";
 import { buildAgentEndStreamEvent } from "./chat-streaming.js";
 import { createPiPluginDependencies, listPiPlugins, registerPiPluginRoutes } from "./pi-plugins.js";
@@ -405,6 +409,10 @@ async function buildServer() {
   });
 
   registerVersionRoutes(server, createDefaultVersionManager());
+  registerSessionStatusRoutes(server, {
+    readStatuses: readAllSessionStatuses,
+    writeStatuses: writeAllSessionStatuses,
+  });
   registerPiPluginRoutes(server, {
     resolveSessionCommands: async (sessionId) => {
       const record = await createPersistedPiSession(sessionId);

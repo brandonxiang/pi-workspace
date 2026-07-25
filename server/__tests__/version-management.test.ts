@@ -7,7 +7,7 @@ import {
   resolveGlobalPiCommand,
   runCommand,
   type CommandRunner,
-} from "./version-management.js";
+} from "../version-management.js";
 
 describe("version parsing", () => {
   it("normalizes CLI version output", () => {

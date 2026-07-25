@@ -63,7 +63,7 @@ vi.mock("@xterm/addon-fit", () => {
 
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 
-import { TerminalPanel } from "./TerminalPanel";
+import { TerminalPanel } from "../TerminalPanel";
 
 describe("TerminalPanel", () => {
   let container: HTMLDivElement;

@@ -5,7 +5,7 @@ import {
   buildSettingsUrl,
   parseAppRoute,
   resolvePanelMode,
-} from "./app-routing";
+} from "../app-routing";
 
 describe("app-routing", () => {
   it("parses a Pi session route with terminal mode", () => {

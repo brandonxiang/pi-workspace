@@ -7,7 +7,7 @@ import {
   inferBranchModel,
   normalizeBranchEntries,
   truncateFirstMessage,
-} from "./pi-sessions.js";
+} from "../pi-sessions.js";
 
 interface SessionInfoFixture {
   id: string;

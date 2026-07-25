@@ -3,7 +3,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { PiHistoryMessage } from "./types";
+import type { PiHistoryMessage } from "../types";
 
 const mockState = vi.hoisted(() => ({
   projects: [] as Array<{
@@ -16,6 +16,7 @@ const mockState = vi.hoisted(() => ({
       messageCount: number;
       created: string;
       modified: string;
+      status: string;
     }>;
   }>,
   sessionDetail: null as {
@@ -26,6 +27,7 @@ const mockState = vi.hoisted(() => ({
       projectName: string;
       created: string;
       modified: string;
+      status?: string;
     };
     messages: PiHistoryMessage[];
   } | null,
@@ -206,8 +208,8 @@ vi.mock("antd/es/tabs", () => ({
   ),
 }));
 
-vi.mock("./PiSessionSection", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./PiSessionSection")>();
+vi.mock("../PiSessionSection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../PiSessionSection")>();
 
   return {
     ...actual,
@@ -252,15 +254,15 @@ vi.mock("./PiSessionSection", async (importOriginal) => {
   };
 });
 
-vi.mock("./MarkdownContent", () => ({
+vi.mock("../MarkdownContent", () => ({
   default: ({ content }: { content: string }) => <div>{content}</div>,
 }));
 
-vi.mock("./Minimap", () => ({
+vi.mock("../Minimap", () => ({
   default: () => <div data-testid="minimap" />,
 }));
 
-vi.mock("./TerminalPanel", () => ({
+vi.mock("../TerminalPanel", () => ({
   TerminalPanel: ({ initialCommand }: { initialCommand?: string }) => (
     <div
       className="terminal-panel"
@@ -271,7 +273,7 @@ vi.mock("./TerminalPanel", () => ({
   ),
 }));
 
-import App from "./App";
+import App from "../App";
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -367,6 +369,7 @@ function seedSelectedPiSession() {
           messageCount: 1,
           created: "2026-01-01T00:00:00.000Z",
           modified: "2026-01-01T00:00:00.000Z",
+          status: "in_progress",
         },
       ],
     },
@@ -379,6 +382,7 @@ function seedSelectedPiSession() {
       projectName: "workspace",
       created: "2026-01-01T00:00:00.000Z",
       modified: "2026-01-01T00:00:00.000Z",
+      status: "in_progress",
     },
     messages: [],
   };
@@ -962,6 +966,7 @@ describe("App sidebar shortcut", () => {
             messageCount: 1,
             created: "2026-01-01T00:00:00.000Z",
             modified: "2026-01-01T00:00:00.000Z",
+            status: "in_progress",
           },
         ],
       },
@@ -974,6 +979,7 @@ describe("App sidebar shortcut", () => {
         projectName: "workspace",
         created: "2026-01-01T00:00:00.000Z",
         modified: "2026-01-01T00:00:00.000Z",
+        status: "in_progress",
       },
       messages: [],
     };
@@ -1009,6 +1015,7 @@ describe("App sidebar shortcut", () => {
             messageCount: 1,
             created: "2026-01-01T00:00:00.000Z",
             modified: "2026-01-01T00:00:00.000Z",
+            status: "in_progress",
           },
         ],
       },
@@ -1021,6 +1028,7 @@ describe("App sidebar shortcut", () => {
         projectName: "workspace",
         created: "2026-01-01T00:00:00.000Z",
         modified: "2026-01-01T00:00:00.000Z",
+        status: "in_progress",
       },
       messages: [],
     };
@@ -1059,6 +1067,7 @@ describe("App sidebar shortcut", () => {
             messageCount: 1,
             created: "2026-01-01T00:00:00.000Z",
             modified: "2026-01-01T00:00:00.000Z",
+            status: "in_progress",
           },
         ],
       },
@@ -1442,6 +1451,7 @@ describe("App sidebar shortcut", () => {
             messageCount: 1,
             created: "2026-01-01T00:00:00.000Z",
             modified: "2026-01-01T00:00:00.000Z",
+            status: "in_progress",
           },
           {
             id: "session-2",
@@ -1450,6 +1460,7 @@ describe("App sidebar shortcut", () => {
             messageCount: 1,
             created: "2026-01-02T00:00:00.000Z",
             modified: "2026-01-02T00:00:00.000Z",
+            status: "in_progress",
           },
         ],
       },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { siteContent } from "./content";
+import { siteContent } from "../content";
 
 function sortedKeys(value: object) {
   return Object.keys(value).sort();

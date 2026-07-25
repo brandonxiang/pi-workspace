@@ -46,6 +46,7 @@ import type {
   PiPluginCommand,
   PiPluginsResponse,
   PiPluginSummary,
+  SessionStatus,
   StreamEvent,
   UserMessage,
 } from "./types";
@@ -1648,6 +1649,25 @@ export default function App() {
     });
   }
 
+  async function handleStatusChange(sessionId: string, status: SessionStatus) {
+    try {
+      const response = await fetch(`/api/pi-sessions/${encodeURIComponent(sessionId)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      if (response.ok) {
+        void refreshPiProjects();
+      } else {
+        const body = (await response.json()) as { error?: string };
+        console.error("Failed to update session status:", body.error || response.statusText);
+      }
+    } catch (error) {
+      console.error("Failed to update session status:", error);
+    }
+  }
+
   async function handleDeleteProject(projectPath: string) {
     const encodedPath = encodeURIComponent(projectPath);
 
@@ -2948,6 +2968,7 @@ export default function App() {
                 archivedSessionIds={archivedPiSessionIds}
                 onArchive={archivePiSession}
                 onRestore={restorePiSession}
+                onStatusChange={handleStatusChange}
                 onDeleteProject={handleDeleteProject}
                 onRevealProject={handleRevealProject}
               />
@@ -2990,6 +3011,31 @@ export default function App() {
                     {terminalCwd}
                   </small>
                 </div>
+                {piSessionDetail ? (
+                  <button
+                    className="chat-header-action-btn"
+                    type="button"
+                    title={t("panel.openEditor")}
+                    onClick={() => {
+                      const cwd = piSessionDetail?.session.cwd;
+                      if (cwd) window.open(`vscode://file/${encodeURIComponent(cwd)}`);
+                    }}
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="16 18 22 12 16 6" />
+                      <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                  </button>
+                ) : null}
               </header>
               {activePanelView.kind === "empty" ? (
                 <div className="messages messages-empty">

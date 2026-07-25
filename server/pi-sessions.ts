@@ -1,8 +1,91 @@
-import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { getAgentDir, SessionManager } from "@earendil-works/pi-coding-agent";
 
 /**
  * Session data types and grouping utilities for Pi sessions.
  */
+
+/* ─── Session State Machine ─── */
+
+export type SessionStatus = "initializing" | "in_progress" | "pending_review" | "completed";
+
+export type SessionStatusMap = Record<string, SessionStatus>;
+
+/** Default path for the session status file, relative to the agent dir. */
+export const STATUS_FILENAME = "session-status.json";
+
+export const STATUS_TRANSITIONS: Record<SessionStatus, SessionStatus[]> = {
+  initializing: ["in_progress"],
+  in_progress: ["pending_review", "completed"],
+  pending_review: ["completed"],
+  completed: ["in_progress"],
+};
+
+const VALID_STATUSES = new Set<SessionStatus>([
+  "initializing",
+  "in_progress",
+  "pending_review",
+  "completed",
+]);
+
+export function getStatusFilePath(agentDir: string): string {
+  return join(agentDir, STATUS_FILENAME);
+}
+
+export function readSessionStatuses(agentDir: string): SessionStatusMap {
+  const filePath = getStatusFilePath(agentDir);
+  try {
+    if (!existsSync(filePath)) return {};
+    const raw = readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(raw) as { version?: number; statuses?: Record<string, string> };
+    if (!parsed || typeof parsed !== "object") return {};
+    const statuses = parsed.statuses;
+    if (!statuses || typeof statuses !== "object") return {};
+
+    const result: SessionStatusMap = {};
+    for (const [id, status] of Object.entries(statuses)) {
+      if (VALID_STATUSES.has(status as SessionStatus)) {
+        result[id] = status as SessionStatus;
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+export function writeSessionStatuses(agentDir: string, statuses: SessionStatusMap): void {
+  const filePath = getStatusFilePath(agentDir);
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const data = JSON.stringify({ version: 1, statuses }, null, 2);
+  writeFileSync(filePath, data, "utf-8");
+}
+
+export function isValidStatusTransition(from: SessionStatus, to: SessionStatus): boolean {
+  if (!VALID_STATUSES.has(from) || !VALID_STATUSES.has(to)) return false;
+  if (from === to) return false;
+  const allowed = STATUS_TRANSITIONS[from];
+  return allowed.includes(to);
+}
+
+export function mergeStatusIntoSessions<T extends { id: string; messageCount: number }>(
+  sessions: readonly T[],
+  statuses: SessionStatusMap,
+): (T & { status: SessionStatus })[] {
+  return sessions.map((session) => {
+    const stored = statuses[session.id];
+    if (stored && VALID_STATUSES.has(stored)) {
+      return { ...session, status: stored };
+    }
+    // Default: no messages → initializing, has messages → in_progress
+    const status: SessionStatus = session.messageCount === 0 ? "initializing" : "in_progress";
+    return { ...session, status };
+  });
+}
 
 export interface PiSessionSummary {
   id: string;
@@ -11,6 +94,7 @@ export interface PiSessionSummary {
   messageCount: number;
   created: string;
   modified: string;
+  status: SessionStatus;
 }
 
 export interface PiSessionProject {
@@ -540,6 +624,7 @@ export function groupSessionsByProject(rawSessions: RawSessionInfo[]): PiSession
   }
 
   const projects: PiSessionProject[] = [];
+  const statuses = readSessionStatuses(getAgentDir());
 
   for (const [cwd, group] of groups) {
     // Sort sessions within project by modified time descending
@@ -548,14 +633,24 @@ export function groupSessionsByProject(rawSessions: RawSessionInfo[]): PiSession
     projects.push({
       name: extractProjectName(cwd),
       path: group.path,
-      sessions: group.sessions.map((s) => ({
-        id: s.id,
-        name: s.name,
-        firstMessage: truncateFirstMessage(s.firstMessage),
-        messageCount: s.messageCount,
-        created: toIsoString(s.created),
-        modified: toIsoString(s.modified),
-      })),
+      sessions: group.sessions.map((s) => {
+        const stored = statuses[s.id];
+        const status: SessionStatus =
+          stored && VALID_STATUSES.has(stored)
+            ? stored
+            : s.messageCount === 0
+              ? "initializing"
+              : "in_progress";
+        return {
+          id: s.id,
+          name: s.name,
+          firstMessage: truncateFirstMessage(s.firstMessage),
+          messageCount: s.messageCount,
+          created: toIsoString(s.created),
+          modified: toIsoString(s.modified),
+          status,
+        };
+      }),
     });
   }
 
@@ -633,6 +728,77 @@ export function invalidatePiSessionCatalogCache() {
 export async function loadPiSessionProjects() {
   const sessions = await piSessionCatalogCache.get();
   return groupSessionsByProject(sessions);
+}
+
+export function readAllSessionStatuses(): SessionStatusMap {
+  return readSessionStatuses(getAgentDir());
+}
+
+export function writeAllSessionStatuses(statuses: SessionStatusMap): void {
+  writeSessionStatuses(getAgentDir(), statuses);
+  invalidatePiSessionCatalogCache();
+}
+
+/** Force-set a session's lifecycle status. Skips transition validation (used for auto-transitions). */
+export function setSessionLifecycleStatus(
+  agentDir: string,
+  sessionId: string,
+  target: SessionStatus,
+): void {
+  const statuses = readSessionStatuses(agentDir);
+  statuses[sessionId] = target;
+  writeSessionStatuses(agentDir, statuses);
+}
+
+/** Convenience: set lifecycle status using the default agent dir, with cache invalidation. */
+export function setSessionLifecycleStatusDefault(sessionId: string, target: SessionStatus): void {
+  setSessionLifecycleStatus(getAgentDir(), sessionId, target);
+  invalidatePiSessionCatalogCache();
+}
+
+export interface SessionStatusApi {
+  readStatuses: () => SessionStatusMap;
+  writeStatuses: (statuses: SessionStatusMap) => void;
+}
+
+export function registerSessionStatusRoutes(
+  server: import("fastify").FastifyInstance,
+  api: SessionStatusApi,
+) {
+  server.patch("/api/pi-sessions/:sessionId/status", async (request, reply) => {
+    const { sessionId } = request.params as { sessionId?: string };
+    const { status } = request.body as { status?: string };
+
+    if (!sessionId?.trim()) {
+      reply.code(400);
+      return { error: "sessionId is required" };
+    }
+
+    if (!status || !VALID_STATUSES.has(status as SessionStatus)) {
+      reply.code(400);
+      return {
+        error:
+          "Invalid status value. Must be one of: initializing, in_progress, pending_review, completed",
+      };
+    }
+
+    const statuses = api.readStatuses();
+    const currentStatus: SessionStatus = statuses[sessionId] || "in_progress";
+    const targetStatus = status as SessionStatus;
+
+    if (!isValidStatusTransition(currentStatus, targetStatus)) {
+      reply.code(400);
+      return {
+        error: `Invalid transition from ${currentStatus} to ${targetStatus}`,
+        currentStatus,
+      };
+    }
+
+    statuses[sessionId] = targetStatus;
+    api.writeStatuses(statuses);
+
+    return { status: targetStatus };
+  });
 }
 
 export async function loadPiSessionDetailById(sessionId: string) {

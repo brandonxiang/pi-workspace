@@ -9,9 +9,55 @@ import {
   type Locale,
   type Translator,
 } from "./i18n";
-import type { PiSessionProject } from "./types";
+import type { PiSessionProject, SessionStatus } from "./types";
 
 const DEFAULT_VISIBLE_SESSION_COUNT = 10;
+
+/* ─── Session Status ─── */
+
+export const STATUS_EMOJI: Record<SessionStatus, string> = {
+  initializing: "🆕",
+  in_progress: "🔄",
+  pending_review: "👀",
+  completed: "✅",
+};
+
+const STATUS_TRANSITIONS: Record<SessionStatus, SessionStatus[]> = {
+  initializing: ["in_progress"],
+  in_progress: ["pending_review", "completed"],
+  pending_review: ["completed"],
+  completed: ["in_progress"],
+};
+
+export function getStatusEmoji(status: SessionStatus): string {
+  return STATUS_EMOJI[status] || "🔄";
+}
+
+export interface StatusTransitionOption {
+  value: SessionStatus;
+  label: string;
+  emoji: string;
+}
+
+export function getStatusTransitions(status: SessionStatus): StatusTransitionOption[] {
+  const transitions = STATUS_TRANSITIONS[status];
+  if (!transitions) return [];
+  return transitions.map((target) => ({
+    value: target,
+    label: STATUS_TRANSITION_LABELS[status]?.[target] || `Switch to ${target}`,
+    emoji: STATUS_EMOJI[target],
+  }));
+}
+
+const STATUS_TRANSITION_LABELS: Record<string, Record<string, string>> = {
+  initializing: { in_progress: "Mark in progress" },
+  in_progress: {
+    pending_review: "Mark pending review",
+    completed: "Mark completed",
+  },
+  pending_review: { completed: "Mark completed" },
+  completed: { in_progress: "Reopen" },
+};
 
 interface PiSessionSectionProps {
   locale: Locale;
@@ -24,6 +70,7 @@ interface PiSessionSectionProps {
   archivedSessionIds: Set<string>;
   onArchive: (sessionId: string) => void;
   onRestore: (sessionId: string) => void;
+  onStatusChange: (sessionId: string, status: SessionStatus) => void;
   onCreateSessionInProject: (projectPath: string) => void;
   onDeleteProject: (projectPath: string) => void;
   onRevealProject: (projectPath: string) => void;
@@ -32,16 +79,26 @@ interface PiSessionSectionProps {
 function buildMenuItems(
   sessionKey: string,
   isArchived: boolean,
+  sessionStatus: SessionStatus,
   onRename: (id: string) => void,
   onArchive: (id: string) => void,
   onRestore: (id: string) => void,
+  onStatusChange: (id: string, status: SessionStatus) => void,
   t: Translator,
 ): MenuProps["items"] {
   if (isArchived) {
     return [{ key: "restore", label: t("actions.restore"), onClick: () => onRestore(sessionKey) }];
   }
 
+  const statusSubmenu = getStatusTransitions(sessionStatus).map((transition) => ({
+    key: `status-${transition.value}`,
+    label: `${transition.emoji} ${transition.label}`,
+    onClick: () => onStatusChange(sessionKey, transition.value),
+  }));
+
   return [
+    ...statusSubmenu,
+    { type: "divider" as const },
     { key: "rename", label: t("actions.rename"), onClick: () => onRename(sessionKey) },
     { key: "archive", label: t("actions.archive"), onClick: () => onArchive(sessionKey) },
   ];
@@ -176,6 +233,7 @@ export function PiSessionSection({
   archivedSessionIds,
   onArchive,
   onRestore,
+  onStatusChange,
   onCreateSessionInProject,
   onDeleteProject,
   onRevealProject,
@@ -477,6 +535,9 @@ export function PiSessionSection({
                         >
                           <div className="pi-session-info">
                             <span className="pi-session-first-msg">
+                              <span className="pi-session-status-emoji">
+                                {getStatusEmoji(session.status)}
+                              </span>
                               {session.name || session.firstMessage}
                             </span>
                             <small className="pi-session-meta">
@@ -490,9 +551,11 @@ export function PiSessionSection({
                                 items: buildMenuItems(
                                   session.id,
                                   isArchived,
+                                  session.status,
                                   onRename,
                                   onArchive,
                                   onRestore,
+                                  onStatusChange,
                                   t,
                                 ),
                               }}

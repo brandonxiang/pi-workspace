@@ -7,7 +7,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-const cliSource = fileURLToPath(new URL("../bin/pi-workspace.mjs", import.meta.url));
+const cliSource = fileURLToPath(new URL("../../bin/pi-workspace.mjs", import.meta.url));
 const repoRoot = resolve(dirname(cliSource), "..");
 const fixtureRoots: string[] = [];
 

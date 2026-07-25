@@ -34,6 +34,8 @@ export type StreamEvent =
 
 /* ───── Pi session types ───── */
 
+export type SessionStatus = "initializing" | "in_progress" | "pending_review" | "completed";
+
 export interface PiSessionSummary {
   id: string;
   name?: string;
@@ -41,6 +43,7 @@ export interface PiSessionSummary {
   messageCount: number;
   created: string;
   modified: string;
+  status: SessionStatus;
 }
 
 export interface PiSessionProject {
