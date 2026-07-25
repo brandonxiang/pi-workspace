@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { listPiPlugins, type PiPluginDependencies } from "../pi-plugins.js";
+import { listPiPlugins, type PiPluginDependencies } from "../router/pi-plugins.js";
 
 function createSourceInfo(
   source: string,

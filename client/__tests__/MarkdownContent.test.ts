@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { renderToStaticMarkup } from "react-dom/server";
 import CodeHighlighter from "@ant-design/x/es/code-highlighter";
-import MarkdownContent, { renderMarkdownCode } from "../MarkdownContent";
+import MarkdownContent, { renderMarkdownCode } from "../components/MarkdownContent";
 
 describe("renderMarkdownCode", () => {
   it("uses full Prism mode for fenced code blocks", () => {

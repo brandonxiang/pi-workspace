@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { applySessionRename } from "../session-rename.js";
+import { applySessionRename } from "../utils/session-rename.js";
 
 function makePiSessionDetail(name: string) {
   return {

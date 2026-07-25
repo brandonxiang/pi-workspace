@@ -1,4 +1,4 @@
-import type { AppSlashCommandName } from "../shared/slash-commands.js";
+import type { AppSlashCommandName } from "../../shared/slash-commands.js";
 
 export type LocalResultStatus = "success" | "info" | "error";
 

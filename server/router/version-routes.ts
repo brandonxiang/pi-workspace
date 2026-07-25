@@ -4,7 +4,7 @@ import {
   VersionManagementError,
   type UpgradeTarget,
   type VersionsResponse,
-} from "./version-management.js";
+} from "../utils/version-management.js";
 
 type UpgradeResult = {
   target: UpgradeTarget;

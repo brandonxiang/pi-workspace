@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { clearSkillsCache, registerPiSkillRoutes } from "../pi-skills.js";
+import { clearSkillsCache, registerPiSkillRoutes } from "../router/pi-skills.js";
 
 const mockSkills = [
   {

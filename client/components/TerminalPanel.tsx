@@ -2,7 +2,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef } from "react";
-import { createTranslator, type Locale } from "./i18n";
+import { createTranslator, type Locale } from "../i18n/index";
 
 interface TerminalPanelProps {
   cwd: string;

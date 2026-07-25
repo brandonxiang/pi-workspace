@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { groupPiHistoryMessages } from "../pi-session-transcript";
+import { groupPiHistoryMessages } from "../services/pi-session-transcript";
 import type { PiHistoryMessage } from "../types";
 
 describe("groupPiHistoryMessages", () => {

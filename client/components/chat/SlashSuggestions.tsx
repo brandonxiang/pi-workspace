@@ -1,8 +1,8 @@
 import type { SuggestionItem } from "@ant-design/x/es/suggestion";
-import { findMatchingSlashCommands } from "../shared/slash-commands";
-import type { TranslationKey, Translator } from "./i18n";
-import type { SkillItem } from "./types";
-import type { PluginSlashCommand } from "../shared/slash-commands";
+import { findMatchingSlashCommands } from "../../../shared/slash-commands.js";
+import type { TranslationKey, Translator } from "../../i18n/index";
+import type { SkillItem } from "../../types/index";
+import type { PluginSlashCommand } from "../../../shared/slash-commands.js";
 
 export function getSlashCommandDescription(
   command: ReturnType<typeof findMatchingSlashCommands>[number],

@@ -8,8 +8,8 @@ import {
   formatRelativeTime,
   type Locale,
   type Translator,
-} from "./i18n";
-import type { PiSessionProject, SessionStatus } from "./types";
+} from "../i18n/index";
+import type { PiSessionProject, SessionStatus } from "../types/index";
 
 const DEFAULT_VISIBLE_SESSION_COUNT = 10;
 

@@ -6,7 +6,7 @@ import {
   getStatusEmoji,
   getStatusTransitions,
   sortProjectsByOrder,
-} from "../PiSessionSection";
+} from "../components/PiSessionSection";
 import type { PiSessionProject } from "../types";
 
 function createProject(

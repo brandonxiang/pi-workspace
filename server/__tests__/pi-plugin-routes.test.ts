@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { registerPiPluginRoutes, type PiPluginDependencies } from "../pi-plugins.js";
+import { registerPiPluginRoutes, type PiPluginDependencies } from "../router/pi-plugins.js";
 
 function createDependencies(): PiPluginDependencies {
   return {

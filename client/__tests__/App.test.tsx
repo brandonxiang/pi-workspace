@@ -209,8 +209,8 @@ vi.mock("antd/es/tabs", () => ({
   ),
 }));
 
-vi.mock("../PiSessionSection", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../PiSessionSection")>();
+vi.mock("../components/PiSessionSection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../components/PiSessionSection")>();
 
   return {
     ...actual,

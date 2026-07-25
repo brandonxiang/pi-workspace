@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { buildAgentEndStreamEvent } from "../chat-streaming.js";
+import { buildAgentEndStreamEvent } from "../utils/chat-streaming.js";
 
 describe("buildAgentEndStreamEvent", () => {
   it("returns an error event when the assistant finished with stopReason error", () => {

@@ -1,11 +1,11 @@
 import { Suspense, lazy } from "react";
 import type { BubbleItemType, BubbleListProps } from "@ant-design/x/es/bubble";
-import type { Locale, Translator, TranslationKey } from "./i18n";
-import type { PiHistoryMessage } from "./types";
-import type { PiHistoryTranscriptEntry } from "./pi-session-transcript";
-import { getImageDataUrl } from "./app-helpers";
+import type { Locale, Translator, TranslationKey } from "../../i18n/index";
+import type { PiHistoryMessage } from "../../types/index";
+import type { PiHistoryTranscriptEntry } from "../../services/pi-session-transcript";
+import { getImageDataUrl } from "../../utils/index";
 
-const MarkdownContent = lazy(() => import("./MarkdownContent"));
+const MarkdownContent = lazy(() => import("../MarkdownContent"));
 
 function MarkdownFallback({ content }: { content: string }) {
   return <p>{content}</p>;

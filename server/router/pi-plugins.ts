@@ -8,7 +8,7 @@ import {
   type SourceInfo,
 } from "@earendil-works/pi-coding-agent";
 import type { FastifyInstance } from "fastify";
-import type { PluginSlashCommand } from "../shared/slash-commands.js";
+import type { PluginSlashCommand } from "../../shared/slash-commands.js";
 
 export type PiPluginScope = "user" | "project" | "temporary";
 export type PiPluginStatus = "installed" | "missing" | "error";

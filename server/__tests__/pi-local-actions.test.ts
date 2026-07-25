@@ -6,7 +6,7 @@ import {
   normalizeExportFormat,
   type SessionCompactionResult,
   type SessionStatsSnapshot,
-} from "../pi-local-actions.js";
+} from "../utils/pi-local-actions.js";
 
 const stats: SessionStatsSnapshot = {
   sessionId: "session-1",

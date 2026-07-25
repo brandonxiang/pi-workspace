@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { VersionManagementError, type VersionsResponse } from "../version-management.js";
-import { registerVersionRoutes, type VersionManagerApi } from "../version-routes.js";
+import { VersionManagementError, type VersionsResponse } from "../utils/version-management.js";
+import { registerVersionRoutes, type VersionManagerApi } from "../router/version-routes.js";
 
 const versions: VersionsResponse = {
   pi: {

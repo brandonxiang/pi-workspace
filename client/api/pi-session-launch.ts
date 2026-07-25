@@ -1,4 +1,4 @@
-import type { PiSessionProject } from "./types.js";
+import type { PiSessionProject } from "../types/index";
 
 export type InitialPiSessionSelection = { kind: "pi"; sessionId: string } | { kind: "empty" };
 

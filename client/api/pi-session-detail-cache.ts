@@ -1,4 +1,4 @@
-import type { PiSessionDetailResponse } from "./types";
+import type { PiSessionDetailResponse } from "../types/index";
 
 export interface PiSessionDetailCache {
   get(sessionId: string): PiSessionDetailResponse | null;

@@ -8,11 +8,11 @@ import {
   writeSessionStatuses,
   mergeStatusIntoSessions,
   isValidStatusTransition,
-  registerSessionStatusRoutes,
   setSessionLifecycleStatus,
   type SessionStatus,
   type SessionStatusMap,
-} from "../pi-sessions.js";
+} from "../utils/pi-sessions.js";
+import { registerSessionStatusRoutes } from "../router/session-status.js";
 
 /* ─── Pure logic tests (no I/O) ─── */
 

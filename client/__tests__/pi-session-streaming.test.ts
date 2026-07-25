@@ -4,7 +4,7 @@ import {
   createPiSessionStreamingState,
   flushPiSessionThinking,
   getPiSessionStreamingDisplayItems,
-} from "../pi-session-streaming";
+} from "../api/pi-session-streaming";
 
 describe("Pi Session streaming transcript state", () => {
   it("shows a thinking bubble immediately in chat panel mode", () => {

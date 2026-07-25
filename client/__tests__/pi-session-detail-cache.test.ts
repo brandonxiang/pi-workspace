@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   createPiSessionDetailCache,
   getCachedPiSessionDetailForSelection,
-} from "../pi-session-detail-cache";
+} from "../api/pi-session-detail-cache";
 import type { PiSessionDetailResponse } from "../types";
 
 function createDetail(sessionId: string, content: string): PiSessionDetailResponse {

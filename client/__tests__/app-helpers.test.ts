@@ -13,7 +13,7 @@ import {
   readStoredFollowUpsForSession,
   readStoredThinkingLevel,
   writeStoredFollowUpsForSession,
-} from "../app-helpers";
+} from "../utils/index";
 
 describe("getImageDataUrl", () => {
   it("returns a data URL from mime type and base64 data", () => {

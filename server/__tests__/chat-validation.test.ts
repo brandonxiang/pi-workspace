@@ -4,7 +4,7 @@ import {
   getPromptOrDefault,
   maxImageBytes,
   parseImages,
-} from "../chat-validation.js";
+} from "../utils/chat-validation.js";
 
 const tinyPngBase64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";

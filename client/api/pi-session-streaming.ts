@@ -1,4 +1,4 @@
-import type { AssistantMessage, StreamEvent } from "./types";
+import type { AssistantMessage, StreamEvent } from "../types/index";
 
 export type PiSessionStreamingPanelMode = "chat" | "terminal";
 

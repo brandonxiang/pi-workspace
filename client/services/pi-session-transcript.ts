@@ -1,4 +1,4 @@
-import type { PiHistoryMessage } from "./types";
+import type { PiHistoryMessage } from "../types/index";
 
 type PiThinkingMessage = Extract<PiHistoryMessage, { role: "thinking" }>;
 type PiAssistantMessage = Extract<PiHistoryMessage, { role: "assistant" }>;

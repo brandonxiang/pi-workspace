@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { PiSessionProject } from "../types.js";
-import { resolveInitialPiSessionSelection } from "../pi-session-launch.js";
+import type { PiSessionProject } from "../types/index";
+import { resolveInitialPiSessionSelection } from "../api/pi-session-launch";
 
 function makeProject(
   path: string,

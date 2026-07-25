@@ -1,11 +1,11 @@
-import type { StreamEvent } from "./types";
-import type { QueuedComposerMessage, ThinkingLevel } from "./app-types";
+import type { StreamEvent } from "../types/index";
+import type { QueuedComposerMessage, ThinkingLevel } from "../types/index";
 import {
   FOLLOW_UP_QUEUES_STORAGE_KEY,
   PANEL_MODE_SHORTCUT_KEYS,
   SIDEBAR_SHORTCUT_KEY,
   THINKING_LEVEL_STORAGE_KEY,
-} from "./app-constants";
+} from "../constants/index";
 
 export function readStoredThinkingLevel(): ThinkingLevel {
   try {
@@ -102,11 +102,13 @@ export function readStoredFollowUpsForSession(sessionId: string): QueuedComposer
 export function writeStoredFollowUpsForSession(sessionId: string, queue: QueuedComposerMessage[]) {
   try {
     const nextQueues = readStoredFollowUpQueues();
+
     if (queue.length === 0) {
       delete nextQueues[sessionId];
     } else {
       nextQueues[sessionId] = queue;
     }
+
     localStorage.setItem(FOLLOW_UP_QUEUES_STORAGE_KEY, JSON.stringify(nextQueues));
   } catch {
     // Ignore storage failures and keep queue state in memory.
