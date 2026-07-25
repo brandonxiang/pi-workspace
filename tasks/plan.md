@@ -1,73 +1,38 @@
-# Implementation Plan: pi-workspace Official Website
+# Plan: Settings — Skills Tab
 
-## Overview
+## Implementation Order
 
-Build the approved bilingual `pi-workspace` marketing site as an independent React/Vite+ static entry point. The work proceeds in test-first vertical slices: establish the isolated build and typed content contract, add the two required interactions, then compose and verify the responsive Workspace blueprint experience.
-
-## Architecture Decisions
-
-- Keep all website source under `website/` and build to `dist-website`; do not import website code into `client/` or alter application routes.
-- Reuse the repository's React, TypeScript, Vitest, and Vite+ dependencies. Add no runtime dependencies.
-- Store English and Simplified Chinese content in one statically typed module so missing locale keys fail type checking and tests.
-- Use local component state plus `localStorage` for locale selection; the site has no backend or application API calls.
-- Render the product proof as semantic HTML/CSS based on real product concepts instead of shipping a fake interactive terminal or remote screenshot dependency.
-
-## Dependency Graph
-
-```text
-website build config
-  -> typed bilingual content
-     -> locale and clipboard behavior
-        -> page composition and product stage
-           -> responsive/browser verification
+```
+1. Server: enhance /api/skills response
+        ↓
+2. Client: add SkillItem type + fetch skills hook
+        ↓
+3. Client: i18n translations
+        ↓
+4. Client: add Skills tab component to App.tsx
+        ↓
+5. Client: add styles
+        ↓
+6. Verify: typecheck + build + manual check
 ```
 
-## Task List
+## Components & Dependencies
 
-### Phase 1: Independent foundation
+| Component              | Depends On         | Files               |
+| ---------------------- | ------------------ | ------------------- |
+| Server API enhancement | —                  | `server/index.ts`   |
+| Client types           | Server API shape   | `client/types.ts`   |
+| i18n keys              | —                  | `client/i18n.ts`    |
+| Skills tab UI          | types + i18n + API | `client/App.tsx`    |
+| Styles                 | —                  | `client/styles.css` |
 
-- [ ] Add independent website Vite+, TypeScript, and package scripts.
-- [ ] RED: add tests for translation parity and locale resolution.
-- [ ] GREEN: implement the typed bilingual content and locale utilities.
+## Risks
 
-### Checkpoint: Foundation
+- `loadSkills()` 的返回类型中 `SourceInfo` 可能不是 public export —— 需要在 server 端自行映射字段。
+- Skills cache 在 server 端有 1 分钟 TTL，用户点击 Refresh 需手动清除缓存。
 
-- [ ] `vp run website:test` passes.
-- [ ] `vp run website:build` emits `dist-website` without changing existing build output.
+## Verification Checkpoints
 
-### Phase 2: Required interactions
-
-- [ ] RED: add component tests for language switching, document language, locale persistence, clipboard success, and clipboard failure.
-- [ ] GREEN: implement the language control and accessible install command component.
-
-### Checkpoint: Interactions
-
-- [ ] Focused website tests pass.
-- [ ] The interactions work without external services or new dependencies.
-
-### Phase 3: Complete interface
-
-- [ ] RED: add a bilingual render smoke test for required landmarks, sections, headings, and links.
-- [ ] GREEN: implement the Workspace blueprint page, product-stage composition, responsive styles, focus states, and reduced motion.
-- [ ] Verify desktop/mobile layouts, keyboard interaction, console, and local assets with `agent-browser`.
-- [ ] Run repository-wide checks and production builds.
-
-### Checkpoint: Complete
-
-- [ ] All specification success criteria are met.
-- [ ] Existing workspace tests and build remain green.
-- [ ] Browser verification is captured at desktop and 320px mobile widths.
-
-## Risks and Mitigations
-
-| Risk                                                  | Impact | Mitigation                                                                            |
-| ----------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
-| Website config interferes with the existing app build | High   | Use a dedicated config, tsconfig, root, and output directory; run both builds         |
-| Chinese and English content drift                     | Medium | Define one shared content type and assert structural parity                           |
-| Clipboard permission fails                            | Medium | Keep command text selectable and expose a polite manual-copy message                  |
-| Product mockup feels generic or unreadable on mobile  | Medium | Use real domain labels, limit decoration, and verify screenshots at 320px and desktop |
-| Remote fonts hurt resilience or privacy               | Low    | Use local system-first stacks with named font fallbacks and no external requests      |
-
-## Open Questions
-
-- None. The user's instruction to implement immediately is treated as approval of the specification and this execution sequence.
+1. After Step 1: `curl http://localhost:8787/api/skills | jq '.skills[0].scope'` 返回 `"user"`
+2. After Step 6: `pnpm run typecheck && pnpm run build` 通过
+3. Final: 打开浏览器 `/settings` 确认 Skills tab 可见，列表和 Refresh 正常工作

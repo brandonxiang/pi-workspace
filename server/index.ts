@@ -11,7 +11,6 @@ import {
   createAgentSession,
   createExtensionRuntime,
   getAgentDir,
-  loadSkills,
   ModelRegistry,
   SessionManager,
   SettingsManager,
@@ -19,6 +18,7 @@ import {
   type ResourceLoader,
 } from "@earendil-works/pi-coding-agent";
 
+import { registerPiSkillRoutes, createSkillsDependencies } from "./pi-skills.js";
 import {
   getModelSupportsImages,
   getPromptOrDefault,
@@ -105,12 +105,7 @@ const piSessions = new Map<string, PiAgentSessionRecord>();
 const terminalPtyMap = new Map<import("ws").WebSocket, import("node-pty").IPty>();
 let terminalWss: WebSocketServer | null = null;
 
-/* ───── Cached resources ───── */
-let skillsCache: {
-  skills: Array<{ name: string; description: string; disableModelInvocation: boolean }>;
-} | null = null;
-let skillsCacheTime = 0;
-const SKILLS_CACHE_TTL_MS = 60_000; // 1 minute
+/* ───── Skills route ───── */
 
 function sendEvent(res: import("node:http").ServerResponse, event: unknown) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -436,37 +431,7 @@ async function buildServer() {
     return { cwd: process.cwd() };
   });
 
-  server.get("/api/skills", async (_request, reply) => {
-    const now = Date.now();
-    if (skillsCache && now - skillsCacheTime < SKILLS_CACHE_TTL_MS) {
-      return skillsCache;
-    }
-
-    try {
-      const result = loadSkills({
-        cwd: process.cwd(),
-        agentDir: getAgentDir(),
-        skillPaths: [],
-        includeDefaults: true,
-      });
-
-      skillsCache = {
-        skills: result.skills.map((skill) => ({
-          name: skill.name,
-          description: skill.description,
-          disableModelInvocation: skill.disableModelInvocation,
-        })),
-      };
-      skillsCacheTime = now;
-
-      return skillsCache;
-    } catch (error) {
-      reply.code(500);
-      return {
-        error: error instanceof Error ? error.message : "Failed to load skills",
-      };
-    }
-  });
+  registerPiSkillRoutes(server, createSkillsDependencies());
 
   server.post("/api/resolve-workspace", async (request, reply) => {
     const { name } = request.body as { name?: string };

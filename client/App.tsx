@@ -46,6 +46,7 @@ import type {
   PiPluginCommand,
   PiPluginsResponse,
   PiPluginSummary,
+  SkillItem,
   SessionStatus,
   StreamEvent,
   UserMessage,
@@ -117,7 +118,7 @@ const modelPresets = [
 
 type ModelOption = (typeof modelPresets)[number];
 type SlashSuggestionInfo = { query: string };
-type Skill = { name: string; description: string; disableModelInvocation: boolean };
+type Skill = SkillItem;
 type LocalResultStatus = Extract<PiHistoryMessage, { role: "local_result" }>["status"];
 type LocalActionResult = {
   title: string;
@@ -776,6 +777,9 @@ export default function App() {
   const [messagesEl, setMessagesEl] = useState<HTMLElement | null>(null);
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [skillsReloading, setSkillsReloading] = useState(false);
+  const [skillsError, setSkillsError] = useState<string | null>(null);
   const [pluginCommands, setPluginCommands] = useState<PluginSlashCommand[]>([]);
   const [piPlugins, setPiPlugins] = useState<PiPluginsResponse | null>(null);
   const [piPluginsLoading, setPiPluginsLoading] = useState(false);
@@ -803,6 +807,7 @@ export default function App() {
   const projectFileInputRef = useRef<HTMLInputElement>(null);
   const chatPanelRef = useRef<HTMLElement | null>(null);
   const thinkingFlushTimeoutRef = useRef<number | null>(null);
+  const streamSessionIdRef = useRef<string | null>(null);
   const piHistoryMessages = piSessionDetail?.messages ?? [];
   const selectedPiSessionId = activePanelView.kind === "pi" ? activePanelView.sessionId : null;
 
@@ -872,6 +877,30 @@ export default function App() {
       setVersionsLoading(false);
     }
   }, [t]);
+
+  const loadSkills = useCallback(async (reload = false) => {
+    setSkillsError(null);
+    if (reload) {
+      setSkillsReloading(true);
+    } else {
+      setSkillsLoading(true);
+    }
+
+    try {
+      const response = await fetch("/api/skills");
+      const body = (await response.json().catch(() => null)) as {
+        skills?: SkillItem[];
+        error?: string;
+      };
+      if (!response.ok) throw new Error(body?.error || "Failed to load skills");
+      setSkills(body?.skills || []);
+    } catch (loadError) {
+      setSkillsError(loadError instanceof Error ? loadError.message : "Failed to load skills");
+    } finally {
+      setSkillsLoading(false);
+      setSkillsReloading(false);
+    }
+  }, []);
 
   const loadPiPlugins = useCallback(async (reload = false) => {
     setPiPluginsError(null);
@@ -1338,8 +1367,6 @@ export default function App() {
     sessionId: string,
     options?: { persist?: boolean; projectPath?: string | null; history?: HistoryWriteMode },
   ) {
-    if (isStreaming) return;
-
     const cachedDetail = getCachedPiSessionDetailForSelection({
       currentDetail: piSessionDetail,
       cache: piSessionDetailCacheRef.current,
@@ -1475,15 +1502,7 @@ export default function App() {
       }
     }
 
-    fetch("/api/skills")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data.skills) {
-          setSkills(data.skills);
-        }
-      })
-      .catch(() => {});
-
+    void loadSkills();
     void loadPiPlugins();
     void loadModels();
     fetch("/api/cwd")
@@ -1514,11 +1533,6 @@ export default function App() {
         route.panel,
         localStorage.getItem(PANEL_MODE_STORAGE_KEY),
       );
-
-      if (isStreaming) {
-        writeRouteForState(routeKind, activePanelView, panelMode, "replace");
-        return;
-      }
 
       applyPanelMode(nextPanelMode, "skip");
 
@@ -2014,6 +2028,7 @@ export default function App() {
     resetStreamingDraft();
     setError(null);
     setIsStreaming(true);
+    streamSessionIdRef.current = sessionId;
 
     let streamState = createPiSessionStreamingState(panelMode);
     setDraftThinkingVisible(streamState.thinkingVisible);
@@ -2087,7 +2102,7 @@ export default function App() {
         }
       });
 
-      if (streamState.finalMessage) {
+      if (streamState.finalMessage && streamSessionIdRef.current === sessionId) {
         fetchContextUsage(sessionId);
 
         const fm = streamState.finalMessage as AssistantMessage;
@@ -2154,8 +2169,8 @@ export default function App() {
             : current,
         );
         setPiPendingMessages([]);
-        void refreshPiProjects();
       }
+      void refreshPiProjects();
     } catch (err) {
       if (err instanceof Error && err.message === "No response stream returned.") {
         setError(t("errors.streamMissing"));
@@ -2594,6 +2609,75 @@ export default function App() {
                         ))}
                       </section>
                     ) : null}
+                  </div>
+                ),
+              },
+              {
+                key: "skills",
+                label: t("settings.tabSkills"),
+                children: (
+                  <div
+                    className="settings-tab-content settings-skills-tab"
+                    data-testid="skills-settings"
+                  >
+                    <div className="settings-skills-header">
+                      <div>
+                        <div className="settings-version-title">{t("settings.skillsTitle")}</div>
+                        <small className="field-note">{t("settings.skillsHelp")}</small>
+                      </div>
+                      <button
+                        className="settings-btn settings-btn-cancel"
+                        type="button"
+                        disabled={skillsLoading || skillsReloading}
+                        onClick={() => void loadSkills(true)}
+                      >
+                        {skillsReloading
+                          ? t("settings.skillsRefreshing")
+                          : t("settings.skillsRefresh")}
+                      </button>
+                    </div>
+
+                    {skillsError ? (
+                      <div className="error-banner" role="alert">
+                        {skillsError}
+                      </div>
+                    ) : null}
+
+                    {skillsLoading ? (
+                      <div className="settings-skills-empty">{t("settings.skillsLoading")}</div>
+                    ) : skills.filter((s) => s.scope === "user").length ? (
+                      <div className="settings-skills-list">
+                        {skills
+                          .filter((s) => s.scope === "user")
+                          .map((skill) => (
+                            <article
+                              className="settings-skill-item"
+                              data-testid="skill-item"
+                              key={skill.name}
+                            >
+                              <div className="settings-skill-copy">
+                                <div className="settings-skill-title">
+                                  <strong>{skill.name}</strong>
+                                  <span className="settings-skill-badge">
+                                    {t("settings.skillsScopeUser")}
+                                  </span>
+                                  <span className="settings-skill-origin">
+                                    {skill.origin === "package"
+                                      ? t("settings.skillsOriginPackage")
+                                      : t("settings.skillsOriginTopLevel")}
+                                  </span>
+                                </div>
+                                <div className="settings-skill-description">
+                                  {skill.description}
+                                </div>
+                                <div className="settings-skill-path">{skill.path}</div>
+                              </div>
+                            </article>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="settings-skills-empty">{t("settings.skillsEmpty")}</div>
+                    )}
                   </div>
                 ),
               },

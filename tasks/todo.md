@@ -1,19 +1,26 @@
-- [ ] Task: Establish the independent website build and typed bilingual content
-  - Acceptance: Website dev/test/build commands exist, build output is isolated, and English/Chinese content has identical typed structure
-  - Verify: `vp run website:test`; `vp run website:build`
-  - Files: `package.json`, `vite.website.config.ts`, `tsconfig.website.json`, `website/index.html`, `website/src/content.ts`, `website/src/content.test.ts`
+# Tasks: Settings — Skills Tab
 
-- [ ] Task: Implement tested locale and install-command interactions
-  - Acceptance: Locale initializes safely, switches without reload, persists, updates `document.lang`, and copy feedback handles success/failure accessibly
-  - Verify: `vp run website:test`
-  - Files: `website/src/locale.ts`, `website/src/locale.test.ts`, `website/src/components/InstallCommand.tsx`, `website/src/components/InstallCommand.test.tsx`, `website/src/Website.tsx`
+- [x] **Task 1: 增强 `/api/skills` 接口返回 scope 信息**
+  - Acceptance: 响应中的每个 skill 包含 `scope`, `origin`, `baseDir`, `path` 字段
+  - Files: `server/index.ts`, `server/pi-skills.ts`, `server/__tests__/pi-skills.test.ts`
+  - Tests: `pnpm test -- server/__tests__/pi-skills.test.ts` → 3 tests passed
 
-- [ ] Task: Compose the complete responsive Workspace blueprint page
-  - Acceptance: Every specified section renders in both locales with semantic landmarks, real product concepts, responsive layout, focus visibility, and reduced motion
-  - Verify: `vp run website:test`; `vp run website:check`; `vp run website:build`
-  - Files: `website/src/Website.tsx`, `website/src/Website.test.tsx`, `website/src/main.tsx`, `website/src/styles.css`, `website/src/components/ProductStage.tsx`
+- [x] **Task 2: 添加 `SkillItem` 类型和获取接口函数**
+  - Acceptance: `client/types.ts` 新增 `SkillItem` 类型；App.tsx 从 `/api/skills` 获取数据
+  - Files: `client/types.ts`, `client/App.tsx`
 
-- [ ] Task: Perform browser and repository-wide verification
-  - Acceptance: Desktop and 320px mobile flows have no console errors, broken assets, overflow, or keyboard blockers; existing application remains green
-  - Verify: `vp check`; `vp test`; `npm run build`; manual `agent-browser` checks against `vp run website:dev`
-  - Files: none unless verification exposes a defect
+- [x] **Task 3: 添加 i18n 翻译 key**
+  - Acceptance: en 和 zh-CN 都包含 Skills tab 相关的翻译
+  - Files: `client/i18n.ts`
+
+- [x] **Task 4: 在 Settings 页面新增 Skills tab**
+  - Acceptance: Tabs 中新增 key="skills" 的 tab，位于 "Plugins" 之后；只显示 scope=user 的 skill
+  - Files: `client/App.tsx`
+
+- [x] **Task 5: 添加 Skills tab 样式**
+  - Acceptance: 技能卡片清晰可读，scope badge、来源路径、来源类型展示完整
+  - Files: `client/styles.css`
+
+- [x] **Task 6: 验证**
+  - Acceptance: `pnpm run typecheck` + `pnpm run build` 通过
+  - Verify: typecheck ✅, build ✅

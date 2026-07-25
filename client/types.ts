@@ -167,6 +167,16 @@ export interface PiPluginSummary {
   diagnostics: string[];
 }
 
+export interface SkillItem {
+  name: string;
+  description: string;
+  disableModelInvocation: boolean;
+  scope: "user" | "project" | "temporary";
+  origin: "package" | "top-level";
+  baseDir: string | undefined;
+  path: string;
+}
+
 export interface PiPluginDiagnostic {
   type: "warning" | "error" | "collision";
   message: string;
