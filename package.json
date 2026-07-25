@@ -1,6 +1,6 @@
 {
   "name": "pi-workspace",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "CLI-launched browser UI for pi-coding-agent sessions",
   "bin": {
     "pi-workspace": "./bin/pi-workspace.mjs"
