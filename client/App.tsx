@@ -234,6 +234,18 @@ export default function App() {
   const [draftError, setDraftError] = useState<string | null>(null);
   const [draftThinking, setDraftThinking] = useState("");
   const [draftThinkingVisible, setDraftThinkingVisible] = useState(false);
+
+  /** Patch a single session's status in the projects state without a full re-fetch. */
+  function setSessionStatusInProjects(sessionId: string, status: import("./types").SessionStatus) {
+    setProjects((prev) =>
+      prev.map((project) => ({
+        ...project,
+        sessions: project.sessions.map((session) =>
+          session.id === sessionId ? { ...session, status } : session,
+        ),
+      })),
+    );
+  }
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1514,7 +1526,7 @@ export default function App() {
     setError(null);
     setIsStreaming(true);
     streamSessionIdRef.current = sessionId;
-    void refreshPiProjects();
+    setSessionStatusInProjects(sessionId, "in_progress");
 
     let streamState = createPiSessionStreamingState(panelMode);
     setDraftThinkingVisible(streamState.thinkingVisible);
@@ -1566,8 +1578,6 @@ export default function App() {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error || `Request failed with ${response.status}`);
       }
-
-      void refreshPiProjects();
 
       await readEventStream(response, (streamEvent) => {
         streamState = applyPiSessionStreamingEvent(streamState, streamEvent);
@@ -1658,7 +1668,7 @@ export default function App() {
         );
         setPiPendingMessages([]);
       }
-      void refreshPiProjects();
+      setSessionStatusInProjects(sessionId, "pending_review");
     } catch (err) {
       if (err instanceof Error && err.message === "No response stream returned.") {
         setError(t("errors.streamMissing"));
