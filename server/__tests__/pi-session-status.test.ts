@@ -102,14 +102,14 @@ describe("mergeStatusIntoSessions", () => {
   it("defaults sessions with no messages to initializing", () => {
     const result = mergeStatusIntoSessions(sessions, {});
 
-    expect(result[0].status).toBe("in_progress"); // has messages, no stored status
+    expect(result[0].status).toBe("pending_review"); // has messages, no stored status
     expect(result[1].status).toBe("initializing"); // 0 messages
-    expect(result[2].status).toBe("in_progress"); // has messages
+    expect(result[2].status).toBe("pending_review"); // has messages
   });
 
-  it("defaults sessions with messages to in_progress when no stored status", () => {
+  it("defaults sessions with messages to pending_review when no stored status", () => {
     const result = mergeStatusIntoSessions([sessions[0]], {});
-    expect(result[0].status).toBe("in_progress");
+    expect(result[0].status).toBe("pending_review");
   });
 
   it("does not mutate input objects", () => {
@@ -283,14 +283,14 @@ describe("PATCH /api/pi-sessions/:sessionId/status", () => {
     expect(response.json().error).toContain("Invalid transition");
   });
 
-  it("defaults unknown sessionId to in_progress for transition check", async () => {
+  it("defaults unknown sessionId to pending_review for transition check", async () => {
     const response = await server.inject({
       method: "PATCH",
       url: "/api/pi-sessions/unknown-session/status",
-      body: { status: "pending_review" },
+      body: { status: "completed" },
     });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ status: "pending_review" });
+    expect(response.json()).toEqual({ status: "completed" });
     expect(mockApi.writeStatuses).toHaveBeenCalled();
   });
 });

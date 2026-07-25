@@ -81,8 +81,8 @@ export function mergeStatusIntoSessions<T extends { id: string; messageCount: nu
     if (stored && VALID_STATUSES.has(stored)) {
       return { ...session, status: stored };
     }
-    // Default: no messages → initializing, has messages → in_progress
-    const status: SessionStatus = session.messageCount === 0 ? "initializing" : "in_progress";
+    // Default: no messages → initializing, has messages → pending_review
+    const status: SessionStatus = session.messageCount === 0 ? "initializing" : "pending_review";
     return { ...session, status };
   });
 }
@@ -640,7 +640,7 @@ export function groupSessionsByProject(rawSessions: RawSessionInfo[]): PiSession
             ? stored
             : s.messageCount === 0
               ? "initializing"
-              : "in_progress";
+              : "pending_review";
         return {
           id: s.id,
           name: s.name,
@@ -783,7 +783,7 @@ export function registerSessionStatusRoutes(
     }
 
     const statuses = api.readStatuses();
-    const currentStatus: SessionStatus = statuses[sessionId] || "in_progress";
+    const currentStatus: SessionStatus = statuses[sessionId] || "pending_review";
     const targetStatus = status as SessionStatus;
 
     if (!isValidStatusTransition(currentStatus, targetStatus)) {

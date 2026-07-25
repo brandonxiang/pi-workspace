@@ -85,7 +85,6 @@ import {
   ACTIVE_PI_PROJECT_KEY,
   FOLLOW_UP_QUEUES_STORAGE_KEY,
   ARCHIVED_PI_SESSIONS_KEY,
-  THINKING_LEVEL_STORAGE_KEY,
 } from "./app-constants";
 import type {
   ActivePanelView,
@@ -93,9 +92,9 @@ import type {
   HistoryWriteMode,
   InteractiveSudoUpgrade,
   LauncherMode,
+  LocalActionResult,
   QueuedComposerMessage,
   SettingsDraft,
-  SlashSuggestionInfo,
   ThinkingLevel,
   VersionUpgradeTarget,
   VersionsResponse,
@@ -115,12 +114,7 @@ import {
   readStoredThinkingLevel,
   writeStoredFollowUpsForSession,
 } from "./app-helpers";
-import {
-  createPiHistoryBubbleItem,
-  MessageHeader,
-  RenderMarkdown,
-  StreamingErrorContent,
-} from "./pi-history-content";
+import { createPiHistoryBubbleItem, MessageHeader, RenderMarkdown } from "./pi-history-content";
 import { getSlashSuggestionItems } from "./slash-suggestions";
 
 type ModelOption = (typeof modelPresets)[number];
@@ -134,23 +128,6 @@ type LocalActionResult = {
   refreshProjects?: boolean;
   refreshSessionDetail?: boolean;
 };
-
-const TerminalPanel = lazy(async () => {
-  const module = await import("./TerminalPanel");
-  return { default: module.TerminalPanel };
-});
-
-function toPluginSlashCommand(command: PiPluginCommand): PluginSlashCommand {
-  return {
-    name: command.name,
-    description: command.description,
-    source: command.source,
-    scope: command.scope,
-    origin: command.origin,
-    path: command.path,
-    packageSource: command.packageSource,
-  };
-}
 
 const bubbleRoles: BubbleListProps["role"] = {
   assistant: {
@@ -181,6 +158,508 @@ const xTheme = {
       "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
   },
 };
+
+function readStoredThinkingLevel() {
+  try {
+    return (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) || "high";
+  } catch {
+    return "high";
+  }
+}
+
+function getImageDataUrl(image: { mimeType: string; data: string }) {
+  return `data:${image.mimeType};base64,${image.data}`;
+}
+
+function getModelKey(provider: string, model: string) {
+  return `${provider}:${model}`;
+}
+
+function parseModelKey(modelKey: string) {
+  const separatorIndex = modelKey.indexOf(":");
+  if (separatorIndex === -1) return { provider: "openai", model: "gpt-4o-mini" };
+
+  return {
+    provider: modelKey.slice(0, separatorIndex),
+    model: modelKey.slice(separatorIndex + 1),
+  };
+}
+
+function isSidebarToggleShortcut(
+  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
+) {
+  return (
+    event.key.toLowerCase() === SIDEBAR_SHORTCUT_KEY &&
+    !event.altKey &&
+    !event.shiftKey &&
+    (event.metaKey || event.ctrlKey)
+  );
+}
+
+function isPanelModeShortcut(
+  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
+) {
+  return (
+    PANEL_MODE_SHORTCUT_KEYS.includes(event.key.toLowerCase()) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    (event.metaKey || event.ctrlKey)
+  );
+}
+
+function hasOpenDialog() {
+  return Boolean(document.querySelector('[role="dialog"], .ant-modal-root'));
+}
+
+function isSteeringSubmitShortcut(event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey">) {
+  return event.key === "Enter" && (event.metaKey || event.ctrlKey);
+}
+
+function MessageHeader({ label, meta }: { label: string; meta: string }) {
+  return (
+    <div className="message-meta">
+      <span>{label}</span>
+      <small>{meta}</small>
+    </div>
+  );
+}
+
+function MarkdownFallback({ content }: { content: string }) {
+  return <p>{content}</p>;
+}
+
+function RenderMarkdown({ content }: { content: string }) {
+  return (
+    <Suspense fallback={<MarkdownFallback content={content} />}>
+      <MarkdownContent content={content} />
+    </Suspense>
+  );
+}
+
+function PiHistoryUserMessageContent({
+  message,
+}: {
+  message: Extract<PiHistoryMessage, { role: "user" }>;
+}) {
+  return (
+    <div className="message-content">
+      {message.images?.length ? (
+        <div className="message-images">
+          {message.images.map((image) => (
+            <figure className="message-image" key={image.id}>
+              <img alt={image.name} src={getImageDataUrl(image)} />
+              <figcaption>{image.name}</figcaption>
+            </figure>
+          ))}
+        </div>
+      ) : null}
+      {message.content ? <p>{message.content}</p> : null}
+    </div>
+  );
+}
+
+function PiToolMessageContent({
+  t,
+  message,
+}: {
+  t: Translator;
+  message: Extract<PiHistoryMessage, { role: "tool" }>;
+}) {
+  return (
+    <details className={message.isError ? "pi-tool-card pi-tool-card-error" : "pi-tool-card"}>
+      <summary>
+        <span>{message.toolName}</span>
+        <small>{t("chat.clickToExpand")}</small>
+      </summary>
+      <pre>{message.content}</pre>
+    </details>
+  );
+}
+
+function PiThinkingDisclosureContent({
+  t,
+  message,
+}: {
+  t: Translator;
+  message: Extract<PiHistoryMessage, { role: "thinking" }>;
+}) {
+  return (
+    <details className="thinking-block">
+      <summary>
+        <span>{t("chat.thinkingHistory")}</span>
+        <small>{t("chat.clickToExpand")}</small>
+      </summary>
+      <div className="thinking-content">{message.content}</div>
+    </details>
+  );
+}
+
+function PiPreviousAssistantMessagesContent({
+  t,
+  messages,
+}: {
+  t: Translator;
+  messages: Extract<PiHistoryMessage, { role: "assistant" }>[];
+}) {
+  return (
+    <details className="pi-assistant-history-card">
+      <summary>
+        <span>{t("chat.previousAssistantUpdates")}</span>
+        <small>{t("chat.clickToExpand")}</small>
+      </summary>
+      <div className="pi-assistant-history-list">
+        {messages.map((message) => (
+          <section className="pi-assistant-history-item" key={message.id}>
+            <RenderMarkdown content={message.content} />
+          </section>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function PiToolGroupContent({
+  t,
+  messages,
+}: {
+  t: Translator;
+  messages: Extract<PiHistoryMessage, { role: "tool" }>[];
+}) {
+  const hasError = messages.some((message) => message.isError);
+
+  return (
+    <details
+      className={hasError ? "pi-tool-group-card pi-tool-group-card-error" : "pi-tool-group-card"}
+    >
+      <summary>
+        <span>{t("chat.toolHistory")}</span>
+        <small>{t("chat.clickToExpand")}</small>
+      </summary>
+      <div className="pi-tool-group-list">
+        {messages.map((message) => (
+          <section className="pi-tool-group-item" key={message.id}>
+            <header>
+              <strong>{message.toolName}</strong>
+            </header>
+            <pre>{message.content}</pre>
+          </section>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function PiAssistantTurnContent({
+  t,
+  entry,
+}: {
+  t: Translator;
+  entry: Extract<PiHistoryTranscriptEntry, { role: "assistant-turn" }>;
+}) {
+  return (
+    <div className="pi-assistant-turn">
+      <div className="pi-assistant-turn-response">
+        <RenderMarkdown content={entry.finalMessage.content} />
+      </div>
+      {entry.previousMessages.length > 0 ? (
+        <PiPreviousAssistantMessagesContent t={t} messages={entry.previousMessages} />
+      ) : null}
+      {entry.thinking ? <PiThinkingDisclosureContent t={t} message={entry.thinking} /> : null}
+      {entry.tools.length > 0 ? <PiToolGroupContent t={t} messages={entry.tools} /> : null}
+    </div>
+  );
+}
+
+function PiSummaryMessageContent({
+  message,
+}: {
+  message: Extract<PiHistoryMessage, { role: "summary" }>;
+}) {
+  return (
+    <div className={`pi-summary-card pi-summary-card-${message.summaryType}`}>
+      <strong>{message.title}</strong>
+      <p>{message.content}</p>
+    </div>
+  );
+}
+
+function PiLocalResultContent({
+  message,
+}: {
+  message: Extract<PiHistoryMessage, { role: "local_result" }>;
+}) {
+  return (
+    <div className={`pi-local-result-card pi-local-result-card-${message.status}`}>
+      <RenderMarkdown content={message.content} />
+    </div>
+  );
+}
+
+function StreamingErrorContent({ message }: { message: string }) {
+  return (
+    <div className="pi-local-result-card pi-local-result-card-error">
+      <p>{message}</p>
+    </div>
+  );
+}
+
+function PiSteeringMessageContent({
+  locale,
+  message,
+  t,
+}: {
+  locale: Locale;
+  message: Extract<PiHistoryMessage, { role: "steering" }>;
+  t: Translator;
+}) {
+  return (
+    <div className="pi-steering-marker">
+      <span className="pi-steering-marker-label">{t("chat.steering")}</span>
+      <span className="pi-steering-marker-text">{message.content}</span>
+      <time
+        className="pi-steering-marker-time"
+        dateTime={new Date(message.timestamp).toISOString()}
+      >
+        {new Date(message.timestamp).toLocaleTimeString(locale)}
+      </time>
+    </div>
+  );
+}
+
+function createPiHistoryBubbleItem(
+  entry: PiHistoryTranscriptEntry,
+  index: number,
+  locale: Locale,
+  t: Translator,
+): BubbleItemType {
+  if (entry.role === "assistant-turn") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "assistant",
+      content: <PiAssistantTurnContent t={t} entry={entry} />,
+      header: (
+        <MessageHeader
+          label={t("chat.piSession")}
+          meta={
+            entry.finalMessage.provider && entry.finalMessage.model
+              ? `${entry.finalMessage.provider}/${entry.finalMessage.model}`
+              : t("chat.assistant")
+          }
+        />
+      ),
+    };
+  }
+
+  if (entry.role === "user") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "user",
+      content: <PiHistoryUserMessageContent message={entry} />,
+      header: <MessageHeader label={t("chat.piSession")} meta={t("chat.user")} />,
+    };
+  }
+
+  if (entry.role === "assistant") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "assistant",
+      content: entry.content,
+      header: (
+        <MessageHeader
+          label={t("chat.piSession")}
+          meta={
+            entry.provider && entry.model ? `${entry.provider}/${entry.model}` : t("chat.assistant")
+          }
+        />
+      ),
+    };
+  }
+
+  if (entry.role === "thinking") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "assistant",
+      content: <PiThinkingDisclosureContent t={t} message={entry} />,
+      header: <MessageHeader label={t("chat.piSession")} meta={t("chat.thinkingHistory")} />,
+    };
+  }
+
+  if (entry.role === "steering") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "divider",
+      content: <PiSteeringMessageContent locale={locale} message={entry} t={t} />,
+      className: "chat-bubble-divider",
+      dividerProps: { plain: true },
+    };
+  }
+
+  if (entry.role === "tool") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "assistant",
+      content: <PiToolMessageContent t={t} message={entry} />,
+      header: <MessageHeader label={t("chat.tool")} meta={entry.toolName} />,
+    };
+  }
+
+  if (entry.role === "local_result") {
+    return {
+      key: `${entry.role}-${entry.timestamp}-${index}`,
+      role: "assistant",
+      content: <PiLocalResultContent message={entry} />,
+      header: <MessageHeader label={t("chat.localAction")} meta={entry.title} />,
+    };
+  }
+
+  return {
+    key: `${entry.role}-${entry.timestamp}-${index}`,
+    role: "assistant",
+    content: <PiSummaryMessageContent message={entry} />,
+    header: <MessageHeader label={entry.title} meta={t("chat.piSessionSummary")} />,
+  };
+}
+
+function readFileAsBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error("Failed to read image file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getSlashSuggestionItems(
+  t: Translator,
+  skills: Skill[],
+  pluginCommands: PluginSlashCommand[],
+  info?: SlashSuggestionInfo,
+): SuggestionItem[] {
+  const query = info?.query.toLowerCase() || "";
+  const matchedCommands = findMatchingSlashCommands(query, pluginCommands);
+  const matchedSkills = skills.filter((skill) => skill.name.toLowerCase().includes(query));
+
+  return [
+    ...matchedCommands.map((command) => ({
+      label: (
+        <div className="slash-command-option">
+          <span>/{command.name}</span>
+          <small>{getSlashCommandDescription(command, t)}</small>
+        </div>
+      ),
+      value: `/${command.name}`,
+      extra: (
+        <span className={`slash-command-source slash-command-badge-${command.source}`}>
+          {"descriptionKey" in command ? command.source : `${command.source} · ${command.scope}`}
+        </span>
+      ),
+    })),
+    ...matchedSkills.map((skill) => ({
+      label: (
+        <div className="slash-command-option">
+          <span>/{skill.name}</span>
+          <small>{skill.description}</small>
+        </div>
+      ),
+      value: `/${skill.name}`,
+      extra: (
+        <span
+          className={`slash-command-source ${skill.scope === "user" ? "slash-command-badge-skill" : "slash-command-badge-project-skill"}`}
+        >
+          {skill.scope === "user" ? "skill" : "skill · project"}
+        </span>
+      ),
+    })),
+  ];
+}
+
+function getSlashCommandDescription(
+  command: ReturnType<typeof findMatchingSlashCommands>[number],
+  t: Translator,
+) {
+  return "descriptionKey" in command
+    ? t(command.descriptionKey as TranslationKey)
+    : command.description || command.packageSource || "";
+}
+
+function toPluginSlashCommand(command: PiPluginCommand): PluginSlashCommand {
+  return {
+    name: command.name,
+    description: command.description,
+    source: command.source,
+    scope: command.scope,
+    origin: command.origin,
+    path: command.path,
+    packageSource: command.packageSource,
+  };
+}
+
+function getWorkspaceName(cwd: string) {
+  const normalized = cwd.replace(/\/$/, "");
+  if (!normalized) return "workspace";
+
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] || "workspace";
+}
+
+function readStoredFollowUpQueues(): Record<string, QueuedComposerMessage[]> {
+  try {
+    const raw = localStorage.getItem(FOLLOW_UP_QUEUES_STORAGE_KEY);
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw) as Record<string, QueuedComposerMessage[]>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function readStoredFollowUpsForSession(sessionId: string): QueuedComposerMessage[] {
+  return readStoredFollowUpQueues()[sessionId] ?? [];
+}
+
+function writeStoredFollowUpsForSession(sessionId: string, queue: QueuedComposerMessage[]) {
+  try {
+    const nextQueues = readStoredFollowUpQueues();
+
+    if (queue.length === 0) {
+      delete nextQueues[sessionId];
+    } else {
+      nextQueues[sessionId] = queue;
+    }
+
+    localStorage.setItem(FOLLOW_UP_QUEUES_STORAGE_KEY, JSON.stringify(nextQueues));
+  } catch {
+    // Ignore storage failures and keep queue state in memory.
+  }
+}
+
+async function readEventStream(response: Response, onEvent: (event: StreamEvent) => void) {
+  if (!response.body) throw new Error("No response stream returned.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() || "";
+
+    for (const chunk of chunks) {
+      const line = chunk.split("\n").find((item) => item.startsWith("data: "));
+      if (!line) continue;
+      onEvent(JSON.parse(line.slice(6)) as StreamEvent);
+    }
+  }
+}
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>(() => readStoredLocale());
@@ -1514,7 +1993,6 @@ export default function App() {
     setError(null);
     setIsStreaming(true);
     streamSessionIdRef.current = sessionId;
-    void refreshPiProjects();
 
     let streamState = createPiSessionStreamingState(panelMode);
     setDraftThinkingVisible(streamState.thinkingVisible);
@@ -1566,8 +2044,6 @@ export default function App() {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error || `Request failed with ${response.status}`);
       }
-
-      void refreshPiProjects();
 
       await readEventStream(response, (streamEvent) => {
         streamState = applyPiSessionStreamingEvent(streamState, streamEvent);
@@ -2826,9 +3302,7 @@ export default function App() {
                   <Suggestion<SlashSuggestionInfo>
                     block
                     className="slash-command-suggestion"
-                    items={(info) =>
-                      getSlashSuggestionItems(t, skills, pluginCommands, info?.query)
-                    }
+                    items={(info) => getSlashSuggestionItems(t, skills, pluginCommands, info)}
                     onSelect={handleSlashSelect}
                   >
                     {({ onKeyDown, onTrigger }) => (
