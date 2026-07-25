@@ -6,9 +6,9 @@ describe("website locale", () => {
     expect(resolveInitialLocale("zh", "en-US")).toBe("zh");
   });
 
-  it("uses Simplified Chinese for Chinese browser languages", () => {
-    expect(resolveInitialLocale(null, "zh-CN")).toBe("zh");
-    expect(resolveInitialLocale(null, "zh-Hans")).toBe("zh");
+  it("defaults to English even when the browser language is Chinese", () => {
+    expect(resolveInitialLocale(null, "zh-CN")).toBe("en");
+    expect(resolveInitialLocale(null, "zh-Hans")).toBe("en");
   });
 
   it("falls back to English for invalid stored values and other browser languages", () => {

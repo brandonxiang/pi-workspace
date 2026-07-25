@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { InstallCommand } from "./components/InstallCommand";
 import { ProductStage } from "./components/ProductStage";
 import { siteContent, type Locale } from "./content";
-import { persistLocale, readInitialLocale } from "./locale";
+import {
+  persistLocale,
+  persistTheme,
+  readInitialLocale,
+  readInitialTheme,
+  type Theme,
+} from "./locale";
 
 const githubUrl = "https://github.com/brandonxiang/my-pi";
 const npmUrl = "https://www.npmjs.com/package/pi-workspace";
@@ -15,8 +21,11 @@ function PiMark() {
   );
 }
 
+const themeLabel = { light: "☾", dark: "☀" } as const;
+
 export function Website() {
   const [locale, setLocale] = useState<Locale>(readInitialLocale);
+  const [theme, setTheme] = useState<Theme>(readInitialTheme);
   const content = siteContent[locale];
 
   useEffect(() => {
@@ -26,6 +35,25 @@ export function Website() {
       .querySelector('meta[name="description"]')
       ?.setAttribute("content", content.meta.description);
   }, [content.meta.description, content.meta.title, locale]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? "#0f0f0f" : "#f6f5f4");
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme((prev) => {
+      const next: Theme = prev === "light" ? "dark" : "light";
+      try {
+        persistTheme(localStorage, next);
+      } catch {
+        // preference still changes for this visit
+      }
+      return next;
+    });
+  }
 
   function selectLocale(nextLocale: Locale) {
     setLocale(nextLocale);
@@ -68,6 +96,14 @@ export function Website() {
               中文
             </button>
           </div>
+          <button
+            type="button"
+            className="theme-toggle"
+            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+            onClick={toggleTheme}
+          >
+            {themeLabel[theme]}
+          </button>
           <a className="github-link" href={githubUrl} target="_blank" rel="noreferrer">
             {content.navigation.github} <span aria-hidden="true">↗</span>
           </a>

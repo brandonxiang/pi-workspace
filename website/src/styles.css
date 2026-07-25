@@ -1,7 +1,9 @@
 /* ── Design Tokens (Notion-inspired per DESIGN.md) ── */
 
 :root {
-  /* Colors */
+  color-scheme: light dark;
+
+  /* Colors — light */
   --primary: #0075de;
   --primary-active: #005bab;
   --secondary: #213183;
@@ -954,6 +956,153 @@ main {
   font-size: 13px;
   color: var(--ink-faint);
   padding-top: var(--space-md);
+}
+
+/* ── Dark Mode ── */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #0f0f0f;
+  --canvas-soft: #161618;
+  --surface: #1e1e20;
+  --ink: #e8e8e8;
+  --ink-secondary: #c4c4c4;
+  --ink-muted: #8a8a8e;
+  --ink-faint: #636366;
+  --hairline: #2c2c2e;
+
+  --shadow-soft:
+    0 0.175px 1.041px rgba(0, 0, 0, 0.3), 0 0.8px 2.925px rgba(0, 0, 0, 0.25),
+    0 2.025px 7.847px rgba(0, 0, 0, 0.2), 0 4px 18px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] body {
+  background: var(--canvas);
+}
+
+[data-theme="dark"] .site-header {
+  background: var(--canvas);
+}
+
+[data-theme="dark"] .site-nav a {
+  color: var(--ink-secondary);
+}
+
+[data-theme="dark"] .site-nav a:hover {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .language-control button[aria-pressed="true"] {
+  background: var(--canvas-soft);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .github-link {
+  border-color: var(--hairline);
+  background: var(--canvas);
+}
+
+[data-theme="dark"] .github-link:hover {
+  background: var(--canvas-soft);
+}
+
+[data-theme="dark"] .section-intro .eyebrow {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .trust-heading .eyebrow {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .capability {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .capability-icon-sessions {
+  background: #0a1a30;
+}
+
+[data-theme="dark"] .capability-icon-terminal {
+  background: #2a2a2e;
+}
+
+[data-theme="dark"] .workflow-path article {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .trust-points article {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .hero-copy .install-command {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .hero-copy .install-command:hover {
+  background: #2c2c2e;
+}
+
+[data-theme="dark"] .product-window {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .window-bar {
+  background: var(--canvas);
+}
+
+[data-theme="dark"] .preview-sidebar {
+  background: var(--canvas);
+}
+
+[data-theme="dark"] .preview-session-active {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .site-footer {
+  background: var(--canvas-soft);
+}
+
+[data-theme="dark"] .footer-links a {
+  color: var(--ink-secondary);
+}
+
+[data-theme="dark"] .footer-links a:hover {
+  color: var(--ink);
+}
+
+/* ── Theme toggle button ── */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  background: transparent;
+  color: var(--ink-faint);
+  transition: color 0.15s;
+}
+
+.theme-toggle:hover {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .theme-toggle {
+  color: var(--ink-secondary);
+}
+
+[data-theme="dark"] .theme-toggle:hover {
+  color: var(--ink);
 }
 
 /* ── Responsive ── */
