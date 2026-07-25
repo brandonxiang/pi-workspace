@@ -22,11 +22,13 @@ export const STATUS_EMOJI: Record<SessionStatus, string> = {
   completed: "✅",
 };
 
+// Manual transitions shown in the dropdown.
+// AI auto-lifecycle handles: AI starts → in_progress, AI finishes → pending_review.
 const STATUS_TRANSITIONS: Record<SessionStatus, SessionStatus[]> = {
-  initializing: ["in_progress"],
-  in_progress: ["pending_review", "completed"],
   pending_review: ["completed"],
-  completed: ["in_progress"],
+  initializing: [],
+  in_progress: [],
+  completed: [],
 };
 
 export function getStatusEmoji(status: SessionStatus): string {
@@ -50,13 +52,7 @@ export function getStatusTransitions(status: SessionStatus): StatusTransitionOpt
 }
 
 const STATUS_TRANSITION_LABELS: Record<string, Record<string, string>> = {
-  initializing: { in_progress: "Mark in progress" },
-  in_progress: {
-    pending_review: "Mark pending review",
-    completed: "Mark completed",
-  },
   pending_review: { completed: "Mark completed" },
-  completed: { in_progress: "Reopen" },
 };
 
 interface PiSessionSectionProps {
@@ -90,18 +86,24 @@ function buildMenuItems(
     return [{ key: "restore", label: t("actions.restore"), onClick: () => onRestore(sessionKey) }];
   }
 
-  const statusSubmenu = getStatusTransitions(sessionStatus).map((transition) => ({
-    key: `status-${transition.value}`,
-    label: `${transition.emoji} ${transition.label}`,
-    onClick: () => onStatusChange(sessionKey, transition.value),
-  }));
+  const transitions = getStatusTransitions(sessionStatus);
 
-  return [
-    ...statusSubmenu,
-    { type: "divider" as const },
+  const items: MenuProps["items"] = [
     { key: "rename", label: t("actions.rename"), onClick: () => onRename(sessionKey) },
     { key: "archive", label: t("actions.archive"), onClick: () => onArchive(sessionKey) },
   ];
+
+  if (transitions.length > 0) {
+    const statusItems = transitions.map((transition) => ({
+      key: `status-${transition.value}`,
+      label: `${transition.emoji} ${transition.label}`,
+      onClick: () => onStatusChange(sessionKey, transition.value),
+    }));
+    items.unshift({ type: "divider" as const });
+    items.unshift(...statusItems);
+  }
+
+  return items;
 }
 
 const ORDER_STORAGE_KEY = "my-pi-pi-project-order";

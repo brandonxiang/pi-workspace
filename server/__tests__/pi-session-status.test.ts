@@ -9,6 +9,7 @@ import {
   mergeStatusIntoSessions,
   isValidStatusTransition,
   registerSessionStatusRoutes,
+  setSessionLifecycleStatus,
   type SessionStatus,
   type SessionStatusMap,
 } from "../pi-sessions.js";
@@ -296,63 +297,47 @@ describe("PATCH /api/pi-sessions/:sessionId/status", () => {
 
 /* ─── Auto lifecycle transitions ─── */
 
-describe("setSessionInProgress / setSessionPendingReview", () => {
-  it("auto-set to in_progress works from any status", () => {
-    const { setSessionInProgress, setSessionPendingReview } = require("../pi-sessions.js") as {
-      setSessionInProgress: (
-        agentDir: string,
-        sessionId: string,
-        currentStatuses: Record<string, string>,
-      ) => Record<string, string>;
-      setSessionPendingReview: (
-        agentDir: string,
-        sessionId: string,
-        currentStatuses: Record<string, string>,
-      ) => Record<string, string>;
-    };
-    const statuses: Record<string, string> = { s1: "completed", s2: "initializing" };
+describe("setSessionLifecycleStatus", () => {
+  let tmpDir: string;
 
-    const result1 = setSessionInProgress("/dev/null", "s1", statuses);
-    expect(result1["s1"]).toBe("in_progress");
-
-    const result2 = setSessionInProgress("/dev/null", "s2", statuses);
-    expect(result2["s2"]).toBe("in_progress");
+  beforeAll(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "pi-lifecycle-"));
   });
 
-  it("auto-set to pending_review works from any status", () => {
-    const { setSessionPendingReview } = require("../pi-sessions.js") as {
-      setSessionPendingReview: (
-        agentDir: string,
-        sessionId: string,
-        currentStatuses: Record<string, string>,
-      ) => Record<string, string>;
-    };
-    const statuses: Record<string, string> = { s1: "completed", s2: "in_progress" };
-
-    const result1 = setSessionPendingReview("/dev/null", "s1", statuses);
-    expect(result1["s1"]).toBe("pending_review");
-
-    const result2 = setSessionPendingReview("/dev/null", "s2", statuses);
-    expect(result2["s2"]).toBe("pending_review");
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("keeps other sessions unchanged", () => {
-    const { setSessionInProgress } = require("../pi-sessions.js") as {
-      setSessionInProgress: (
-        agentDir: string,
-        sessionId: string,
-        currentStatuses: Record<string, string>,
-      ) => Record<string, string>;
-    };
-    const statuses: Record<string, string> = {
-      s1: "completed",
-      s2: "pending_review",
-      s3: "in_progress",
-    };
+  it("sets any session to in_progress regardless of current status", () => {
+    writeSessionStatuses(tmpDir, { s1: "completed", s2: "initializing" });
+    setSessionLifecycleStatus(tmpDir, "s1", "in_progress");
+    setSessionLifecycleStatus(tmpDir, "s2", "in_progress");
+    const result = readSessionStatuses(tmpDir);
+    expect(result["s1"]).toBe("in_progress");
+    expect(result["s2"]).toBe("in_progress");
+  });
 
-    const result = setSessionInProgress("/dev/null", "s2", statuses);
+  it("sets any session to pending_review regardless of current status", () => {
+    writeSessionStatuses(tmpDir, { s1: "completed", s2: "in_progress" });
+    setSessionLifecycleStatus(tmpDir, "s1", "pending_review");
+    setSessionLifecycleStatus(tmpDir, "s2", "pending_review");
+    const result = readSessionStatuses(tmpDir);
+    expect(result["s1"]).toBe("pending_review");
+    expect(result["s2"]).toBe("pending_review");
+  });
+
+  it("does not affect other sessions", () => {
+    writeSessionStatuses(tmpDir, { s1: "completed", s2: "pending_review", s3: "in_progress" });
+    setSessionLifecycleStatus(tmpDir, "s2", "in_progress");
+    const result = readSessionStatuses(tmpDir);
     expect(result["s1"]).toBe("completed");
     expect(result["s2"]).toBe("in_progress");
     expect(result["s3"]).toBe("in_progress");
+  });
+
+  it("handles a session not in the map", () => {
+    setSessionLifecycleStatus(tmpDir, "new-session", "in_progress");
+    const result = readSessionStatuses(tmpDir);
+    expect(result["new-session"]).toBe("in_progress");
   });
 });

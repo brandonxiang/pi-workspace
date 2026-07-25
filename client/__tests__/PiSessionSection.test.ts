@@ -118,21 +118,14 @@ describe("session status", () => {
   });
 
   it("computes available transitions for each status", () => {
-    expect(getStatusTransitions("initializing")).toEqual([
-      { value: "in_progress", label: "Mark in progress", emoji: "🔄" },
-    ]);
+    expect(getStatusTransitions("initializing")).toEqual([]);
 
-    expect(getStatusTransitions("in_progress")).toEqual([
-      { value: "pending_review", label: "Mark pending review", emoji: "👀" },
-      { value: "completed", label: "Mark completed", emoji: "✅" },
-    ]);
+    expect(getStatusTransitions("in_progress")).toEqual([]);
 
     expect(getStatusTransitions("pending_review")).toEqual([
       { value: "completed", label: "Mark completed", emoji: "✅" },
     ]);
 
-    expect(getStatusTransitions("completed")).toEqual([
-      { value: "in_progress", label: "Reopen", emoji: "🔄" },
-    ]);
+    expect(getStatusTransitions("completed")).toEqual([]);
   });
 });

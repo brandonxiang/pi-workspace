@@ -2154,6 +2154,7 @@ export default function App() {
             : current,
         );
         setPiPendingMessages([]);
+        void refreshPiProjects();
       }
     } catch (err) {
       if (err instanceof Error && err.message === "No response stream returned.") {

@@ -34,6 +34,7 @@ import {
   loadPiSessionProjects,
   readAllSessionStatuses,
   registerSessionStatusRoutes,
+  setSessionLifecycleStatusDefault,
   writeAllSessionStatuses,
   type SessionStatus,
 } from "./pi-sessions.js";
@@ -862,6 +863,11 @@ async function buildServer() {
       const session =
         persistedSession?.session ||
         (await getOrCreateSession(sessionId, provider, modelId, systemPrompt));
+      // Auto lifecycle: AI starts processing → in_progress
+      if (piSessionId) {
+        setSessionLifecycleStatusDefault(piSessionId, "in_progress");
+      }
+
       let finalText = "";
 
       const unsubscribe = session.subscribe((event) => {
@@ -930,6 +936,10 @@ async function buildServer() {
         await session.prompt(prompt, images.length > 0 ? { images } : undefined);
       } finally {
         unsubscribe();
+        // Auto lifecycle: AI finished → pending_review
+        if (piSessionId) {
+          setSessionLifecycleStatusDefault(piSessionId, "pending_review");
+        }
         // Pi sessions are cached in piSessions map, so do NOT dispose() here.
         // Only dispose in-memory (local) sessions that were created per-request.
         if (!piSessionId) {
