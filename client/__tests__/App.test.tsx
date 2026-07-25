@@ -1508,4 +1508,104 @@ describe("App sidebar shortcut", () => {
 
     expect(container.textContent).toContain("Archived Session Title");
   });
+
+  it("opens a new tab when selecting a session in terminal mode", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    mockState.projects = [
+      {
+        name: "workspace",
+        path: "/tmp/workspace",
+        sessions: [
+          {
+            id: "session-1",
+            name: "Session 1",
+            firstMessage: "First message",
+            messageCount: 1,
+            created: "2026-01-01T00:00:00.000Z",
+            modified: "2026-01-01T00:00:00.000Z",
+            status: "in_progress",
+          },
+        ],
+      },
+    ];
+    localStorage.setItem("my-pi-panel-mode", "terminal");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const openSessionButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Open first session",
+    );
+    expect(openSessionButton).toBeInstanceOf(HTMLButtonElement);
+    expect(openSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      openSessionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith("/sessions/session-1?panel=terminal", "_blank");
+
+    openSpy.mockRestore();
+  });
+
+  it("does not open a new tab when selecting a session in chat mode", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    mockState.projects = [
+      {
+        name: "workspace-2",
+        path: "/tmp/workspace-2",
+        sessions: [
+          {
+            id: "session-2",
+            name: "Session 2",
+            firstMessage: "Another session",
+            messageCount: 1,
+            created: "2026-01-01T00:00:00.000Z",
+            modified: "2026-01-01T00:00:00.000Z",
+            status: "in_progress",
+          },
+        ],
+      },
+    ];
+    mockState.sessionDetail = {
+      session: {
+        id: "session-2",
+        name: "Session 2",
+        cwd: "/tmp/workspace-2",
+        projectName: "workspace-2",
+        created: "2026-01-01T00:00:00.000Z",
+        modified: "2026-01-01T00:00:00.000Z",
+        status: "in_progress",
+      },
+      messages: [],
+    };
+    window.history.pushState({}, "", "/");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const openSessionButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Open first session",
+    );
+    expect(openSessionButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      openSessionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe("/sessions/session-2");
+    expect(window.location.search).toBe("?panel=chat");
+
+    openSpy.mockRestore();
+  });
 });

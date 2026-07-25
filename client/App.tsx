@@ -126,6 +126,15 @@ import {
 } from "./components/pi/PiHistoryContent";
 import { getSlashSuggestionItems } from "./components/chat/SlashSuggestions";
 import { SettingsPage } from "./components/settings/SettingsPage";
+import {
+  PiLogo,
+  IconPlus,
+  IconKeyboard,
+  IconSettings,
+  IconChevronLeft,
+  IconChevronRight,
+  IconCode,
+} from "./components/icon/index";
 import { Modals } from "./components/modals/Modals";
 
 type ModelOption = (typeof modelPresets)[number];
@@ -1249,6 +1258,10 @@ export default function App() {
       closeLauncher();
 
       if (nextSessionId) {
+        if (panelMode === "terminal") {
+          window.open(buildPiSessionUrl(nextSessionId, "terminal"), "_blank");
+          return;
+        }
         await selectPiSession(nextSessionId, { projectPath });
       } else {
         clearSelectedPiSession();
@@ -1307,6 +1320,10 @@ export default function App() {
     }
 
     closeLauncher();
+    if (panelMode === "terminal") {
+      window.open(buildPiSessionUrl(sessionId, "terminal"), "_blank");
+      return;
+    }
     await selectPiSession(sessionId, { projectPath });
   }
 
@@ -1983,47 +2000,7 @@ export default function App() {
             <div className="sidebar-inner">
               <div className="sidebar-top-row">
                 <div className="sidebar-brand-icon">
-                  <svg width="28" height="28" viewBox="0 0 128 128" fill="none">
-                    <rect
-                      x="8"
-                      y="8"
-                      width="112"
-                      height="112"
-                      rx="22"
-                      fill="var(--canvas)"
-                      stroke="var(--sidebar-border)"
-                      strokeWidth="3"
-                    />
-                    <g transform="translate(64, 44)">
-                      <line
-                        x1="-30"
-                        y1="0"
-                        x2="30"
-                        y2="0"
-                        stroke="var(--primary)"
-                        strokeWidth="10"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="-18"
-                        y1="0"
-                        x2="-18"
-                        y2="34"
-                        stroke="var(--primary)"
-                        strokeWidth="10"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="18"
-                        y1="0"
-                        x2="18"
-                        y2="34"
-                        stroke="var(--primary)"
-                        strokeWidth="10"
-                        strokeLinecap="round"
-                      />
-                    </g>
-                  </svg>
+                  <PiLogo />
                 </div>
                 <div className="sidebar-actions">
                   <button
@@ -2032,19 +2009,7 @@ export default function App() {
                     title={t("sidebar.newPiSession")}
                     onClick={openNewSessionLauncher}
                   >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
+                    <IconPlus />
                   </button>
                   <button
                     className="icon-button"
@@ -2052,21 +2017,7 @@ export default function App() {
                     title={t("hotkeys.open")}
                     onClick={openHotkeysModal}
                   >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="M7 9h.01" />
-                      <path d="M11 9h2" />
-                      <path d="M7 13h10" />
-                    </svg>
+                    <IconKeyboard />
                   </button>
                   <button
                     className="icon-button"
@@ -2074,19 +2025,7 @@ export default function App() {
                     title={t("settings.title")}
                     onClick={openSettingsPage}
                   >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                    </svg>
+                    <IconSettings />
                   </button>
                   <button
                     className="sidebar-collapse-btn"
@@ -2094,18 +2033,7 @@ export default function App() {
                     onClick={() => setSidebarCollapsed(true)}
                     title={`${t("sidebar.collapse")} (${sidebarShortcutLabel})`}
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="15 18 9 12 15 6" />
-                    </svg>
+                    <IconChevronLeft />
                   </button>
                 </div>
               </div>
@@ -2120,6 +2048,10 @@ export default function App() {
                 projects={visibleSidebarProjects}
                 selectedSessionId={selectedPiSessionId}
                 onSelectSession={(sessionId) => {
+                  if (panelMode === "terminal") {
+                    window.open(buildPiSessionUrl(sessionId, "terminal"), "_blank");
+                    return;
+                  }
                   void selectPiSession(sessionId);
                 }}
                 onRename={openRenameModal}
@@ -2140,18 +2072,7 @@ export default function App() {
               onClick={() => setSidebarCollapsed(false)}
               title={`${t("sidebar.expand")} (${sidebarShortcutLabel})`}
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
+              <IconChevronRight />
             </button>
           )}
 
@@ -2179,19 +2100,7 @@ export default function App() {
                       if (cwd) window.open(`vscode://file/${encodeURIComponent(cwd)}`);
                     }}
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="16 18 22 12 16 6" />
-                      <polyline points="8 6 2 12 8 18" />
-                    </svg>
+                    <IconCode />
                   </button>
                 ) : null}
               </header>
@@ -2257,19 +2166,7 @@ export default function App() {
                       if (cwd) window.open(`vscode://file/${encodeURIComponent(cwd)}`);
                     }}
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="16 18 22 12 16 6" />
-                      <polyline points="8 6 2 12 8 18" />
-                    </svg>
+                    <IconCode />
                   </button>
                 ) : null}
               </header>
