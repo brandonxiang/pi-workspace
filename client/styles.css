@@ -2026,6 +2026,12 @@ h2 {
   border: 1px solid rgba(91, 33, 182, 0.12);
 }
 
+.slash-command-badge-project-skill {
+  color: #b45309;
+  background: rgba(180, 83, 9, 0.08);
+  border: 1px solid rgba(180, 83, 9, 0.12);
+}
+
 .settings-modal-content {
   display: grid;
   gap: 18px;

@@ -608,7 +608,13 @@ function getSlashSuggestionItems(
         </div>
       ),
       value: `/${skill.name}`,
-      extra: <span className="slash-command-source slash-command-badge-skill">skill</span>,
+      extra: (
+        <span
+          className={`slash-command-source ${skill.scope === "user" ? "slash-command-badge-skill" : "slash-command-badge-project-skill"}`}
+        >
+          {skill.scope === "user" ? "skill" : "skill · project"}
+        </span>
+      ),
     })),
   ];
 }

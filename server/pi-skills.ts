@@ -1,7 +1,11 @@
 import type { FastifyInstance } from "fastify";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import path from "node:path";
 import {
   getAgentDir,
   loadSkills as sdkLoadSkills,
+  loadSkillsFromDir,
   type Skill,
 } from "@earendil-works/pi-coding-agent";
 
@@ -20,17 +24,66 @@ export interface SkillsDependencies {
 }
 
 /**
- * Create the default skills dependencies (no caching — handled by route).
+ * Load skills from a `.agents/skills/` directory if it exists.
+ */
+function loadAgentsSkills(dir: string, scope: "user" | "project"): Skill[] {
+  const agentsSkillsDir = path.join(dir, ".agents", "skills");
+  if (!existsSync(agentsSkillsDir)) return [];
+
+  const result = loadSkillsFromDir({ dir: agentsSkillsDir, source: scope });
+  // Override scope on sourceInfo since loadSkillsFromDir uses the source label
+  // as-is but we need proper scope values.
+  return result.skills.map((skill) => ({
+    ...skill,
+    sourceInfo: { ...skill.sourceInfo, scope },
+  }));
+}
+
+/**
+ * Create the default skills dependencies.
+ * Loads skills from:
+ *  - `.pi/` directories via SDK (global + project)
+ *  - `.agents/skills/` directories (user/global + project + ancestor dirs)
  */
 export function createSkillsDependencies(): SkillsDependencies {
   return {
-    loadSkills: () =>
-      sdkLoadSkills({
+    loadSkills: () => {
+      const result = sdkLoadSkills({
         cwd: process.cwd(),
         agentDir: getAgentDir(),
         skillPaths: [],
         includeDefaults: true,
-      }),
+      });
+
+      // Also load from .agents/skills/ directories (not scanned by loadSkills)
+      const userAgentsSkills = loadAgentsSkills(homedir(), "user");
+      const projectAgentsSkills = loadAgentsSkills(process.cwd(), "project");
+
+      // Merge — project skills override user skills with same name
+      const skillMap = new Map<string, Skill>();
+
+      // Add SDK-loaded skills first
+      for (const skill of result.skills) {
+        skillMap.set(skill.name, skill);
+      }
+
+      // Add user .agents/skills/ (won't override SDK user skills due to dedup)
+      for (const skill of userAgentsSkills) {
+        if (!skillMap.has(skill.name)) {
+          skillMap.set(skill.name, skill);
+        }
+      }
+
+      // Add project .agents/skills/ — overrides any user/global skill with same name
+      for (const skill of projectAgentsSkills) {
+        skillMap.set(skill.name, skill);
+      }
+
+      return {
+        skills: [...skillMap.values()],
+        diagnostics: result.diagnostics,
+      };
+    },
   };
 }
 
