@@ -259,11 +259,11 @@ vi.mock("../MarkdownContent", () => ({
   default: ({ content }: { content: string }) => <div>{content}</div>,
 }));
 
-vi.mock("../Minimap", () => ({
+vi.mock("../components/Minimap", () => ({
   default: () => <div data-testid="minimap" />,
 }));
 
-vi.mock("../TerminalPanel", () => ({
+vi.mock("../components/TerminalPanel", () => ({
   TerminalPanel: ({ initialCommand }: { initialCommand?: string }) => (
     <div
       className="terminal-panel"
