@@ -61,6 +61,7 @@ export default {
   },
   // Vitest config — relative to vite root (client/)
   test: {
+    env: { NODE_ENV: "development" },
     include: ["**/*.test.ts", "**/*.test.tsx", "../server/**/*.test.ts", "../shared/**/*.test.ts"],
   },
 };
