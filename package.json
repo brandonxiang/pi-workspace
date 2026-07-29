@@ -1,6 +1,6 @@
 {
   "name": "pi-workspace",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "CLI-launched browser UI for pi-coding-agent sessions",
   "bin": {
     "pi-workspace": "./bin/pi-workspace.mjs"
@@ -9,6 +9,7 @@
     "bin",
     "dist-server",
     "dist",
+    "scripts",
     "README.md",
     "README.CN.md",
     ".env.example"
@@ -34,6 +35,7 @@
     "start": "NODE_ENV=production node dist-server/index.mjs",
     "release": "release-it",
     "prepack": "npm run build",
+    "postinstall": "node scripts/postinstall.mjs",
     "prepare": "vp config"
   },
   "dependencies": {
