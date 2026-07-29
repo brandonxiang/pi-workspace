@@ -1,6 +1,6 @@
 {
   "name": "pi-workspace",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "CLI-launched browser UI for pi-coding-agent sessions",
   "bin": {
     "pi-workspace": "./bin/pi-workspace.mjs"
@@ -54,7 +54,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "typescript": "7.0.2",
-    "vite": "^6.0.0",
+    "vite": "^8.0.0",
     "ws": "^8.21.0"
   },
   "devDependencies": {
