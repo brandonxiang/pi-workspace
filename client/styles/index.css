@@ -1384,9 +1384,17 @@ h2 {
   margin-bottom: 0;
 }
 
+/* Override antd bubble inline padding to let assistant replies fill full width */
+:where(.css-dev-only-do-not-override-26iqv8).ant-bubble-list
+  .ant-bubble-start:not(.ant-bubble-divider):not(.ant-bubble-system) {
+  padding-inline-end: 5%;
+}
+
 .pi-assistant-turn {
   display: grid;
   gap: 12px;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .pi-assistant-turn-response > :first-child {
