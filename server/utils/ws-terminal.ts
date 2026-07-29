@@ -1,4 +1,7 @@
+import { chmodSync, existsSync } from "node:fs";
 import type { Server } from "node:http";
+import { platform, arch } from "node:os";
+import { resolve } from "node:path";
 import { spawn } from "node-pty";
 import { WebSocketServer } from "ws";
 
@@ -6,10 +9,40 @@ const terminalPtyMap = new Map<import("ws").WebSocket, import("node-pty").IPty>(
 let terminalWss: WebSocketServer | null = null;
 
 /**
+ * npm does not preserve executable permissions on prebuilt native binaries
+ * when extracting tarballs. This ensures node-pty's spawn-helper binary is
+ * executable before any PTY is spawned.
+ */
+function fixNodePtyPermissions() {
+  const prebuildDir = resolve(
+    import.meta.dirname,
+    "..",
+    "..",
+    "node_modules",
+    "node-pty",
+    "prebuilds",
+    `${platform()}-${arch()}`,
+  );
+
+  for (const file of ["spawn-helper", "pty.node"]) {
+    const fullPath = resolve(prebuildDir, file);
+    if (existsSync(fullPath)) {
+      try {
+        chmodSync(fullPath, 0o755);
+      } catch {
+        // May not have permission (e.g., root-owned files installed via sudo).
+        // The spawn will fail later with a clear error message.
+      }
+    }
+  }
+}
+
+/**
  * Auto-launch a Pi CLI command in the terminal.
  * Accepts a `cmd` query param — executes it ~600ms after shell starts.
  */
 export function setupTerminalWebSocket(httpServer: Server) {
+  fixNodePtyPermissions();
   const wss = new WebSocketServer({ noServer: true });
 
   httpServer.on("upgrade", (request, socket, head) => {
