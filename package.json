@@ -52,7 +52,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "typescript": "7.0.2",
-    "vite": "catalog:",
+    "vite": "^6.0.0",
     "ws": "^8.21.0"
   },
   "devDependencies": {
@@ -63,8 +63,8 @@
     "jsdom": "^29.1.1",
     "release-it": "^20.2.1",
     "rolldown": "^1.1.5",
-    "vite-plus": "catalog:",
-    "vitest": "catalog:"
+    "vite-plus": "0.2.4",
+    "vitest": "4.1.10"
   },
   "packageManager": "pnpm@11.11.0"
 }

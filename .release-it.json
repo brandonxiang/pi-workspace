@@ -2,16 +2,13 @@
   "$schema": "https://unpkg.com/release-it@20/schema/release-it.json",
   "hooks": {
     "before:init": ["pnpm lint", "pnpm format:check", "pnpm test", "pnpm build"],
-    "after:bump": "pnpm install --lockfile-only"
+    "after:bump": ["pnpm install --lockfile-only", "pnpm publish"]
   },
   "git": {
     "requireBranch": "main",
     "commitMessage": "chore: release v${version}",
     "tagName": "v${version}",
     "tagAnnotation": "Release v${version}"
-  },
-  "npm": {
-    "publish": true
   },
   "github": {
     "release": false
