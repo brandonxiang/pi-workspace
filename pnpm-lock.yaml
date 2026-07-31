@@ -12,27 +12,12 @@ importers:
 
   .:
     dependencies:
-      '@ant-design/x':
-        specifier: ^2.8.0
-        version: 2.8.0(antd@6.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@earendil-works/pi-coding-agent':
         specifier: 0.80.6
         version: 0.80.6(ws@8.21.0)(zod@4.4.3)
-      '@fastify/vite':
-        specifier: 9.1.1
-        version: 9.1.1(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@7.0.2)(yaml@2.9.0))(fastify@5.10.0)
-      '@vitejs/plugin-react':
-        specifier: 6.0.3
-        version: 6.0.3(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@7.0.2)(yaml@2.9.0))
-      '@xterm/addon-fit':
-        specifier: ^0.11.0
-        version: 0.11.0
-      '@xterm/xterm':
-        specifier: ^6.0.0
-        version: 6.0.0
-      antd:
-        specifier: ^6.5.0
-        version: 6.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@fastify/static':
+        specifier: ^9.1.2
+        version: 9.3.0
       commander:
         specifier: 14.0.1
         version: 14.0.1
@@ -42,28 +27,16 @@ importers:
       node-pty:
         specifier: ^1.1.0
         version: 1.1.0
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      react-dom:
-        specifier: 19.2.7
-        version: 19.2.7(react@19.2.7)
-      react-markdown:
-        specifier: ^10.1.0
-        version: 10.1.0(@types/react@19.2.17)(react@19.2.7)
-      remark-gfm:
-        specifier: ^4.0.1
-        version: 4.0.1
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@0.2.4
-        version: '@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@7.0.2)(yaml@2.9.0)'
       ws:
         specifier: ^8.21.0
         version: 8.21.0
     devDependencies:
+      '@ant-design/x':
+        specifier: ^2.8.0
+        version: 2.8.0(antd@6.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@fastify/vite':
+        specifier: 9.1.1
+        version: 9.1.1(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@7.0.2)(yaml@2.9.0))(fastify@5.10.0)
       '@types/node':
         specifier: 26.1.1
         version: 26.1.1
@@ -76,15 +49,45 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      '@vitejs/plugin-react':
+        specifier: 6.0.3
+        version: 6.0.3(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@7.0.2)(yaml@2.9.0))
+      '@xterm/addon-fit':
+        specifier: ^0.11.0
+        version: 0.11.0
+      '@xterm/xterm':
+        specifier: ^6.0.0
+        version: 6.0.0
+      antd:
+        specifier: ^6.5.0
+        version: 6.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.17)(react@19.2.7)
       release-it:
         specifier: ^20.2.1
         version: 20.2.1(@types/node@26.1.1)
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
       rolldown:
         specifier: ^1.1.5
         version: 1.1.5
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@0.2.4
+        version: '@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@7.0.2)(yaml@2.9.0)'
       vite-plus:
         specifier: 0.2.4
         version: 0.2.4(@opentelemetry/api@1.9.0)(@types/node@26.1.1)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@7.0.2)(yaml@2.9.0))(esbuild@0.28.1)(jiti@2.7.0)(jsdom@29.1.1)(tsx@4.22.4)(typescript@7.0.2)(yaml@2.9.0)

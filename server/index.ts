@@ -1,6 +1,8 @@
 import Fastify from "fastify";
-import FastifyVite from "@fastify/vite";
 import path from "node:path";
+import { readFile } from "node:fs/promises";
+import FastifyStatic from "@fastify/static";
+import type { FastifyInstance } from "fastify";
 
 import { createDefaultVersionManager } from "./utils/version-management.js";
 import { registerVersionRoutes } from "./router/version-routes.js";
@@ -25,17 +27,60 @@ import { registerSessionNameRoutes } from "./router/session-name.js";
 import { setupTerminalWebSocket, killAllTerminals, setTerminalWss } from "./utils/ws-terminal.js";
 
 const port = Number(process.env.PORT || 8787);
+const isDev = process.argv.includes("--dev");
+
+/**
+ * Serve the pre-built client bundle (dist/client) in production.
+ *
+ * This mirrors what @fastify/vite does in its production mode, but without
+ * pulling @fastify/vite (and its `vite` peer dependency) into the runtime
+ * dependency tree — keeping `npm install -g` fast for CLI users.
+ */
+async function registerStaticClient(server: FastifyInstance, root: string) {
+  const clientDir = path.join(root, "dist", "client");
+
+  // Serve the built client bundle. Exact file matches only (no index.html and
+  // no wildcard SPA routes — those fall through to the not-found handler).
+  // A single registration mirrors @fastify/vite's production behaviour without
+  // needing @fastify/vite (nor its `vite` peer dependency) at install time.
+  await server.register(async (scope) => {
+    await scope.register(FastifyStatic, {
+      root: clientDir,
+      prefix: "/",
+      index: false,
+      wildcard: false,
+      allowedPath: (p: string) => p !== "/index.html",
+    });
+  });
+}
+
+let cachedIndexHtml: string | null = null;
+async function loadIndexHtml(root: string): Promise<string> {
+  if (cachedIndexHtml == null) {
+    cachedIndexHtml = await readFile(path.join(root, "dist", "client", "index.html"), "utf8");
+  }
+  return cachedIndexHtml;
+}
 
 async function buildServer() {
   const server = Fastify({
     bodyLimit: 8 * 1024 * 1024,
   });
+  const root = path.resolve(import.meta.dirname, "..");
 
-  await server.register(FastifyVite, {
-    root: path.resolve(import.meta.dirname, ".."),
-    dev: process.argv.includes("--dev"),
-    spa: true,
-  });
+  if (isDev) {
+    // Dev mode: Vite dev server with HMR. Imported dynamically so the
+    // production bundle never loads @fastify/vite (nor vite).
+    const { default: FastifyVite } = await import("@fastify/vite");
+    await server.register(FastifyVite, {
+      root,
+      dev: true,
+      spa: true,
+    });
+  } else {
+    // Production mode: serve the pre-built client from disk
+    await registerStaticClient(server, root);
+  }
 
   // ──────── API routes ────────
   registerHealthRoute(server);
@@ -69,12 +114,19 @@ async function buildServer() {
   registerModelRoutes(server);
   registerChatRoutes(server);
 
-  // SPA catch-all: serve index.html for any non-API route
-  server.setNotFoundHandler((_request, reply) => {
-    return reply.html();
-  });
+  if (isDev) {
+    // SPA catch-all: dev server renders index.html via @fastify/vite
+    server.setNotFoundHandler((_request, reply) => {
+      return reply.html();
+    });
 
-  await server.vite.ready();
+    await server.vite.ready();
+  } else {
+    // SPA catch-all: serve the built index.html for any non-API route
+    server.setNotFoundHandler(async (_request, reply) => {
+      reply.type("text/html").send(await loadIndexHtml(root));
+    });
+  }
   return server;
 }
 
