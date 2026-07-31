@@ -60,6 +60,7 @@ interface PiSessionSectionProps {
   projects: PiSessionProject[];
   loading: boolean;
   error: string | null;
+  isStreaming: boolean;
   selectedSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
   onRename: (sessionId: string) => void;
@@ -229,6 +230,7 @@ export function PiSessionSection({
   projects,
   loading,
   error,
+  isStreaming,
   selectedSessionId,
   onSelectSession,
   onRename,
@@ -419,6 +421,7 @@ export function PiSessionSection({
               <div
                 className={"pi-project-group" + (isDragOver ? " pi-project-group-drag-over" : "")}
                 key={project.path}
+                draggable={!isStreaming}
                 onDragStart={() => handleProjectDragStart(project.path)}
                 onDragOver={(event) => handleProjectDragOver(event, project.path)}
                 onDragLeave={handleProjectDragLeave}

@@ -2040,6 +2040,7 @@ export default function App() {
 
               <PiSessionSection
                 error={projectsError}
+                isStreaming={isStreaming}
                 locale={locale}
                 loading={projectsLoading}
                 onCreateSessionInProject={(projectPath) => {

@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vite-plus/test";
+// @vitest-environment jsdom
+
+import { act } from "react-dom/test-utils";
+import { createRoot, type Root } from "react-dom/client";
+import React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { PiSessionSection } from "../components/PiSessionSection";
 import {
   filterProjectsByArchiveState,
   ensureExpandedProjectPaths,
@@ -127,5 +133,142 @@ describe("session status", () => {
     ]);
 
     expect(getStatusTransitions("completed")).toEqual([]);
+  });
+});
+
+/* ─── Drag & drop project reordering (rendering) ─── */
+
+const ORDER_STORAGE_KEY = "my-pi-pi-project-order";
+
+function dispatchDragEvent(target: Element, type: string) {
+  target.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+}
+
+describe("PiSessionSection drag & drop reordering", () => {
+  const projects: PiSessionProject[] = [
+    createProject("/alpha", ["a1"]),
+    createProject("/beta", ["b1"]),
+    createProject("/gamma", ["g1"]),
+  ];
+
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    localStorage.clear();
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  function renderSidebar(isStreaming = false) {
+    root.render(
+      React.createElement(PiSessionSection, {
+        locale: "en",
+        projects,
+        loading: false,
+        error: null,
+        isStreaming,
+        selectedSessionId: null,
+        archivedSessionIds: new Set<string>(),
+        onSelectSession: vi.fn(),
+        onRename: vi.fn(),
+        onArchive: vi.fn(),
+        onRestore: vi.fn(),
+        onStatusChange: vi.fn(),
+        onCreateSessionInProject: vi.fn(),
+        onDeleteProject: vi.fn(),
+        onRevealProject: vi.fn(),
+      }),
+    );
+  }
+
+  function projectGroups(): Element[] {
+    return Array.from(container.querySelectorAll(".pi-project-group"));
+  }
+
+  function projectNames(): string[] {
+    return projectGroups().map(
+      (group) => group.querySelector(".pi-project-name")?.textContent ?? "",
+    );
+  }
+
+  function storedOrder(): string[] {
+    return JSON.parse(localStorage.getItem(ORDER_STORAGE_KEY) ?? "[]") as string[];
+  }
+
+  it("marks every project group draggable while idle", async () => {
+    await act(async () => {
+      renderSidebar();
+    });
+
+    for (const group of projectGroups()) {
+      expect(group.getAttribute("draggable")).toBe("true");
+    }
+  });
+
+  it("disables dragging while a session is streaming", async () => {
+    await act(async () => {
+      renderSidebar(true);
+    });
+
+    for (const group of projectGroups()) {
+      expect(group.getAttribute("draggable")).toBe("false");
+    }
+  });
+
+  it("reorders projects on drag and drop and persists the new order", async () => {
+    await act(async () => {
+      renderSidebar();
+    });
+    expect(projectNames()).toEqual(["alpha", "beta", "gamma"]);
+
+    await act(async () => {
+      const groups = projectGroups();
+      dispatchDragEvent(groups[0], "dragstart");
+      dispatchDragEvent(groups[1], "dragover");
+    });
+
+    expect(projectGroups()[1].className).toContain("pi-project-group-drag-over");
+
+    await act(async () => {
+      dispatchDragEvent(projectGroups()[1], "drop");
+    });
+
+    expect(projectNames()).toEqual(["beta", "alpha", "gamma"]);
+    expect(projectGroups()[1].className).not.toContain("pi-project-group-drag-over");
+    expect(storedOrder()).toEqual(["/beta", "/alpha", "/gamma"]);
+  });
+
+  it("ignores a drop on the source project itself", async () => {
+    await act(async () => {
+      renderSidebar();
+    });
+
+    await act(async () => {
+      const groups = projectGroups();
+      dispatchDragEvent(groups[0], "dragstart");
+      dispatchDragEvent(groups[0], "drop");
+    });
+
+    expect(projectNames()).toEqual(["alpha", "beta", "gamma"]);
+    expect(storedOrder()).toEqual(["/alpha", "/beta", "/gamma"]);
+  });
+
+  it("restores a persisted project order on mount", async () => {
+    localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(["/gamma", "/alpha", "/beta"]));
+
+    await act(async () => {
+      renderSidebar();
+    });
+
+    expect(projectNames()).toEqual(["gamma", "alpha", "beta"]);
   });
 });
