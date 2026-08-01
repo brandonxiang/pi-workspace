@@ -117,7 +117,7 @@ export function resolveGlobalPiCommand(
   return null;
 }
 
-function sanitizeCommandOutput(output: string, maxLength: number) {
+export function sanitizeCommandOutput(output: string, maxLength: number) {
   const sanitized = output
     .replace(new RegExp(String.fromCharCode(0x1b) + "\\[[0-?]*[ -/]*[@-~]", "g"), "")
     .replace(
@@ -171,21 +171,21 @@ function asVersionManagementError(error: unknown) {
     : new VersionManagementError("COMMAND_FAILED", "The version command failed.");
 }
 
-function isPermissionFailure(error: VersionManagementError) {
+export function isPermissionFailure(error: VersionManagementError) {
   const detail = `${error.message} ${error.logDetail || ""}`;
   return /\b(?:EACCES|EPERM)\b|permission denied|operation not permitted|install path is not writable|insufficient permissions?|requires? (?:root|administrator)|must be run as root/i.test(
     detail,
   );
 }
 
-function isSudoAuthorizationFailure(error: VersionManagementError) {
+export function isSudoAuthorizationFailure(error: VersionManagementError) {
   const detail = `${error.message} ${error.logDetail || ""}`;
   return /password is required|no tty present|a terminal is required|authentication is required/i.test(
     detail,
   );
 }
 
-function buildInteractiveSudoCommand(command: string, args: string[]) {
+export function buildInteractiveSudoCommand(command: string, args: string[]) {
   const quote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
   return `sudo ${[command, ...args].map(quote).join(" ")}`;
 }
@@ -213,6 +213,51 @@ async function buildVersionStatus(
       currentVersion && latestVersion ? isNewerVersion(latestVersion, currentVersion) : null,
     ...(errors.length > 0 ? { error: errors.join(" ") } : {}),
   };
+}
+
+/**
+ * Run a command, retrying with `sudo -n` when the direct attempt fails with a
+ * permission error (EACCES/EPERM etc.). If sudo also fails because it needs a
+ * password or TTY, rethrows with the interactive sudo command attached so the
+ * UI can prompt the user for authorization.
+ */
+export async function runWithSudoRetry(options: {
+  run: CommandRunner;
+  command: string;
+  args: string[];
+  commandOptions?: CommandOptions;
+  logError?: (message: string) => void;
+}): Promise<CommandResult> {
+  const commandOptions = options.commandOptions || {
+    timeoutMs: 10 * 60_000,
+    maxOutputBytes: 65_536,
+  };
+
+  try {
+    return await options.run(options.command, options.args, commandOptions);
+  } catch (initialError) {
+    const managedInitialError = asVersionManagementError(initialError);
+    if (!isPermissionFailure(managedInitialError)) throw managedInitialError;
+
+    options.logError?.(
+      `permission denied; retrying with sudo -n: ${managedInitialError.logDetail || managedInitialError.message}`,
+    );
+
+    try {
+      return await options.run("sudo", ["-n", options.command, ...options.args], commandOptions);
+    } catch (sudoError) {
+      const managedSudoError = asVersionManagementError(sudoError);
+      if (isSudoAuthorizationFailure(managedSudoError)) {
+        throw new VersionManagementError(
+          "COMMAND_FAILED",
+          "Administrator permission is required. Run `sudo -v` in a terminal, then try again.",
+          managedSudoError.logDetail,
+          buildInteractiveSudoCommand(options.command, options.args),
+        );
+      }
+      throw managedSudoError;
+    }
+  }
 }
 
 export function createVersionManager(dependencies: VersionManagerDependencies) {
@@ -274,35 +319,13 @@ export function createVersionManager(dependencies: VersionManagerDependencies) {
               };
         const commandOptions = { timeoutMs: 10 * 60_000, maxOutputBytes: 65_536 };
 
-        try {
-          await dependencies.runCommand(definition.command, definition.args, commandOptions);
-        } catch (initialError) {
-          const managedInitialError = asVersionManagementError(initialError);
-          if (!isPermissionFailure(managedInitialError)) throw managedInitialError;
-
-          dependencies.logError?.(
-            `[version-upgrade] ${target} permission denied; retrying with sudo -n: ${managedInitialError.logDetail || managedInitialError.message}`,
-          );
-
-          try {
-            await dependencies.runCommand(
-              "sudo",
-              ["-n", definition.command, ...definition.args],
-              commandOptions,
-            );
-          } catch (sudoError) {
-            const managedSudoError = asVersionManagementError(sudoError);
-            if (isSudoAuthorizationFailure(managedSudoError)) {
-              throw new VersionManagementError(
-                "COMMAND_FAILED",
-                "Administrator permission is required. Run `sudo -v` in a terminal, then try again.",
-                managedSudoError.logDetail,
-                buildInteractiveSudoCommand(definition.command, definition.args),
-              );
-            }
-            throw managedSudoError;
-          }
-        }
+        await runWithSudoRetry({
+          run: dependencies.runCommand,
+          command: definition.command,
+          args: definition.args,
+          commandOptions,
+          logError: (message) => dependencies.logError?.(`[version-upgrade] ${target} ${message}`),
+        });
 
         return {
           target: target as UpgradeTarget,

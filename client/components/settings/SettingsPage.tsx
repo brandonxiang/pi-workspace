@@ -22,7 +22,11 @@ export interface SettingsPageProps {
   piPluginsLoading: boolean;
   piPluginsReloading: boolean;
   piPluginsError: string | null;
+  piPluginsUpdating: boolean;
+  piPluginsUpdateError: string | null;
+  piPluginsUpdateNotice: string | null;
   onRefreshPlugins: () => void;
+  onUpdatePlugins: () => void;
   skills: SkillItem[];
   skillsLoading: boolean;
   skillsReloading: boolean;
@@ -50,7 +54,11 @@ export function SettingsPage({
   piPluginsLoading,
   piPluginsReloading,
   piPluginsError,
+  piPluginsUpdating,
+  piPluginsUpdateError,
+  piPluginsUpdateNotice,
   onRefreshPlugins,
+  onUpdatePlugins,
   skills,
   skillsLoading,
   skillsReloading,
@@ -168,17 +176,41 @@ export function SettingsPage({
                         <div className="settings-version-title">{t("settings.pluginsTitle")}</div>
                         <small className="field-note">{t("settings.pluginsHelp")}</small>
                       </div>
-                      <button
-                        className="settings-btn settings-btn-cancel"
-                        type="button"
-                        disabled={piPluginsLoading || piPluginsReloading}
-                        onClick={onRefreshPlugins}
-                      >
-                        {piPluginsReloading
-                          ? t("settings.pluginsRefreshing")
-                          : t("settings.pluginsRefresh")}
-                      </button>
+                      <div className="settings-plugins-actions">
+                        <button
+                          className="settings-btn settings-btn-confirm"
+                          data-testid="pi-plugins-update-button"
+                          type="button"
+                          disabled={piPluginsLoading || piPluginsReloading || piPluginsUpdating}
+                          onClick={onUpdatePlugins}
+                        >
+                          {piPluginsUpdating
+                            ? t("settings.pluginsUpdating")
+                            : t("settings.pluginsUpdate")}
+                        </button>
+                        <button
+                          className="settings-btn settings-btn-cancel"
+                          type="button"
+                          disabled={piPluginsLoading || piPluginsReloading || piPluginsUpdating}
+                          onClick={onRefreshPlugins}
+                        >
+                          {piPluginsReloading
+                            ? t("settings.pluginsRefreshing")
+                            : t("settings.pluginsRefresh")}
+                        </button>
+                      </div>
                     </div>
+
+                    {piPluginsUpdateError ? (
+                      <div className="error-banner" role="alert">
+                        {piPluginsUpdateError}
+                      </div>
+                    ) : null}
+                    {piPluginsUpdateNotice ? (
+                      <div className="settings-version-notice" role="status">
+                        {piPluginsUpdateNotice}
+                      </div>
+                    ) : null}
 
                     {piPluginsError ? (
                       <div className="error-banner" role="alert">

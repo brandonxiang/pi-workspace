@@ -16,6 +16,41 @@ export async function fetchPiPlugins(reload = false): Promise<PiPluginsResponse>
   return body;
 }
 
+export type PiPluginsUpdateResult =
+  | { ok: true; message: string; output?: string }
+  | {
+      ok: false;
+      error: string;
+      detail?: string;
+      requiresInteractiveSudo?: boolean;
+      interactiveCommand?: string;
+    };
+
+export async function updatePiPlugins(actionToken?: string): Promise<PiPluginsUpdateResult> {
+  const response = await fetch("/api/pi-plugins/update", {
+    method: "POST",
+    headers: actionToken ? { "x-pi-workspace-action-token": actionToken } : {},
+  });
+  const body = (await response.json().catch(() => null)) as PiPluginsUpdateResult;
+  if (!response.ok) {
+    const failure = body as {
+      error?: string;
+      detail?: string;
+      requiresInteractiveSudo?: boolean;
+      interactiveCommand?: string;
+    };
+    return {
+      ok: false,
+      error: failure.error || "Failed to update Pi packages",
+      detail: failure.detail,
+      requiresInteractiveSudo: failure.requiresInteractiveSudo,
+      interactiveCommand: failure.interactiveCommand,
+    };
+  }
+  const success = body as { message?: string; output?: string };
+  return { ok: true, message: success.message || "Pi packages updated.", output: success.output };
+}
+
 export async function fetchSessionCommands(sessionId: string): Promise<SessionCommandsResponse> {
   const response = await fetch(`/api/pi-sessions/${encodeURIComponent(sessionId)}/commands`);
   if (!response.ok) {

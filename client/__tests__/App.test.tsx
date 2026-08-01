@@ -464,8 +464,16 @@ describe("App sidebar shortcut", () => {
             message: "pi-workspace was upgraded. Restart it to use the new version.",
           });
         }
+        if (url.endsWith("/api/pi-plugins/update")) {
+          return createJsonResponse({
+            ok: true,
+            message: "Pi packages updated.",
+            output: "Updated npm:@acme/pi-preview",
+          });
+        }
         if (url.endsWith("/api/pi-plugins") || url.endsWith("/api/pi-plugins/reload")) {
           return createJsonResponse({
+            actionToken: "test-plugin-token",
             plugins: [
               {
                 source: "npm:@acme/pi-preview",
@@ -1299,6 +1307,70 @@ describe("App sidebar shortcut", () => {
     const pluginsSection = container.querySelector('[data-testid="plugins-settings"]');
     expect(pluginsSection?.textContent).toContain("npm:@acme/pi-preview");
     expect(pluginsSection?.textContent).toContain("project");
+  });
+
+  it("updates installed Pi packages from the plugins tab", async () => {
+    window.history.pushState({}, "", "/settings?panel=chat");
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const updateButton = container.querySelector('[data-testid="pi-plugins-update-button"]');
+    expect(updateButton).toBeInstanceOf(HTMLButtonElement);
+    expect(updateButton?.textContent).toBe("Update packages");
+
+    await act(async () => {
+      updateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const pluginsSection = container.querySelector('[data-testid="plugins-settings"]');
+    expect(pluginsSection?.textContent).toContain("Packages updated.");
+  });
+
+  it("opens the interactive sudo terminal when package update needs authorization", async () => {
+    window.history.pushState({}, "", "/settings?panel=chat");
+    const defaultFetch = vi.mocked(fetch).getMockImplementation();
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (toUrlString(input).endsWith("/api/pi-plugins/update")) {
+        return createJsonResponse(
+          {
+            error: "Administrator permission is required.",
+            requiresInteractiveSudo: true,
+            interactiveCommand: "sudo '/global/bin/pi' 'update' '--extensions'",
+          },
+          false,
+        );
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch implementation");
+      return defaultFetch(input, init);
+    });
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const updateButton = container.querySelector('[data-testid="pi-plugins-update-button"]');
+    expect(updateButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      updateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.textContent).toContain("Administrator authorization");
+    expect(
+      container
+        .querySelector('[data-testid="terminal-panel"]')
+        ?.getAttribute("data-initial-command"),
+    ).toBe("sudo '/global/bin/pi' 'update' '--extensions'");
   });
 
   it("loads plugin slash commands for the active Pi session", async () => {

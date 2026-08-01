@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   DefaultPackageManager,
   DefaultResourceLoader,
@@ -9,6 +10,14 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { FastifyInstance } from "fastify";
 import type { PluginSlashCommand } from "../../shared/slash-commands.js";
+import {
+  resolveGlobalPiCommand,
+  runCommand,
+  runWithSudoRetry,
+  sanitizeCommandOutput,
+  VersionManagementError,
+  type CommandRunner,
+} from "../utils/version-management.js";
 
 export type PiPluginScope = "user" | "project" | "temporary";
 export type PiPluginStatus = "installed" | "missing" | "error";
@@ -41,6 +50,78 @@ export interface PiPluginsResponse {
   plugins: PiPluginSummary[];
   commands: PluginSlashCommand[];
   diagnostics: PiPluginDiagnostic[];
+}
+
+export class PiUpdateError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    message: string,
+    public readonly detail?: string,
+    public readonly interactiveSudoCommand?: string,
+  ) {
+    super(message);
+    this.name = "PiUpdateError";
+  }
+}
+
+export interface PiPluginsUpdateResult {
+  ok: true;
+  message: string;
+  output?: string;
+}
+
+export type PiExtensionsUpdateRunner = () => Promise<PiPluginsUpdateResult>;
+
+export function createDefaultExtensionsUpdateRunner(
+  options: {
+    runCommand?: CommandRunner;
+    resolvePiCommand?: () => string | null;
+  } = {},
+): PiExtensionsUpdateRunner {
+  const exec = options.runCommand || runCommand;
+  const resolvePi = options.resolvePiCommand || (() => resolveGlobalPiCommand(process.env.PATH));
+  let running = false;
+
+  return async function updatePiExtensions() {
+    if (running) {
+      throw new PiUpdateError(409, "Another package update is already running.");
+    }
+
+    const piCommand = resolvePi();
+    if (!piCommand) {
+      throw new PiUpdateError(500, "Global Pi CLI was not found. Install pi or add it to PATH.");
+    }
+
+    running = true;
+    try {
+      const result = await runWithSudoRetry({
+        run: exec,
+        command: piCommand,
+        args: ["update", "--extensions"],
+        commandOptions: { timeoutMs: 10 * 60_000, maxOutputBytes: 65_536 },
+        logError: (message) => console.error(`[pi-plugins-update] ${message}`),
+      });
+      const output = sanitizeCommandOutput(result.stdout || result.stderr, 16_384);
+      return {
+        ok: true,
+        message: "Pi packages updated.",
+        ...(output ? { output } : {}),
+      };
+    } catch (error) {
+      const managed = error instanceof VersionManagementError ? error : null;
+      const detail = managed?.logDetail || (error instanceof Error ? error.message : String(error));
+      throw new PiUpdateError(
+        500,
+        managed?.interactiveSudoCommand
+          ? "Administrator permission is required. Run `sudo -v` in a terminal, then try again."
+          : "Pi package update failed.",
+        managed?.interactiveSudoCommand ? undefined : detail,
+        managed?.interactiveSudoCommand,
+      );
+    } finally {
+      running = false;
+    }
+  };
 }
 
 type ConfiguredPackage = {
@@ -335,13 +416,17 @@ export function registerPiPluginRoutes(
     createDependencies?: PiPluginDependencyFactory;
     resolveSessionCwd?: (sessionId: string) => Promise<string | null>;
     resolveSessionCommands?: (sessionId: string) => Promise<PluginSlashCommand[] | null>;
+    runExtensionsUpdate?: PiExtensionsUpdateRunner;
+    actionToken?: string;
   } = {},
 ) {
   const createDependencies = options.createDependencies || createPiPluginDependencies;
+  const updateExtensions = options.runExtensionsUpdate || createDefaultExtensionsUpdateRunner();
+  const actionToken = options.actionToken || randomUUID();
 
   server.get("/api/pi-plugins", async (_request, reply) => {
     try {
-      return await listPiPlugins(createDependencies());
+      return { ...(await listPiPlugins(createDependencies())), actionToken };
     } catch (error) {
       reply.code(500);
       return {
@@ -352,12 +437,40 @@ export function registerPiPluginRoutes(
 
   server.post("/api/pi-plugins/reload", async (_request, reply) => {
     try {
-      return await listPiPlugins(createDependencies());
+      return { ...(await listPiPlugins(createDependencies())), actionToken };
     } catch (error) {
       reply.code(500);
       return {
         error: error instanceof Error ? error.message : "Failed to reload Pi plugins",
       };
+    }
+  });
+
+  server.post("/api/pi-plugins/update", async (request, reply) => {
+    if (request.headers["x-pi-workspace-action-token"] !== actionToken) {
+      reply.code(403);
+      return { error: "Pi package update permission denied." };
+    }
+
+    try {
+      return await updateExtensions();
+    } catch (error) {
+      if (error instanceof PiUpdateError) {
+        reply.code(error.statusCode);
+        return {
+          error: error.message,
+          ...(error.detail ? { detail: error.detail } : {}),
+          ...(error.interactiveSudoCommand
+            ? {
+                requiresInteractiveSudo: true,
+                interactiveCommand: error.interactiveSudoCommand,
+              }
+            : {}),
+        };
+      }
+
+      reply.code(500);
+      return { error: "Failed to update Pi packages." };
     }
   });
 

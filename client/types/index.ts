@@ -191,6 +191,7 @@ export interface PiPluginsResponse {
   plugins: PiPluginSummary[];
   commands: PiPluginCommand[];
   diagnostics: PiPluginDiagnostic[];
+  actionToken?: string;
 }
 
 /* ───── App types (from app-types.ts) ───── */
@@ -224,7 +225,7 @@ export type VersionsResponse = {
 export type VersionUpgradeTarget = "pi" | "pi-workspace";
 
 export type InteractiveSudoUpgrade = {
-  target: VersionUpgradeTarget;
+  target: VersionUpgradeTarget | "extensions";
   command: string;
 };
 

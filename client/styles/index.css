@@ -2148,6 +2148,12 @@ h2 {
   margin-bottom: 16px;
 }
 
+.settings-plugins-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .settings-plugins-list {
   display: grid;
   gap: 10px;

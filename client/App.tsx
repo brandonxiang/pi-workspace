@@ -51,6 +51,7 @@ import type {
 } from "./types/index";
 import { PiSessionSection } from "./components/PiSessionSection";
 import { filterProjectsByArchiveState } from "./components/PiSessionSection";
+import { updatePiPlugins } from "./api/plugins";
 import {
   findProjectBySessionId,
   getNewestProjectSessionId,
@@ -296,6 +297,9 @@ export default function App() {
   const [piPluginsLoading, setPiPluginsLoading] = useState(false);
   const [piPluginsReloading, setPiPluginsReloading] = useState(false);
   const [piPluginsError, setPiPluginsError] = useState<string | null>(null);
+  const [piPluginsUpdating, setPiPluginsUpdating] = useState(false);
+  const [piPluginsUpdateError, setPiPluginsUpdateError] = useState<string | null>(null);
+  const [piPluginsUpdateNotice, setPiPluginsUpdateNotice] = useState<string | null>(null);
   const [versions, setVersions] = useState<VersionsResponse | null>(null);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [versionError, setVersionError] = useState<string | null>(null);
@@ -439,6 +443,40 @@ export default function App() {
       setPiPluginsReloading(false);
     }
   }, []);
+
+  const updatePiPluginsInSettings = useCallback(async () => {
+    if (piPluginsUpdating) return;
+
+    setPiPluginsUpdateError(null);
+    setPiPluginsUpdateNotice(null);
+    setPiPluginsUpdating(true);
+
+    try {
+      const actionToken = piPlugins?.actionToken;
+      if (!actionToken) {
+        throw new Error(t("settings.pluginsUpdatePermissionMissing"));
+      }
+      const result = await updatePiPlugins(actionToken);
+      if (!result.ok) {
+        if (result.requiresInteractiveSudo && result.interactiveCommand) {
+          setInteractiveSudoUpgrade({
+            target: "extensions",
+            command: result.interactiveCommand,
+          });
+          return;
+        }
+        throw new Error(result.error || t("settings.pluginsUpdateFailed"));
+      }
+      setPiPluginsUpdateNotice(t("settings.pluginsUpdateDone"));
+      await loadPiPlugins(true);
+    } catch (updateError) {
+      setPiPluginsUpdateError(
+        updateError instanceof Error ? updateError.message : t("settings.pluginsUpdateFailed"),
+      );
+    } finally {
+      setPiPluginsUpdating(false);
+    }
+  }, [piPluginsUpdating, piPlugins, loadPiPlugins, t]);
 
   useEffect(() => {
     if (!isSettingsPage) return;
@@ -1976,7 +2014,11 @@ export default function App() {
           piPluginsLoading={piPluginsLoading}
           piPluginsReloading={piPluginsReloading}
           piPluginsError={piPluginsError}
+          piPluginsUpdating={piPluginsUpdating}
+          piPluginsUpdateError={piPluginsUpdateError}
+          piPluginsUpdateNotice={piPluginsUpdateNotice}
           onRefreshPlugins={() => void loadPiPlugins(true)}
+          onUpdatePlugins={() => void updatePiPluginsInSettings()}
           skills={skills}
           skillsLoading={skillsLoading}
           skillsReloading={skillsReloading}
@@ -2418,6 +2460,7 @@ export default function App() {
         onCloseSudo={() => {
           setInteractiveSudoUpgrade(null);
           void loadVersions();
+          void loadPiPlugins(true);
         }}
       />
     </XProvider>
