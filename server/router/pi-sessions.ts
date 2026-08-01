@@ -139,7 +139,7 @@ export function registerPiSessionRoutes(server: FastifyInstance) {
         return { error: "Pi session not found" };
       }
 
-      const { authStorage, modelRegistry } = await createLocalModelRegistry();
+      const { modelRuntime, modelRegistry } = await createLocalModelRegistry();
       const model =
         context.model?.provider && context.model?.modelId
           ? modelRegistry.find(context.model.provider, context.model.modelId)
@@ -147,8 +147,7 @@ export function registerPiSessionRoutes(server: FastifyInstance) {
 
       const tempSession = await createAgentSession({
         cwd: context.session.cwd,
-        authStorage,
-        modelRegistry,
+        modelRuntime,
         model,
         sessionManager: context.sessionManager,
         settingsManager: SettingsManager.inMemory(),

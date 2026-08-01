@@ -36,7 +36,7 @@ export async function getOrCreateSession(
 
   existing?.session.dispose();
 
-  const { authStorage, modelRegistry } = await createLocalModelRegistry();
+  const { modelRuntime, modelRegistry } = await createLocalModelRegistry();
   const model = modelRegistry.find(provider, modelId);
 
   if (!model) {
@@ -50,8 +50,7 @@ export async function getOrCreateSession(
   const { session } = await createAgentSession({
     cwd: process.cwd(),
     agentDir: path.join(process.cwd(), ".my-pi-agent"),
-    authStorage,
-    modelRegistry,
+    modelRuntime,
     model,
     resourceLoader: buildResourceLoader(systemPrompt),
     sessionManager: SessionManager.create(process.cwd()),
@@ -83,7 +82,7 @@ export async function createPersistedPiSession(
   const context = await loadPiSessionContextById(piSessionId);
   if (!context) return null;
 
-  const { authStorage, modelRegistry } = await createLocalModelRegistry();
+  const { modelRuntime, modelRegistry } = await createLocalModelRegistry();
   const resolvedProvider = provider || context.model?.provider;
   const resolvedModelId = modelId || context.model?.modelId;
   const model =
@@ -97,8 +96,7 @@ export async function createPersistedPiSession(
 
   const { session } = await createAgentSession({
     cwd: context.session.cwd,
-    authStorage,
-    modelRegistry,
+    modelRuntime,
     model,
     sessionManager: context.sessionManager,
     settingsManager: SettingsManager.create(context.session.cwd, getAgentDir()),

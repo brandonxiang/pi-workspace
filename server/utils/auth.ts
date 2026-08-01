@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
+import { ModelRegistry, ModelRuntime, readStoredCredential } from "@earendil-works/pi-coding-agent";
 import type { CommandCodeApiModel } from "../model/index.js";
 
 const commandCodeProviderBaseUrl =
@@ -56,9 +56,11 @@ function readCommandCodeApiKey() {
   return undefined;
 }
 
-export function configureRuntimeAuth(authStorage: AuthStorage) {
+export async function configureRuntimeAuth(modelRuntime: ModelRuntime) {
   const commandCodeApiKey = readCommandCodeApiKey();
-  if (commandCodeApiKey) authStorage.setRuntimeApiKey("commandcode", commandCodeApiKey);
+  if (commandCodeApiKey) {
+    await modelRuntime.setRuntimeApiKey("commandcode", commandCodeApiKey);
+  }
 }
 
 export function getMissingAuthMessage(provider: string) {
@@ -107,8 +109,13 @@ function parseCommandCodeModels(value: unknown) {
     });
 }
 
-async function registerCommandCodeProvider(authStorage: AuthStorage, modelRegistry: ModelRegistry) {
-  if (!authStorage.hasAuth("commandcode")) return;
+async function registerCommandCodeProvider(
+  modelRuntime: ModelRuntime,
+  modelRegistry: ModelRegistry,
+) {
+  // Mirror the old hasAuth guard: only fetch and register the provider when a
+  // local Command Code credential exists (key file or auth.json entry).
+  if (!readCommandCodeApiKey() && !readStoredCredential("commandcode")) return;
 
   const response = await fetch(commandCodeModelsUrl, {
     headers: { accept: "application/json" },
@@ -134,13 +141,13 @@ async function registerCommandCodeProvider(authStorage: AuthStorage, modelRegist
 }
 
 export async function createLocalModelRegistry() {
-  const authStorage = AuthStorage.create();
-  configureRuntimeAuth(authStorage);
-  const modelRegistry = ModelRegistry.create(authStorage);
-  await registerCommandCodeProvider(authStorage, modelRegistry);
+  const modelRuntime = await ModelRuntime.create();
+  await configureRuntimeAuth(modelRuntime);
+  const modelRegistry = new ModelRegistry(modelRuntime);
+  await registerCommandCodeProvider(modelRuntime, modelRegistry);
 
   return {
-    authStorage,
+    modelRuntime,
     modelRegistry,
   };
 }

@@ -17,6 +17,7 @@ export default {
         url: "https://pi-workspace.test",
       },
     },
+    setupFiles: ["src/__tests__/setup.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
   },
 };
