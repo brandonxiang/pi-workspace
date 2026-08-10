@@ -28,8 +28,12 @@ describe("siteContent", () => {
     ]);
   });
 
-  it("uses the verified npm command as the primary install action", () => {
-    expect(siteContent.en.install.command).toBe("npm exec -- pi-workspace");
+  it("uses the curl installer as the primary install action", () => {
+    expect(siteContent.en.install.command).toBe(
+      "curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash",
+    );
+    expect(siteContent.en.install.altCommand).toBe("npm install -g pi-workspace");
     expect(siteContent.zh.install.command).toBe(siteContent.en.install.command);
+    expect(siteContent.zh.install.altCommand).toBe(siteContent.en.install.altCommand);
   });
 });

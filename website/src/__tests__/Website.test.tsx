@@ -34,7 +34,9 @@ describe("Website", () => {
     expect(container.querySelector("#workflow")).not.toBeNull();
     expect(container.querySelector("#open-source")).not.toBeNull();
     expect(container.querySelectorAll("[data-capability]")).toHaveLength(3);
-    expect(container.textContent).toContain("npm exec -- pi-workspace");
+    expect(container.textContent).toContain(
+      "curl -fsSL https://pi-workspace.brandonxiang.top/install.sh",
+    );
   });
 
   it("switches to Chinese in place and persists the preference", async () => {

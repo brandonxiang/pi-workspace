@@ -29,7 +29,7 @@ describe("InstallCommand", () => {
     await act(async () => {
       root.render(
         <InstallCommand
-          command="npm exec -- pi-workspace"
+          command="curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash"
           copyLabel="Copy command"
           copiedLabel="Copied"
           failedLabel="Copy manually"
@@ -40,7 +40,9 @@ describe("InstallCommand", () => {
     const button = container.querySelector("button");
     await act(async () => button?.click());
 
-    expect(writeText).toHaveBeenCalledWith("npm exec -- pi-workspace");
+    expect(writeText).toHaveBeenCalledWith(
+      "curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash",
+    );
     expect(container.querySelector('[role="status"]')?.textContent).toBe("Copied");
   });
 
@@ -53,7 +55,7 @@ describe("InstallCommand", () => {
     await act(async () => {
       root.render(
         <InstallCommand
-          command="npm exec -- pi-workspace"
+          command="curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash"
           copyLabel="Copy command"
           copiedLabel="Copied"
           failedLabel="Copy manually"
@@ -63,7 +65,9 @@ describe("InstallCommand", () => {
 
     await act(async () => container.querySelector("button")?.click());
 
-    expect(container.querySelector("code")?.textContent).toBe("npm exec -- pi-workspace");
+    expect(container.querySelector("code")?.textContent).toBe(
+      "curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash",
+    );
     expect(container.querySelector('[role="status"]')?.textContent).toBe("Copy manually");
   });
 });

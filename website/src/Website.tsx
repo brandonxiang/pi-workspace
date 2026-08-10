@@ -10,7 +10,7 @@ import {
   type Theme,
 } from "./locale";
 
-const githubUrl = "https://github.com/brandonxiang/my-pi";
+const githubUrl = "https://github.com/brandonxiang/pi-workspace";
 const npmUrl = "https://www.npmjs.com/package/pi-workspace";
 
 function PiMark() {
@@ -121,6 +121,8 @@ export function Website() {
               <p className="hero-description">{content.hero.description}</p>
               <InstallCommand
                 command={content.install.command}
+                altCommand={content.install.altCommand}
+                altLabel={content.install.altLabel}
                 copyLabel={content.install.copy}
                 copiedLabel={content.install.copied}
                 failedLabel={content.install.copyFailed}
@@ -229,6 +231,8 @@ export function Website() {
           </div>
           <InstallCommand
             command={content.install.command}
+            altCommand={content.install.altCommand}
+            altLabel={content.install.altLabel}
             copyLabel={content.install.copy}
             copiedLabel={content.install.copied}
             failedLabel={content.install.copyFailed}

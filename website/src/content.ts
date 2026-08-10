@@ -20,6 +20,8 @@ export type SiteContent = {
   };
   install: {
     command: string;
+    altCommand: string;
+    altLabel: string;
     copy: string;
     copied: string;
     copyFailed: string;
@@ -70,7 +72,8 @@ export type SiteContent = {
   footer: { tagline: string; github: string; npm: string; attribution: string };
 };
 
-const command = "npm exec -- pi-workspace";
+const command = "curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash";
+const altCommand = "npm install -g pi-workspace";
 
 export const siteContent: Record<Locale, SiteContent> = {
   en: {
@@ -95,11 +98,14 @@ export const siteContent: Record<Locale, SiteContent> = {
     },
     install: {
       command,
+      altCommand,
+      altLabel: "or install globally with npm",
       copy: "Copy command",
       copied: "Copied",
       copyFailed: "Select the command and copy it manually",
       title: "Bring your next session into focus.",
-      description: "Install from npm and open the workspace on your machine.",
+      description:
+        "One command installs Node.js if needed and sets up pi-workspace on your machine.",
     },
     product: {
       label: "Live workspace",
@@ -193,11 +199,13 @@ export const siteContent: Record<Locale, SiteContent> = {
     },
     install: {
       command,
+      altCommand,
+      altLabel: "或者使用 npm 全局安装",
       copy: "复制命令",
       copied: "已复制",
       copyFailed: "请选择命令并手动复制",
       title: "让下一次 Session 更专注。",
-      description: "从 npm 安装，然后在你的机器上打开工作台。",
+      description: "一条命令即可自动安装 Node.js（如需要）并在你的机器上装好 pi-workspace。",
     },
     product: {
       label: "实时工作台",
