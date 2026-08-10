@@ -7,7 +7,7 @@ terminal — all in one page.
 
 ## Features
 
-### 对话模式 (Chat Mode)
+### Chat Mode
 
 The default view. The right panel shows a conversational chat interface with
 streaming assistant responses, multi‑turn conversations, image attachment, and
@@ -23,7 +23,7 @@ and continue the conversation from the chat panel.
 - Pi session browsing, creation, and continuation
 - Deep-linkable Pi session URLs such as `/sessions/<sessionId>?panel=chat`
 
-### 终端模式 (Terminal Mode)
+### Terminal Mode
 
 Switch to a full web terminal (xterm.js) in the right panel. A shell starts in
 the selected Pi session's project directory, and the `pi` CLI launches
@@ -35,7 +35,7 @@ automatically — pointed directly at that session.
 - `pi` CLI launched automatically into the selected Pi session
 - Deep-linkable terminal views such as `/sessions/<sessionId>?panel=terminal`
 
-Switch modes in **Settings → 模式 → 对话模式 / 终端模式**.
+Switch modes in **Settings → Mode → Chat Mode / Terminal Mode**.
 
 ## Quick Start
 
@@ -43,6 +43,15 @@ Switch modes in **Settings → 模式 → 对话模式 / 终端模式**.
 npm install
 npm exec -- pi-workspace
 ```
+
+Or install with the curl script:
+
+```bash
+curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash
+```
+
+The script installs Node.js if needed (via Homebrew on macOS or your system
+package manager on Linux), then installs `pi-workspace` globally with npm.
 
 If you already use Pi locally, the server reads your existing Pi auth from
 `~/.pi/agent/auth.json` and custom models from `~/.pi/agent/models.json`.

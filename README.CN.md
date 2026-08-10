@@ -40,6 +40,15 @@ npm install
 npm exec -- pi-workspace
 ```
 
+也可以使用 curl 脚本安装：
+
+```bash
+curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash
+```
+
+脚本会先检查并自动安装 Node.js（macOS 通过 Homebrew，Linux 通过
+系统包管理器），然后通过 npm 全局安装 `pi-workspace`。
+
 如果你已经在本地使用 Pi，服务端会自动读取
 `~/.pi/agent/auth.json` 中的认证信息和 `~/.pi/agent/models.json` 中的自定义模型。
 同时也会检测 `~/.commandcode/auth.json` 中的 Command Code CLI 登录凭证。
