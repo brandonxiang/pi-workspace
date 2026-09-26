@@ -2,6 +2,7 @@
   "name": "pi-workspace",
   "version": "0.6.2",
   "description": "Local workspace for Pi Agent sessions, dialogue, and terminal work",
+  "homepage": "https://pi-workspace.brandonxiang.top",
   "license": "MIT",
   "repository": {
     "type": "git",
