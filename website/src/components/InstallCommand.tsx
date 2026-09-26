@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 
 type InstallCommandProps = {
   command: string;
+  altCommand?: string;
+  altLabel?: string;
   copyLabel: string;
   copiedLabel: string;
   failedLabel: string;
@@ -11,6 +13,8 @@ type CopyState = "idle" | "copied" | "failed";
 
 export function InstallCommand({
   command,
+  altCommand,
+  altLabel,
   copyLabel,
   copiedLabel,
   failedLabel,
@@ -51,6 +55,11 @@ export function InstallCommand({
       <span className={`copy-status copy-status-${copyState}`} role="status" aria-live="polite">
         {statusLabel}
       </span>
+      {altCommand ? (
+        <span className="install-alt">
+          {altLabel}: <code>{altCommand}</code>
+        </span>
+      ) : null}
     </div>
   );
 }

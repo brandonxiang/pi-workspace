@@ -51,12 +51,22 @@ Switch between them in **Settings → Mode → Chat mode / Terminal mode**.
 
 ## Quick start
 
+Install globally with npm:
+
 ```bash
 npm install -g pi-workspace
 pi-workspace
 ```
 
-Then open <http://127.0.0.1:8787>.
+Or use the install script, which installs Node.js when missing (via Homebrew on
+macOS, or your system package manager on Linux) and then installs the CLI
+globally with npm:
+
+```bash
+curl -fsSL https://pi-workspace.brandonxiang.top/install.sh | bash
+```
+
+Either way, open <http://127.0.0.1:8787> once it starts.
 
 ```bash
 pi-workspace --help    # show all options

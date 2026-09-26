@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "website/**"
+      - "install.sh"
       - "vite.website.config.ts"
       - "tsconfig.website.json"
       - "tsconfig.json"

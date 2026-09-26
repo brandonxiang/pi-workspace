@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Dropdown from "antd/es/dropdown";
 import Popover from "antd/es/popover";
+import Popconfirm from "antd/es/popconfirm";
 import type { MenuProps } from "antd";
 import {
   createTranslator,
@@ -481,16 +482,22 @@ export function PiSessionSection({
                   <Popover
                     content={
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <button
-                          className="pi-project-settings-btn"
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteProject(project.path);
-                          }}
+                        <Popconfirm
+                          title={t("sidebar.deleteProject")}
+                          description={t("sidebar.deleteProjectConfirm")}
+                          okText={t("sidebar.deleteProject")}
+                          okButtonProps={{ danger: true }}
+                          cancelText={t("settings.cancel")}
+                          onConfirm={() => onDeleteProject(project.path)}
                         >
-                          {t("sidebar.deleteProject")}
-                        </button>
+                          <button
+                            className="pi-project-settings-btn"
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {t("sidebar.deleteProject")}
+                          </button>
+                        </Popconfirm>
                         <button
                           className="pi-project-settings-btn"
                           type="button"

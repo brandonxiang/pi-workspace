@@ -1196,3 +1196,17 @@ main {
     font-size: 13px;
   }
 }
+
+.install-alt {
+  font-size: 13px;
+  color: var(--ink-faint);
+  text-align: center;
+  max-width: 100%;
+}
+
+.install-alt code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--ink-muted, var(--ink-faint));
+  word-break: break-all;
+}
