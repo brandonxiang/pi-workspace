@@ -1,4 +1,5 @@
-import Fastify from "fastify";
+import { createHttpServer } from "../http/server.js";
+import type { HttpServer } from "../http/types.js";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   createDefaultExtensionsUpdateRunner,
@@ -39,7 +40,7 @@ function createDependencies(): PiPluginDependencies {
 }
 
 describe("pi plugin routes", () => {
-  const servers: Array<ReturnType<typeof Fastify>> = [];
+  const servers: HttpServer[] = [];
 
   afterEach(async () => {
     await Promise.all(servers.map((server) => server.close()));
@@ -47,7 +48,7 @@ describe("pi plugin routes", () => {
   });
 
   it("returns plugin summaries from GET /api/pi-plugins", async () => {
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, { createDependencies, actionToken: "secret" });
 
@@ -74,7 +75,7 @@ describe("pi plugin routes", () => {
 
   it("loads commands with the selected Pi session cwd", async () => {
     const createDependenciesForCwd = vi.fn(() => createDependencies());
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, {
       createDependencies: createDependenciesForCwd,
@@ -94,7 +95,7 @@ describe("pi plugin routes", () => {
   });
 
   it("returns 404 when loading commands for an unknown Pi session", async () => {
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, {
       createDependencies,
@@ -111,7 +112,7 @@ describe("pi plugin routes", () => {
   });
 
   it("rejects plugin updates without the action token", async () => {
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, {
       createDependencies,
@@ -137,7 +138,7 @@ describe("pi plugin routes", () => {
       message: "Pi packages updated.",
       output: "Updated npm:@acme/pi-preview",
     }));
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, {
       createDependencies,
@@ -161,7 +162,7 @@ describe("pi plugin routes", () => {
   });
 
   it("maps runner busy errors to 409", async () => {
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, {
       createDependencies,
@@ -182,7 +183,7 @@ describe("pi plugin routes", () => {
   });
 
   it("returns command failure details as 500", async () => {
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, {
       createDependencies,
@@ -206,7 +207,7 @@ describe("pi plugin routes", () => {
   });
 
   it("exposes the interactive sudo command when the update needs authorization", async () => {
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, {
       createDependencies,
@@ -236,7 +237,7 @@ describe("pi plugin routes", () => {
   });
 
   it("exposes the action token from the plugins list response", async () => {
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiPluginRoutes(server, { createDependencies, actionToken: "secret" });
 

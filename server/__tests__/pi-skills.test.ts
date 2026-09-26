@@ -1,4 +1,5 @@
-import Fastify from "fastify";
+import { createHttpServer } from "../http/server.js";
+import type { HttpServer } from "../http/types.js";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { clearSkillsCache, registerPiSkillRoutes } from "../router/pi-skills.js";
 
@@ -32,7 +33,7 @@ const mockSkills = [
 ];
 
 describe("pi skill routes", () => {
-  const servers: Array<ReturnType<typeof Fastify>> = [];
+  const servers: HttpServer[] = [];
 
   afterEach(async () => {
     clearSkillsCache();
@@ -43,7 +44,7 @@ describe("pi skill routes", () => {
   it("GET /api/skills returns enhanced skill objects with scope, origin, baseDir, path", async () => {
     const loadSkills = vi.fn(() => ({ skills: mockSkills, diagnostics: [] }));
 
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiSkillRoutes(server, { loadSkills });
 
@@ -81,7 +82,7 @@ describe("pi skill routes", () => {
   it("GET /api/skills returns empty list when no skills are found", async () => {
     const loadSkills = vi.fn(() => ({ skills: [], diagnostics: [] }));
 
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiSkillRoutes(server, { loadSkills });
 
@@ -96,7 +97,7 @@ describe("pi skill routes", () => {
       throw new Error("Failed to load skills");
     });
 
-    const server = Fastify();
+    const server = createHttpServer();
     servers.push(server);
     registerPiSkillRoutes(server, { loadSkills });
 

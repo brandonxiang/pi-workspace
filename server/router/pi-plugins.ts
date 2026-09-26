@@ -8,7 +8,7 @@ import {
   type ResourceDiagnostic,
   type SourceInfo,
 } from "@earendil-works/pi-coding-agent";
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import type { PluginSlashCommand } from "../../shared/slash-commands.js";
 import {
   resolveGlobalPiCommand,
@@ -366,31 +366,25 @@ export async function listPiPlugins({
   }
 
   const extensionCommands = extensionsResult.extensions.flatMap((extension) =>
-    Array.from(extension.commands?.values() ?? []).map(
-      (command): PluginSlashCommand => ({
-        name: command.name,
-        description: command.description,
-        source: "extension",
-        ...toCommandSourceInfo(command.sourceInfo),
-      }),
-    ),
+    Array.from(extension.commands?.values() ?? []).map((command): PluginSlashCommand => ({
+      name: command.name,
+      description: command.description,
+      source: "extension",
+      ...toCommandSourceInfo(command.sourceInfo),
+    })),
   );
-  const promptCommands = promptsResult.prompts.map(
-    (prompt): PluginSlashCommand => ({
-      name: prompt.name,
-      description: prompt.description,
-      source: "prompt",
-      ...toCommandSourceInfo(prompt.sourceInfo),
-    }),
-  );
-  const skillCommands = skillsResult.skills.map(
-    (skill): PluginSlashCommand => ({
-      name: `skill:${skill.name}`,
-      description: skill.description,
-      source: "skill",
-      ...toCommandSourceInfo(skill.sourceInfo),
-    }),
-  );
+  const promptCommands = promptsResult.prompts.map((prompt): PluginSlashCommand => ({
+    name: prompt.name,
+    description: prompt.description,
+    source: "prompt",
+    ...toCommandSourceInfo(prompt.sourceInfo),
+  }));
+  const skillCommands = skillsResult.skills.map((skill): PluginSlashCommand => ({
+    name: `skill:${skill.name}`,
+    description: skill.description,
+    source: "skill",
+    ...toCommandSourceInfo(skill.sourceInfo),
+  }));
 
   return {
     plugins: Array.from(pluginBySource.values()),
@@ -411,7 +405,7 @@ export function createPiPluginDependencies(cwd = process.cwd()): PiPluginDepende
 }
 
 export function registerPiPluginRoutes(
-  server: FastifyInstance,
+  server: HttpServer,
   options: {
     createDependencies?: PiPluginDependencyFactory;
     resolveSessionCwd?: (sessionId: string) => Promise<string | null>;

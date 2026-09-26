@@ -61,7 +61,7 @@ const translations = {
     "hotkeys.title": "Keyboard shortcuts",
     "launcher.addProject": "Add new project",
     "launcher.body":
-      "Pi Agent Desktop now works through Pi Sessions only. Start a new Pi Session or jump back into an existing project.",
+      "pi-workspace now works through Pi Sessions only. Start a new Pi Session or jump back into an existing project.",
     "launcher.newPiSession": "New Pi Session",
     "launcher.newPiSessionBody":
       "Choose an existing project or add a local folder to create its first Pi Session immediately.",
@@ -260,7 +260,7 @@ const translations = {
     "hotkeys.title": "键盘快捷键",
     "launcher.addProject": "添加新项目",
     "launcher.body":
-      "Pi Agent Desktop 现在只围绕 Pi 会话工作。你可以新建 Pi 会话，或回到已有项目中的会话。",
+      "pi-workspace 现在只围绕 Pi 会话工作。你可以新建 Pi 会话，或回到已有项目中的会话。",
     "launcher.newPiSession": "新建 Pi 会话",
     "launcher.newPiSessionBody": "选择已有项目，或添加本地文件夹，并立即为它创建第一个 Pi 会话。",
     "launcher.noProjectsFound": "未找到匹配的项目",

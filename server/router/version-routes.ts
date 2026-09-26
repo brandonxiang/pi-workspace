@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import { randomUUID } from "node:crypto";
 import {
   VersionManagementError,
@@ -20,7 +20,7 @@ export type VersionManagerApi = {
 };
 
 export function registerVersionRoutes(
-  server: FastifyInstance,
+  server: HttpServer,
   manager: VersionManagerApi,
   options: { actionToken?: string } = {},
 ) {

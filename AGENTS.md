@@ -8,16 +8,26 @@ Build and maintain a browser-based agent dialogue tool backed by
 ## Development Commands
 
 - Install dependencies: `pnpm install`
-- Start local dev server (rolldown watch + node --watch): `pnpm run dev`
+- Run static checks (format + lint + type): `pnpm run check`
+- Start local dev server (rebuild with `vp pack`, then restart): `pnpm run dev`
 - Run tests: `pnpm run test`
 - Typecheck (client + server): `pnpm run typecheck`
 - Build client + server: `pnpm run build`
 - Production start after build: `pnpm start`
 
+`pnpm run check` type-checks through the Oxlint type-aware path (tsgolint),
+because `lint.options.typeAware` and `typeCheck` are both enabled in
+`vite.config.ts`. `pnpm run typecheck` runs `tsc` and stays in `pnpm run build`
+as the authoritative pre-publish gate.
+
 ## Key Files
 
-- `dev.mjs` — Dev server launcher (rolldown --watch + node --watch)
-- `rolldown.server.config.mjs` — rolldown configuration for server bundling
+- `dev.mjs` — Dev server launcher: watches `server/`, rebuilds with `vp pack`,
+  then restarts the server once the port is free
+- `vite.config.ts` — Vite + Vite+ config: client build, the `pack` block that
+  builds the server bundle, and the lint/fmt/test settings
+- `server/http/` — In-repo HTTP layer: routing, JSON body parsing, `reply`
+  helpers, static file serving, and the SPA fallback (see ADR-003)
 
 ## Implementation Rules
 
@@ -71,6 +81,13 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 ## Built-in Commands vs Scripts
 
 `vp <name>` runs a built-in command. `vp run <name>` runs a `package.json` script or a `vite.config.ts` task. Scripts cannot overwrite built-ins, so `vp dev` and `vp run dev` may do different things. Check `package.json` and `vite.config.ts` first, and run `vp run <name>` when the project defines a script or task with that name.
+
+## Tool Versions
+
+Run `vp toolchain` to show versions and relationships in the active Vite+
+release. Add a tool name to select part of the graph. For example, run
+`vp toolchain vite`. Use `--global` to ignore the local `vite-plus` package. Use
+`vp why <package>` to show the package-manager dependency graph.
 
 ## Review Checklist
 

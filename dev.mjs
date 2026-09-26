@@ -1,9 +1,9 @@
 /**
- * Dev server — watches server/ source files, rebuilds with rolldown,
+ * Dev server — watches server/ source files, rebuilds with `vp pack`,
  * waits for the old process to release the port, then starts the new one.
  *
  * Uses fs.watch directly for precise control over the rebuild+restart
- * sequence, avoiding the race conditions of combining rolldown --watch
+ * sequence, avoiding the race conditions of combining a watcher
  * with node --watch.
  */
 
@@ -14,7 +14,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = resolve(fileURLToPath(import.meta.url), "..");
-const rolldownBin = resolve(__dirname, "node_modules", "rolldown", "bin", "cli.mjs");
+const vpBin = resolve(__dirname, "node_modules", "vite-plus", "bin", "vp");
 const PORT = Number(process.env.PORT || 8787);
 
 let child = null;
@@ -29,10 +29,10 @@ function log(...args) {
 function build() {
   return new Promise((resolve, reject) => {
     log("Rebuilding…");
-    const proc = spawn(process.execPath, [rolldownBin, "-c", "rolldown.server.config.mjs"], {
+    const proc = spawn(process.execPath, [vpBin, "pack"], {
       stdio: "inherit",
     });
-    proc.on("exit", (code) => (code === 0 ? resolve() : reject(Error(`rolldown exited ${code}`))));
+    proc.on("exit", (code) => (code === 0 ? resolve() : reject(Error(`vp pack exited ${code}`))));
     proc.on("error", reject);
   });
 }

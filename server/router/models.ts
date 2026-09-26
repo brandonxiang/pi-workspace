@@ -1,8 +1,8 @@
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import { getModelSupportsImages } from "../utils/chat-validation.js";
 import { createLocalModelRegistry } from "../utils/auth.js";
 
-export function registerModelRoutes(server: FastifyInstance) {
+export function registerModelRoutes(server: HttpServer) {
   server.get("/api/models", async (_request, reply) => {
     try {
       const { modelRegistry } = await createLocalModelRegistry();

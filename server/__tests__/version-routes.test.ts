@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import { createHttpServer } from "../http/server.js";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { VersionManagementError, type VersionsResponse } from "../utils/version-management.js";
 import { registerVersionRoutes, type VersionManagerApi } from "../router/version-routes.js";
@@ -17,9 +17,8 @@ const versions: VersionsResponse = {
 };
 
 async function createServer(manager: VersionManagerApi) {
-  const server = Fastify();
+  const server = createHttpServer();
   registerVersionRoutes(server, manager, { actionToken: "test-action-token" });
-  await server.ready();
   return server;
 }
 

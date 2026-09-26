@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import Fastify from "fastify";
+import { createHttpServer } from "../http/server.js";
+import type { HttpServer } from "../http/types.js";
 import {
   readSessionStatuses,
   writeSessionStatuses,
@@ -180,7 +181,7 @@ describe("read/write session status file", () => {
 /* ─── API route tests ─── */
 
 describe("PATCH /api/pi-sessions/:sessionId/status", () => {
-  let server: ReturnType<typeof Fastify>;
+  let server: HttpServer;
   let mockStatuses: SessionStatusMap;
 
   const mockApi = {
@@ -191,7 +192,7 @@ describe("PATCH /api/pi-sessions/:sessionId/status", () => {
   };
 
   beforeAll(() => {
-    server = Fastify();
+    server = createHttpServer();
     registerSessionStatusRoutes(server, mockApi);
   });
 

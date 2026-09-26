@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import {
   findAppSlashCommand,
   isServerAppSlashCommand,
@@ -12,7 +12,7 @@ import {
 } from "../utils/session-helpers.js";
 import type { LocalActionRequest } from "../model/index.js";
 
-export function registerLocalActionRoutes(server: FastifyInstance) {
+export function registerLocalActionRoutes(server: HttpServer) {
   server.post("/api/pi-local-actions", async (request, reply) => {
     const body = request.body as LocalActionRequest;
     const piSessionId = request.headers["x-pi-session-id"] as string | undefined;

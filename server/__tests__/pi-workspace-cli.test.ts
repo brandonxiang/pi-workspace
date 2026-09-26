@@ -61,4 +61,53 @@ describe("pi-workspace CLI", () => {
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe("v0.3.0");
   });
+
+  it("accepts -v as a short alias for --version", () => {
+    const result = runCli("-v");
+
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("v0.3.0");
+  });
+
+  it.each([["help"], ["-h"]])("prints help for %s", (...args) => {
+    const result = runCli(...args);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Usage: pi-workspace [options] [command]");
+  });
+
+  it.each([["--port", "8787"], ["--port=8787"]])("accepts --port given as %s %s", (...args) => {
+    const result = runCli(...args, "help");
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Usage: pi-workspace [options] [command]");
+  });
+
+  it("rejects a --port flag with a missing value", () => {
+    const result = runCli("--port");
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("option '--port <number>' argument missing");
+  });
+
+  it("rejects a --port flag whose value is another flag", () => {
+    const result = runCli("--port", "--help");
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("option '--port <number>' argument missing");
+  });
+
+  it("rejects an unknown option", () => {
+    const result = runCli("--nope");
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("unknown option '--nope'");
+  });
+
+  it("rejects more than one positional argument", () => {
+    const result = runCli("check", "extra");
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("too many arguments");
+  });
 });

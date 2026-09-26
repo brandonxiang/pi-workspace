@@ -1,7 +1,12 @@
 {
   "name": "pi-workspace",
   "version": "0.6.2",
-  "description": "CLI-launched browser UI for pi-coding-agent sessions",
+  "description": "Local workspace for Pi Agent sessions, dialogue, and terminal work",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brandonxiang/pi-workspace.git"
+  },
   "bin": {
     "pi-workspace": "./bin/pi-workspace.mjs"
   },
@@ -11,7 +16,6 @@
     "dist",
     "scripts",
     "README.md",
-    "README.CN.md",
     ".env.example"
   ],
   "type": "module",
@@ -23,14 +27,14 @@
     "lint:fix": "vp lint . --fix",
     "format": "vp fmt .",
     "format:check": "vp fmt --check .",
-    "check": "npm run lint && npm run format:check && npm run typecheck",
+    "check": "vp check",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
-    "build:server": "rolldown -c rolldown.server.config.mjs",
+    "build:server": "vp pack",
     "build:client": "vp build",
     "build": "npm run typecheck && npm run build:client && npm run build:server",
     "website:dev": "vp dev --config vite.website.config.ts",
     "website:test": "vp test run --config vite.website.config.ts",
-    "website:check": "vp lint website vite.website.config.ts && vp fmt --check website vite.website.config.ts && tsc -p tsconfig.website.json --noEmit",
+    "website:check": "vp check website vite.website.config.ts",
     "website:build": "tsc -p tsconfig.website.json --noEmit && vp build --config vite.website.config.ts",
     "start": "NODE_ENV=production node dist-server/index.mjs",
     "release": "release-it",
@@ -41,15 +45,11 @@
   "dependencies": {
     "@earendil-works/pi-ai": "0.83.0",
     "@earendil-works/pi-coding-agent": "0.83.0",
-    "@fastify/static": "10.1.2",
-    "commander": "15.0.0",
-    "fastify": "5.11.0",
     "node-pty": "1.1.0",
     "ws": "8.21.1"
   },
   "devDependencies": {
     "@ant-design/x": "2.9.0",
-    "@fastify/vite": "10.0.0",
     "@types/node": "26.1.2",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
@@ -64,11 +64,12 @@
     "react-markdown": "10.1.0",
     "release-it": "21.0.1",
     "remark-gfm": "4.0.1",
-    "rolldown": "1.2.1",
     "typescript": "7.0.2",
-    "vite": "^8.2.0",
-    "vite-plus": "0.2.7",
-    "vitest": "4.1.10"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.19.0"
   },
   "packageManager": "pnpm@11.11.0"
 }

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -110,7 +110,7 @@ export function clearSkillsCache() {
   skillsCacheTime = 0;
 }
 
-export function registerPiSkillRoutes(server: FastifyInstance, deps: SkillsDependencies) {
+export function registerPiSkillRoutes(server: HttpServer, deps: SkillsDependencies) {
   server.get("/api/skills", async (_request, reply) => {
     try {
       const now = Date.now();

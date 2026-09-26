@@ -1,6 +1,6 @@
 import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import {
   SessionManager,
   getAgentDir,
@@ -16,7 +16,7 @@ import {
 import { createLocalModelRegistry } from "../utils/auth.js";
 import { piSessions } from "../utils/session-helpers.js";
 
-export function registerPiSessionRoutes(server: FastifyInstance) {
+export function registerPiSessionRoutes(server: HttpServer) {
   server.post("/api/pi-sessions", async (request, reply) => {
     const { cwd } = request.body as { cwd?: string };
     if (!cwd?.trim()) {

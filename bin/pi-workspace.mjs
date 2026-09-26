@@ -4,7 +4,6 @@ import { spawn, execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Command } from "commander";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
@@ -153,66 +152,126 @@ async function ensureBuild(env) {
 
 // ── CLI ──
 
-function createProgram() {
-  const program = new Command();
+const HELP_TEXT = `Usage: ${cliName} [options] [command]
 
-  program
-    .name(cliName)
-    .description("Start the built service")
-    .usage("[options] [command]")
-    .version(`v${currentVersion}`, "-v, --version", "Show the installed version")
-    .helpOption("-h, --help", "Show this help message")
-    .option("--port <number>", "Override PORT for the service")
-    .argument("[command]")
-    .addHelpText(
-      "after",
-      [
-        "",
-        "Commands:",
-        "  check               Check whether a newer version is available",
-        "  update              Check for updates and upgrade to the latest version",
-        "  help                Show this help message",
-      ].join("\n"),
-    )
-    .action(async (command) => {
-      const { port } = program.opts();
+Start the built service
 
-      if (command === undefined) {
-        const env = port ? { PORT: port } : {};
+Options:
+  -v, --version    Show the installed version
+  --port <number>  Override PORT for the service
+  -h, --help       Show this help message
 
-        await ensureBuild(env);
-        await run(process.execPath, ["dist-server/index.mjs"], {
-          ...env,
-          NODE_ENV: "production",
-        });
-        return;
+Commands:
+  check               Check whether a newer version is available
+  update              Check for updates and upgrade to the latest version
+  help                Show this help message`;
+
+/** Malformed argv. Printed verbatim, without the `[${cliName}]` prefix. */
+class UsageError extends Error {}
+
+/**
+ * Parse argv into flags plus one optional positional command.
+ *
+ * Covers exactly what this CLI exposes: -h/--help, -v/--version,
+ * --port <number> (and the `--port=<number>` form), and one [command].
+ */
+function parseArgv(argv) {
+  const options = {};
+  const positionals = [];
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+
+    if (arg === "-h" || arg === "--help")
+      return { help: true, version: false, options, positionals };
+    if (arg === "-v" || arg === "--version")
+      return { help: false, version: true, options, positionals };
+
+    if (arg === "--port" || arg.startsWith("--port=")) {
+      const value = arg === "--port" ? argv[++i] : arg.slice("--port=".length);
+
+      // A missing value, or the next token being another flag, means the user
+      // forgot the port. Fail loudly instead of starting a server with a bogus PORT.
+      if (value === undefined || value.startsWith("-")) {
+        throw new UsageError("error: option '--port <number>' argument missing");
       }
 
-      if (command === "help") {
-        program.outputHelp();
-        return;
-      }
+      options.port = value;
+      continue;
+    }
 
-      if (command === "check") {
-        await checkForUpdate();
-        return;
-      }
+    if (arg.startsWith("-")) throw new UsageError(`error: unknown option '${arg}'`);
 
-      if (command === "update") {
-        await handleUpdate();
-        return;
-      }
+    positionals.push(arg);
+  }
 
-      throw new Error(`Unknown argument: ${command}`);
+  if (positionals.length > 1) {
+    throw new UsageError(
+      `error: too many arguments. Expected 1 argument but got ${positionals.length}: ${positionals.join(", ")}.`,
+    );
+  }
+
+  return { help: false, version: false, options, positionals };
+}
+
+function printHelp() {
+  console.log(HELP_TEXT);
+}
+
+async function runCommand(command, options) {
+  if (command === undefined) {
+    const env = options.port ? { PORT: options.port } : {};
+
+    await ensureBuild(env);
+    await run(process.execPath, ["dist-server/index.mjs"], {
+      ...env,
+      NODE_ENV: "production",
     });
+    return;
+  }
 
-  return program;
+  if (command === "help") {
+    printHelp();
+    return;
+  }
+
+  if (command === "check") {
+    await checkForUpdate();
+    return;
+  }
+
+  if (command === "update") {
+    await handleUpdate();
+    return;
+  }
+
+  throw new Error(`Unknown argument: ${command}`);
 }
 
 // ── Entry point ──
 
 async function main() {
-  await createProgram().parseAsync(process.argv);
+  let parsed;
+
+  try {
+    parsed = parseArgv(process.argv.slice(2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    return;
+  }
+
+  if (parsed.help) {
+    printHelp();
+    return;
+  }
+
+  if (parsed.version) {
+    console.log(`v${currentVersion}`);
+    return;
+  }
+
+  await runCommand(parsed.positionals[0], parsed.options);
 }
 
 main().catch((error) => {

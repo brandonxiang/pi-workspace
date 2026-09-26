@@ -1,8 +1,10 @@
-import Fastify from "fastify";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
-import FastifyStatic from "@fastify/static";
-import type { FastifyInstance } from "fastify";
+import type { ServerResponse } from "node:http";
+import type { ViteDevServer } from "vite";
+
+import { createHttpServer } from "./http/server.js";
+import type { HttpServer } from "./http/types.js";
 
 import { createDefaultVersionManager } from "./utils/version-management.js";
 import { registerVersionRoutes } from "./router/version-routes.js";
@@ -29,31 +31,6 @@ import { setupTerminalWebSocket, killAllTerminals, setTerminalWss } from "./util
 const port = Number(process.env.PORT || 8787);
 const isDev = process.argv.includes("--dev");
 
-/**
- * Serve the pre-built client bundle (dist/client) in production.
- *
- * This mirrors what @fastify/vite does in its production mode, but without
- * pulling @fastify/vite (and its `vite` peer dependency) into the runtime
- * dependency tree — keeping `npm install -g` fast for CLI users.
- */
-async function registerStaticClient(server: FastifyInstance, root: string) {
-  const clientDir = path.join(root, "dist", "client");
-
-  // Serve the built client bundle. Exact file matches only (no index.html and
-  // no wildcard SPA routes — those fall through to the not-found handler).
-  // A single registration mirrors @fastify/vite's production behaviour without
-  // needing @fastify/vite (nor its `vite` peer dependency) at install time.
-  await server.register(async (scope) => {
-    await scope.register(FastifyStatic, {
-      root: clientDir,
-      prefix: "/",
-      index: false,
-      wildcard: false,
-      allowedPath: (p: string) => p !== "/index.html",
-    });
-  });
-}
-
 let cachedIndexHtml: string | null = null;
 async function loadIndexHtml(root: string): Promise<string> {
   if (cachedIndexHtml == null) {
@@ -62,25 +39,70 @@ async function loadIndexHtml(root: string): Promise<string> {
   return cachedIndexHtml;
 }
 
-async function buildServer() {
-  const server = Fastify({
-    bodyLimit: 8 * 1024 * 1024,
-  });
-  const root = path.resolve(import.meta.dirname, "..");
+/**
+ * Dev mode: run Vite in middleware mode against the same HTTP server, so the
+ * UI and the API share one port with HMR.
+ *
+ * API routes are matched before this not-found handler runs, so Vite can never
+ * shadow an `/api/*` path. That is why the client root can safely contain
+ * files like `client/api/versions.ts` without colliding with the API.
+ */
+async function registerDevClient(server: HttpServer, root: string): Promise<ViteDevServer> {
+  const { createServer } = await import("vite");
+  const clientRoot = path.join(root, "client");
 
-  if (isDev) {
-    // Dev mode: Vite dev server with HMR. Imported dynamically so the
-    // production bundle never loads @fastify/vite (nor vite).
-    const { default: FastifyVite } = await import("@fastify/vite");
-    await server.register(FastifyVite, {
-      root,
-      dev: true,
-      spa: true,
+  const vite = await createServer({
+    configFile: path.join(root, "vite.config.ts"),
+    server: {
+      middlewareMode: true,
+      hmr: { server: server.raw },
+    },
+    appType: "custom",
+  });
+
+  server.setNotFoundHandler(async (request, reply) => {
+    reply.hijack();
+    const raw = reply.raw;
+
+    vite.middlewares(request.raw, raw, (error?: unknown) => {
+      if (error) {
+        raw.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+        raw.end("Internal Server Error");
+        return;
+      }
+      void sendSpaHtml(vite, clientRoot, request.url, raw);
     });
-  } else {
-    // Production mode: serve the pre-built client from disk
-    await registerStaticClient(server, root);
+  });
+
+  return vite;
+}
+
+/** Serve the transformed SPA shell, mirroring Vite's own HTML handling. */
+async function sendSpaHtml(
+  vite: ViteDevServer,
+  clientRoot: string,
+  url: string,
+  raw: ServerResponse,
+): Promise<void> {
+  try {
+    const template = await readFile(path.join(clientRoot, "index.html"), "utf8");
+    const html = await vite.transformIndexHtml(url, template);
+
+    raw.writeHead(200, {
+      "content-type": "text/html",
+      "content-length": String(Buffer.byteLength(html)),
+    });
+    raw.end(html);
+  } catch (error) {
+    if (error instanceof Error) vite.ssrFixStacktrace(error);
+    raw.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    raw.end("Internal Server Error");
   }
+}
+
+async function buildServer(): Promise<{ server: HttpServer; vite: ViteDevServer | null }> {
+  const server = createHttpServer();
+  const root = path.resolve(import.meta.dirname, "..");
 
   // ──────── API routes ────────
   registerHealthRoute(server);
@@ -114,37 +136,27 @@ async function buildServer() {
   registerModelRoutes(server);
   registerChatRoutes(server);
 
+  // ──────── Client ────────
   if (isDev) {
-    // SPA catch-all: dev server renders index.html via @fastify/vite
-    server.setNotFoundHandler((_request, reply) => {
-      return reply.html();
-    });
-
-    await server.vite.ready();
-  } else {
-    // SPA catch-all: serve the built index.html for any non-API route
-    server.setNotFoundHandler(async (_request, reply) => {
-      reply.type("text/html").send(await loadIndexHtml(root));
-    });
+    return { server, vite: await registerDevClient(server, root) };
   }
-  return server;
+
+  // Production: serve the pre-built client, then fall back to the app shell.
+  server.setStaticRoot(path.join(root, "dist", "client"));
+  server.setNotFoundHandler(async (_request, reply) => {
+    reply.type("text/html").send(await loadIndexHtml(root));
+  });
+
+  return { server, vite: null };
 }
 
-async function startWithRetry(
-  fastify: Awaited<ReturnType<typeof buildServer>>,
-  retries: number,
-): Promise<void> {
+async function startWithRetry(server: HttpServer, retries: number): Promise<void> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const address = await new Promise<string>((resolve, reject) => {
-        fastify.listen({ port, host: "127.0.0.1" }, (err, addr) => {
-          if (err) reject(err);
-          else resolve(addr);
-        });
-      });
+      const address = await server.listen(port, "127.0.0.1");
 
       // Attach WebSocket terminal server to the underlying HTTP server
-      const wss = setupTerminalWebSocket(fastify.server);
+      const wss = setupTerminalWebSocket(server.raw);
       setTerminalWss(wss);
       console.log(`My Pi server listening on ${address}`);
       return;
@@ -163,12 +175,16 @@ async function startWithRetry(
   }
 }
 
-const server = await buildServer();
+const { server, vite } = await buildServer();
 
 // Graceful shutdown on SIGTERM (from node --watch or dev.mjs)
 // so the port is released promptly for the next process.
 process.on("SIGTERM", async () => {
   killAllTerminals();
+
+  try {
+    await vite?.close();
+  } catch {}
 
   try {
     await server.close();

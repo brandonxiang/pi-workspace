@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import {
   getModelSupportsImages,
   getPromptOrDefault,
@@ -12,7 +12,7 @@ import { buildAgentEndStreamEvent } from "../utils/chat-streaming.js";
 import { setSessionLifecycleStatusDefault } from "../utils/pi-sessions.js";
 import type { ChatRequest } from "../model/index.js";
 
-export function registerChatRoutes(server: FastifyInstance) {
+export function registerChatRoutes(server: HttpServer) {
   server.post("/api/chat", async (request, reply) => {
     const body = request.body as ChatRequest;
     const requestedProvider = body.provider;

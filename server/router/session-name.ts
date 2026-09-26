@@ -1,8 +1,8 @@
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import { persistSessionName } from "../utils/session-helpers.js";
 import { invalidatePiSessionCatalogCache } from "../utils/pi-sessions.js";
 
-export function registerSessionNameRoutes(server: FastifyInstance) {
+export function registerSessionNameRoutes(server: HttpServer) {
   server.put("/api/sessions/:sessionId/name", async (request, reply) => {
     const { sessionId } = request.params as { sessionId?: string };
     const { name } = request.body as { name?: string };

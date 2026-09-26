@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 import {
   type SessionStatus,
   type SessionStatusMap,
@@ -11,7 +11,7 @@ export interface SessionStatusApi {
   writeStatuses: (statuses: SessionStatusMap) => void;
 }
 
-export function registerSessionStatusRoutes(server: FastifyInstance, api: SessionStatusApi) {
+export function registerSessionStatusRoutes(server: HttpServer, api: SessionStatusApi) {
   server.patch("/api/pi-sessions/:sessionId/status", async (request, reply) => {
     const { sessionId } = request.params as { sessionId?: string };
     const { status } = request.body as { status?: string };

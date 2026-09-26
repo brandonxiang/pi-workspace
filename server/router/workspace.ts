@@ -2,9 +2,9 @@ import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import type { FastifyInstance } from "fastify";
+import type { HttpServer } from "../http/types.js";
 
-export function registerWorkspaceRoutes(server: FastifyInstance) {
+export function registerWorkspaceRoutes(server: HttpServer) {
   server.get("/api/cwd", async (_request, _reply) => {
     return { cwd: process.cwd() };
   });

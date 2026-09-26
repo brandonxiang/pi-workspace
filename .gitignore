@@ -5,3 +5,4 @@ dist-website
 .env
 .DS_Store
 *.log
+.vitest/
