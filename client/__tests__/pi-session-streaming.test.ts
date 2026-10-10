@@ -117,7 +117,9 @@ describe("Pi Session streaming transcript state", () => {
     expect(state.completedThinking).toBe("Plan A");
     expect(state.completedToolMessages).toEqual([
       {
+        toolCallId: "tool-1",
         toolName: "read_file",
+        arguments: "",
         content: "file content",
         isError: false,
       },
@@ -188,7 +190,9 @@ describe("Pi Session streaming transcript state", () => {
       {
         kind: "tool",
         streaming: true,
+        toolCallId: "tool-1",
         toolName: "read_file",
+        arguments: "",
         content: "partial output",
         isError: false,
       },

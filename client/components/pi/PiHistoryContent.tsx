@@ -63,7 +63,8 @@ function PiToolMessageContent({
         <span>{message.toolName}</span>
         <small>{t("chat.clickToExpand")}</small>
       </summary>
-      <pre>{message.content}</pre>
+      {message.arguments ? <pre className="pi-tool-args">{message.arguments}</pre> : null}
+      <pre className="pi-tool-result">{message.content || t("chat.toolNoOutput")}</pre>
     </details>
   );
 }
@@ -86,56 +87,78 @@ function PiThinkingDisclosureContent({
   );
 }
 
-function PiPreviousAssistantMessagesContent({
+function PiProcessContent({
   t,
-  messages,
+  thinking,
+  tools,
+  previousMessages,
 }: {
   t: Translator;
-  messages: Extract<PiHistoryMessage, { role: "assistant" }>[];
+  thinking?: Extract<PiHistoryMessage, { role: "thinking" }>;
+  tools: Extract<PiHistoryMessage, { role: "tool" }>[];
+  previousMessages: Extract<PiHistoryMessage, { role: "assistant" }>[];
 }) {
-  return (
-    <details className="pi-assistant-history-card">
-      <summary>
-        <span>{t("chat.previousAssistantUpdates")}</span>
-        <small>{t("chat.clickToExpand")}</small>
-      </summary>
-      <div className="pi-assistant-history-list">
-        {messages.map((message) => (
-          <section className="pi-assistant-history-item" key={message.id}>
-            <RenderMarkdown content={message.content} />
-          </section>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function PiToolGroupContent({
-  t,
-  messages,
-}: {
-  t: Translator;
-  messages: Extract<PiHistoryMessage, { role: "tool" }>[];
-}) {
-  const hasError = messages.some((message) => message.isError);
+  const hasError = tools.some((message) => message.isError);
+  const summary =
+    tools.length > 0
+      ? hasError
+        ? t("chat.processFailed")
+        : t("chat.toolSummary", { count: String(tools.length) })
+      : t("chat.clickToExpand");
 
   return (
-    <details
-      className={hasError ? "pi-tool-group-card pi-tool-group-card-error" : "pi-tool-group-card"}
-    >
+    <details className={hasError ? "pi-process-card pi-process-card-error" : "pi-process-card"}>
       <summary>
-        <span>{t("chat.toolHistory")}</span>
-        <small>{t("chat.clickToExpand")}</small>
+        <span>{t("chat.process")}</span>
+        <small>{summary}</small>
       </summary>
-      <div className="pi-tool-group-list">
-        {messages.map((message) => (
-          <section className="pi-tool-group-item" key={message.id}>
-            <header>
-              <strong>{message.toolName}</strong>
-            </header>
-            <pre>{message.content}</pre>
+      <div className="pi-process-body">
+        {previousMessages.length > 0 ? (
+          <section className="pi-process-section">
+            <h5>{t("chat.previousAssistantUpdates")}</h5>
+            <div className="pi-assistant-history-list">
+              {previousMessages.map((message) => (
+                <section className="pi-assistant-history-item" key={message.id}>
+                  <RenderMarkdown content={message.content} />
+                </section>
+              ))}
+            </div>
           </section>
-        ))}
+        ) : null}
+        {thinking ? (
+          <section className="pi-process-section">
+            <h5>{t("chat.thinkingHistory")}</h5>
+            <div className="pi-process-thinking">{thinking.content}</div>
+          </section>
+        ) : null}
+        {tools.length > 0 ? (
+          <section className="pi-process-section">
+            <h5>{t("chat.toolHistory")}</h5>
+            <div className="pi-tool-group-list">
+              {tools.map((message) => (
+                <section
+                  className={
+                    message.isError
+                      ? "pi-tool-group-item pi-tool-group-item-error"
+                      : "pi-tool-group-item"
+                  }
+                  key={message.id}
+                >
+                  <header>
+                    <strong>{message.toolName}</strong>
+                    {message.isError ? (
+                      <span className="pi-tool-error-tag">{t("chat.toolFailed")}</span>
+                    ) : null}
+                  </header>
+                  {message.arguments ? (
+                    <pre className="pi-tool-args">{message.arguments}</pre>
+                  ) : null}
+                  <pre className="pi-tool-result">{message.content || t("chat.toolNoOutput")}</pre>
+                </section>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </details>
   );
@@ -148,16 +171,22 @@ function PiAssistantTurnContent({
   t: Translator;
   entry: Extract<PiHistoryTranscriptEntry, { role: "assistant-turn" }>;
 }) {
+  const hasProcess =
+    Boolean(entry.thinking) || entry.tools.length > 0 || entry.previousMessages.length > 0;
+
   return (
     <div className="pi-assistant-turn">
       <div className="pi-assistant-turn-response">
         <RenderMarkdown content={entry.finalMessage.content} />
       </div>
-      {entry.previousMessages.length > 0 ? (
-        <PiPreviousAssistantMessagesContent t={t} messages={entry.previousMessages} />
+      {hasProcess ? (
+        <PiProcessContent
+          t={t}
+          thinking={entry.thinking}
+          tools={entry.tools}
+          previousMessages={entry.previousMessages}
+        />
       ) : null}
-      {entry.thinking ? <PiThinkingDisclosureContent t={t} message={entry.thinking} /> : null}
-      {entry.tools.length > 0 ? <PiToolGroupContent t={t} messages={entry.tools} /> : null}
     </div>
   );
 }

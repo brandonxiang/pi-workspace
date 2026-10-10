@@ -59,7 +59,7 @@ describe("groupPiHistoryMessages", () => {
     ]);
   });
 
-  it("keeps unrelated tool records split from the next assistant turn", () => {
+  it("folds tool records that precede the final reply into the same turn", () => {
     const messages: PiHistoryMessage[] = [
       {
         id: "tool-1",
@@ -90,13 +90,12 @@ describe("groupPiHistoryMessages", () => {
     ];
 
     expect(groupPiHistoryMessages(messages)).toEqual([
-      messages[0],
       {
         id: "assistant-turn-assistant-1",
         role: "assistant-turn",
         finalMessage: messages[1],
         previousMessages: [],
-        tools: [messages[2]],
+        tools: [messages[0], messages[2]],
         timestamp: 2,
       },
     ]);

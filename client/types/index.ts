@@ -97,7 +97,9 @@ export type PiHistoryMessage =
   | {
       id: string;
       role: "tool";
+      toolCallId?: string;
       toolName: string;
+      arguments?: string;
       content: string;
       isError: boolean;
       expandable: true;

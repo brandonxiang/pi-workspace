@@ -275,7 +275,7 @@ export default function App() {
   const [piSessionError, setPiSessionError] = useState<string | null>(null);
   const [piSessionLoading, setPiSessionLoading] = useState(false);
   const [draftToolMessages, setDraftToolMessages] = useState<
-    Map<string, { toolName: string; content: string; isError: boolean }>
+    Map<string, { toolName: string; arguments: string; content: string; isError: boolean }>
   >(new Map());
   const [queuedFollowUps, setQueuedFollowUps] = useState<QueuedComposerMessage[]>([]);
   const [launcherMode, setLauncherMode] = useState<LauncherMode>(null);
@@ -588,7 +588,7 @@ export default function App() {
   }
 
   const draftToolBubbleItems = useMemo<BubbleItemType[]>(() => {
-    if (draftToolMessages.size === 0) return [];
+    if (panelMode !== "terminal" || draftToolMessages.size === 0) return [];
 
     return Array.from(draftToolMessages.entries()).map(([toolCallId, entry]) => ({
       key: `tool-streaming-${toolCallId}`,
@@ -599,12 +599,13 @@ export default function App() {
             <span>{entry.toolName}</span>
             <small>{t("chat.streaming")}</small>
           </summary>
-          <pre>{entry.content || "…"}</pre>
+          {entry.arguments ? <pre className="pi-tool-args">{entry.arguments}</pre> : null}
+          <pre className="pi-tool-result">{entry.content || "…"}</pre>
         </details>
       ),
       header: <MessageHeader label={t("chat.tool")} meta={entry.toolName} />,
     }));
-  }, [draftToolMessages, t]);
+  }, [draftToolMessages, panelMode, t]);
 
   const thinkingBubbleItem = useMemo<BubbleItemType | null>(() => {
     if (!draftThinkingVisible) return null;
@@ -1694,7 +1695,9 @@ export default function App() {
               ({
                 id: `tool-${Date.now()}-${index}`,
                 role: "tool",
+                toolCallId: tool.toolCallId,
                 toolName: tool.toolName,
+                arguments: tool.arguments,
                 content: tool.content,
                 isError: tool.isError,
                 expandable: true,

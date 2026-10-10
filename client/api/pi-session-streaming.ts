@@ -3,7 +3,9 @@ import type { AssistantMessage, StreamEvent } from "../types/index";
 export type PiSessionStreamingPanelMode = "chat" | "terminal";
 
 export type PiSessionStreamingToolMessage = {
+  toolCallId?: string;
   toolName: string;
+  arguments: string;
   content: string;
   isError: boolean;
 };
@@ -97,11 +99,11 @@ export function applyPiSessionStreamingEvent(
   }
 
   if (event.type === "tool_start") {
-    if (state.panelMode === "chat") return state;
-
     const activeToolMessages = new Map(state.activeToolMessages);
     activeToolMessages.set(event.toolCallId, {
+      toolCallId: event.toolCallId,
       toolName: event.toolName,
+      arguments: event.args ?? "",
       content: "",
       isError: false,
     });
@@ -113,8 +115,6 @@ export function applyPiSessionStreamingEvent(
   }
 
   if (event.type === "tool_delta") {
-    if (state.panelMode === "chat") return state;
-
     const existing = state.activeToolMessages.get(event.toolCallId);
     if (!existing) return state;
 
@@ -131,21 +131,17 @@ export function applyPiSessionStreamingEvent(
   }
 
   if (event.type === "tool_end") {
+    const active = state.activeToolMessages.get(event.toolCallId);
     const completedToolMessages = [
       ...state.completedToolMessages,
       {
+        toolCallId: event.toolCallId,
         toolName: event.toolName,
+        arguments: active?.arguments ?? "",
         content: event.content,
         isError: event.isError,
       },
     ];
-
-    if (state.panelMode === "chat") {
-      return {
-        ...state,
-        completedToolMessages,
-      };
-    }
 
     const activeToolMessages = new Map(state.activeToolMessages);
     activeToolMessages.delete(event.toolCallId);
@@ -205,12 +201,14 @@ export function getPiSessionStreamingDisplayItems(
     });
   }
 
-  for (const toolMessage of state.activeToolMessages.values()) {
-    items.push({
-      kind: "tool",
-      streaming: true,
-      ...toolMessage,
-    });
+  if (state.panelMode === "terminal") {
+    for (const toolMessage of state.activeToolMessages.values()) {
+      items.push({
+        kind: "tool",
+        streaming: true,
+        ...toolMessage,
+      });
+    }
   }
 
   return items;

@@ -152,6 +152,7 @@ interface PiSessionMessageLike {
   provider?: string;
   model?: string;
   toolName?: string;
+  toolCallId?: string;
   isError?: boolean;
   command?: string;
   output?: string;
@@ -205,7 +206,9 @@ export type PiHistoryMessage =
   | {
       id: string;
       role: "tool";
+      toolCallId?: string;
       toolName: string;
+      arguments?: string;
       content: string;
       isError: boolean;
       expandable: true;
@@ -482,8 +485,10 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
       result.push({
         id: `${entry.id}:${toolCall.id}`,
         role: "tool",
+        toolCallId: toolCall.id,
         toolName: toolCall.name,
-        content: formatToolArguments(toolCall.arguments),
+        arguments: formatToolArguments(toolCall.arguments),
+        content: "",
         isError: false,
         expandable: true,
         timestamp,
@@ -498,6 +503,7 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
       {
         id: entry.id,
         role: "tool",
+        toolCallId: message.toolCallId,
         toolName: message.toolName || "tool",
         content: stringifyContent(normalizeContentToText(message.content)),
         isError: Boolean(message.isError),
@@ -508,15 +514,13 @@ function normalizeMessageEntry(entry: PiSessionEntryLike): PiHistoryMessage[] {
   }
 
   if (message.role === "bashExecution") {
-    const lines = [`$ ${message.command || ""}`];
-    if (message.output) lines.push(message.output);
-
     return [
       {
         id: entry.id,
         role: "tool",
         toolName: "bash",
-        content: stringifyContent(lines.join("\n").trim()),
+        arguments: message.command || "",
+        content: stringifyContent(message.output || ""),
         isError: typeof message.exitCode === "number" ? message.exitCode !== 0 : false,
         expandable: true,
         timestamp,
@@ -664,11 +668,51 @@ export function findSessionById(rawSessions: RawSessionInfo[], sessionId: string
   return rawSessions.find((session) => session.id === sessionId) || null;
 }
 
+/**
+ * Merge an assistant tool call and its tool result into a single tool entry.
+ * Both records share a `toolCallId`; the call contributes the arguments and the
+ * result contributes the output, so one call shows up as one collapsible item.
+ */
+function mergeToolCallEntries(messages: PiHistoryMessage[]): PiHistoryMessage[] {
+  const merged: PiHistoryMessage[] = [];
+  const indexByToolCallId = new Map<string, number>();
+
+  for (const message of messages) {
+    if (message.role !== "tool" || !message.toolCallId) {
+      merged.push(message);
+      continue;
+    }
+
+    const existingIndex = indexByToolCallId.get(message.toolCallId);
+    if (existingIndex === undefined) {
+      indexByToolCallId.set(message.toolCallId, merged.length);
+      merged.push(message);
+      continue;
+    }
+
+    const existing = merged[existingIndex];
+    if (existing.role !== "tool") {
+      merged.push(message);
+      continue;
+    }
+
+    merged[existingIndex] = {
+      ...existing,
+      arguments: existing.arguments ?? message.arguments,
+      content: message.content || existing.content,
+      isError: message.isError,
+    };
+  }
+
+  return merged;
+}
+
 export function normalizeBranchEntries(entries: PiSessionEntryLike[]): PiHistoryMessage[] {
-  return entries.flatMap((entry) => {
+  const messages = entries.flatMap((entry) => {
     if (entry.type === "message") return normalizeMessageEntry(entry);
     return normalizeSummaryEntry(entry);
   });
+  return mergeToolCallEntries(messages);
 }
 
 export function inferBranchModel(entries: PiSessionEntryLike[]): PiBranchModel | null {

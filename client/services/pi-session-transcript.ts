@@ -45,35 +45,7 @@ export function groupPiHistoryMessages(messages: PiHistoryMessage[]): PiHistoryT
   function flushPendingAgentMessages() {
     if (pendingAgentMessages.length === 0) return;
 
-    const firstAssistantIndex = pendingAgentMessages.findIndex(
-      (message) => message.role === "assistant",
-    );
-
-    if (firstAssistantIndex === -1) {
-      const mergedThinking = mergeThinkingMessages(
-        pendingAgentMessages.filter(
-          (message): message is PiThinkingMessage => message.role === "thinking",
-        ),
-      );
-      if (mergedThinking) {
-        entries.push(mergedThinking);
-      }
-      entries.push(
-        ...pendingAgentMessages.filter(
-          (message): message is PiToolMessage => message.role === "tool",
-        ),
-      );
-      pendingAgentMessages = [];
-      return;
-    }
-
-    const leadingMessages = pendingAgentMessages.slice(0, firstAssistantIndex);
-    entries.push(
-      ...leadingMessages.filter((message): message is PiToolMessage => message.role === "tool"),
-    );
-
-    const turnMessages = pendingAgentMessages.slice(firstAssistantIndex);
-    const assistants = turnMessages.filter(
+    const assistants = pendingAgentMessages.filter(
       (message): message is PiAssistantMessage => message.role === "assistant",
     );
     const finalMessage = assistants[assistants.length - 1];
@@ -82,9 +54,20 @@ export function groupPiHistoryMessages(messages: PiHistoryMessage[]): PiHistoryT
         (message): message is PiThinkingMessage => message.role === "thinking",
       ),
     );
-    const tools = turnMessages.filter(
+    const tools = pendingAgentMessages.filter(
       (message): message is PiToolMessage => message.role === "tool",
     );
+
+    // A buffer with no assistant text has no result to attach to; keep its
+    // thinking and tools as standalone entries.
+    if (!finalMessage) {
+      if (thinking) {
+        entries.push(thinking);
+      }
+      entries.push(...tools);
+      pendingAgentMessages = [];
+      return;
+    }
 
     entries.push({
       id: `assistant-turn-${finalMessage.id}`,
