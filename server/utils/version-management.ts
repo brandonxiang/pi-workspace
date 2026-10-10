@@ -72,6 +72,32 @@ export function isNewerVersion(latest: string, current: string) {
   return false;
 }
 
+/**
+ * Build the human-readable update lines shown by the startup version notice.
+ * Each entry lists the component, current → latest, and its upgrade command.
+ */
+export function collectUpdateNotices(versions: VersionsResponse): string[] {
+  const updates: string[] = [];
+
+  if (
+    versions.piWorkspace.updateAvailable &&
+    versions.piWorkspace.latestVersion &&
+    versions.piWorkspace.currentVersion
+  ) {
+    updates.push(
+      `pi-workspace v${versions.piWorkspace.currentVersion} → v${versions.piWorkspace.latestVersion} (run \`pi-workspace update\`)`,
+    );
+  }
+
+  if (versions.pi.updateAvailable && versions.pi.latestVersion && versions.pi.currentVersion) {
+    updates.push(
+      `Pi v${versions.pi.currentVersion} → v${versions.pi.latestVersion} (run \`pi update\`)`,
+    );
+  }
+
+  return updates;
+}
+
 type VersionManagerDependencies = {
   runCommand: CommandRunner;
   fetchLatestVersion(packageName: string): Promise<string>;

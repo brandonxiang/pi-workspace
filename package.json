@@ -44,8 +44,8 @@
     "prepare": "vp config"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.83.0",
-    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-ai": "1.1.0",
+    "@earendil-works/pi-coding-agent": "1.1.0",
     "node-pty": "1.1.0",
     "ws": "8.21.1"
   },

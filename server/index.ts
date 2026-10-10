@@ -6,7 +6,7 @@ import type { ViteDevServer } from "vite";
 import { createHttpServer } from "./http/server.js";
 import type { HttpServer } from "./http/types.js";
 
-import { createDefaultVersionManager } from "./utils/version-management.js";
+import { createDefaultVersionManager, collectUpdateNotices } from "./utils/version-management.js";
 import { registerVersionRoutes } from "./router/version-routes.js";
 import { readAllSessionStatuses, writeAllSessionStatuses } from "./utils/pi-sessions.js";
 import { registerSessionStatusRoutes } from "./router/session-status.js";
@@ -100,13 +100,18 @@ async function sendSpaHtml(
   }
 }
 
-async function buildServer(): Promise<{ server: HttpServer; vite: ViteDevServer | null }> {
+async function buildServer(): Promise<{
+  server: HttpServer;
+  vite: ViteDevServer | null;
+  versionManager: ReturnType<typeof createDefaultVersionManager>;
+}> {
   const server = createHttpServer();
   const root = path.resolve(import.meta.dirname, "..");
+  const versionManager = createDefaultVersionManager();
 
   // ──────── API routes ────────
   registerHealthRoute(server);
-  registerVersionRoutes(server, createDefaultVersionManager());
+  registerVersionRoutes(server, versionManager);
   registerSessionStatusRoutes(server, {
     readStatuses: readAllSessionStatuses,
     writeStatuses: writeAllSessionStatuses,
@@ -138,7 +143,7 @@ async function buildServer(): Promise<{ server: HttpServer; vite: ViteDevServer 
 
   // ──────── Client ────────
   if (isDev) {
-    return { server, vite: await registerDevClient(server, root) };
+    return { server, vite: await registerDevClient(server, root), versionManager };
   }
 
   // Production: serve the pre-built client, then fall back to the app shell.
@@ -147,7 +152,7 @@ async function buildServer(): Promise<{ server: HttpServer; vite: ViteDevServer 
     reply.type("text/html").send(await loadIndexHtml(root));
   });
 
-  return { server, vite: null };
+  return { server, vite: null, versionManager };
 }
 
 async function startWithRetry(server: HttpServer, retries: number): Promise<void> {
@@ -175,7 +180,34 @@ async function startWithRetry(server: HttpServer, retries: number): Promise<void
   }
 }
 
-const { server, vite } = await buildServer();
+/**
+ * Print a gentle, single-line update notice at startup. Best-effort only:
+ * failures (offline, Pi CLI missing, slow registry) are swallowed so the
+ * server never blocks or fails because of a version check.
+ */
+function logVersionUpdateNotice(manager: ReturnType<typeof createDefaultVersionManager>) {
+  let timer: NodeJS.Timeout | undefined;
+
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("version check timed out")), 20_000);
+  });
+
+  void Promise.race([manager.getVersions(), timeout])
+    .then((versions) => {
+      const updates = collectUpdateNotices(versions);
+      if (updates.length > 0) {
+        console.log(`[pi-workspace] Update available: ${updates.join(" · ")}`);
+      }
+    })
+    .catch(() => {
+      // Ignore — the notice is purely informational.
+    })
+    .finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+}
+
+const { server, vite, versionManager } = await buildServer();
 
 // Graceful shutdown on SIGTERM (from node --watch or dev.mjs)
 // so the port is released promptly for the next process.
@@ -193,3 +225,9 @@ process.on("SIGTERM", async () => {
 });
 
 await startWithRetry(server, 5);
+
+// Gentle, non-blocking update notice at startup. Skipped in dev mode, where
+// the source tree is rebuilt continuously and the check would be noisy.
+if (!isDev) {
+  logVersionUpdateNotice(versionManager);
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
   VersionManagementError,
+  collectUpdateNotices,
   createVersionManager,
   isNewerVersion,
   normalizeVersion,
@@ -19,6 +20,29 @@ describe("version parsing", () => {
     expect(isNewerVersion("0.80.6", "0.80.3")).toBe(true);
     expect(isNewerVersion("0.80.3", "0.80.3")).toBe(false);
     expect(isNewerVersion("0.79.9", "0.80.3")).toBe(false);
+  });
+});
+
+describe("collectUpdateNotices", () => {
+  const baseVersions = {
+    pi: { currentVersion: "0.80.3", latestVersion: "0.80.6", updateAvailable: true },
+    piWorkspace: { currentVersion: "0.1.0", latestVersion: "0.2.0", updateAvailable: true },
+  };
+
+  it("lists both components when each has an update", () => {
+    expect(collectUpdateNotices(baseVersions)).toEqual([
+      "pi-workspace v0.1.0 → v0.2.0 (run `pi-workspace update`)",
+      "Pi v0.80.3 → v0.80.6 (run `pi update`)",
+    ]);
+  });
+
+  it("omits components that are up to date or missing version info", () => {
+    expect(
+      collectUpdateNotices({
+        pi: { currentVersion: "0.80.6", latestVersion: "0.80.6", updateAvailable: false },
+        piWorkspace: { currentVersion: null, latestVersion: null, updateAvailable: null },
+      }),
+    ).toEqual([]);
   });
 });
 
