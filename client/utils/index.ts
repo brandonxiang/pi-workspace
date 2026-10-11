@@ -1,5 +1,10 @@
-import type { StreamEvent } from "../types/index";
-import type { QueuedComposerMessage, ThinkingLevel } from "../types/index";
+import type {
+  StreamEvent,
+  PiPluginCommand,
+  QueuedComposerMessage,
+  ThinkingLevel,
+} from "../types/index";
+import type { PluginSlashCommand } from "../../shared/slash-commands.js";
 import {
   FOLLOW_UP_QUEUES_STORAGE_KEY,
   PANEL_MODE_SHORTCUT_KEYS,
@@ -113,6 +118,18 @@ export function writeStoredFollowUpsForSession(sessionId: string, queue: QueuedC
   } catch {
     // Ignore storage failures and keep queue state in memory.
   }
+}
+
+export function toPluginSlashCommand(command: PiPluginCommand): PluginSlashCommand {
+  return {
+    name: command.name,
+    description: command.description,
+    source: command.source,
+    scope: command.scope,
+    origin: command.origin,
+    path: command.path,
+    packageSource: command.packageSource,
+  };
 }
 
 export async function readEventStream(response: Response, onEvent: (event: StreamEvent) => void) {

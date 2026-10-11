@@ -8,50 +8,24 @@ import {
   useRef,
   useState,
 } from "react";
-import Input from "antd/es/input";
-import Modal from "antd/es/modal";
-import Select from "antd/es/select";
-import Tabs from "antd/es/tabs";
-import Bubble, { type BubbleItemType, type BubbleListProps } from "@ant-design/x/es/bubble";
-import Minimap from "./components/Minimap";
-import Sender from "@ant-design/x/es/sender";
-import Suggestion, { type SuggestionItem } from "@ant-design/x/es/suggestion";
 import XProvider from "@ant-design/x/es/x-provider";
-import {
-  createTranslator,
-  formatMessageCount,
-  LOCALE_STORAGE_KEY,
-  localeOptions,
-  readStoredLocale,
-  type Locale,
-  type Translator,
-} from "./i18n/index";
-import {
-  findAppSlashCommand,
-  getSlashAutocompleteValue,
-  isServerAppSlashCommand,
-  parseSlashCommandInput,
-  shouldShowSlashSuggestions,
-  type PluginSlashCommand,
-} from "../shared/slash-commands.js";
+import type { BubbleItemType } from "@ant-design/x/es/bubble";
+import { createTranslator, LOCALE_STORAGE_KEY, readStoredLocale, type Locale } from "./i18n/index";
+import type { PluginSlashCommand } from "../shared/slash-commands.js";
 import type {
-  AssistantMessage,
+  ActivePanelView,
   ContextUsage,
-  ImageAttachment,
+  HistoryWriteMode,
+  InteractiveSudoUpgrade,
+  LauncherMode,
   PiHistoryMessage,
-  PiSessionProject,
-  PiSessionDetailResponse,
   PiPluginCommand,
-  PiPluginsResponse,
-  PiPluginSummary,
-  SkillItem,
+  PiSessionDetailResponse,
+  PiSessionProject,
   SessionStatus,
-  StreamEvent,
-  UserMessage,
+  SettingsDraft,
 } from "./types/index";
-import { PiSessionSection } from "./components/PiSessionSection";
 import { filterProjectsByArchiveState } from "./components/PiSessionSection";
-import { updatePiPlugins } from "./api/plugins";
 import {
   findProjectBySessionId,
   getNewestProjectSessionId,
@@ -66,15 +40,7 @@ import {
   type AppRoute,
   type PanelMode,
 } from "./router/index";
-import {
-  applyPiSessionStreamingEvent,
-  createPiSessionStreamingState,
-  flushPiSessionThinking,
-} from "./api/pi-session-streaming";
-import {
-  groupPiHistoryMessages,
-  type PiHistoryTranscriptEntry,
-} from "./services/pi-session-transcript";
+import { groupPiHistoryMessages } from "./services/pi-session-transcript";
 import {
   createPiSessionDetailCache,
   getCachedPiSessionDetailForSelection,
@@ -82,126 +48,74 @@ import {
 import {
   defaultSystemPrompt,
   modelPresets,
-  maxImageBytes,
-  supportedImageMimeTypes,
   PANEL_MODE_STORAGE_KEY,
   ACTIVE_SESSION_KEY,
   ACTIVE_PI_PROJECT_KEY,
-  FOLLOW_UP_QUEUES_STORAGE_KEY,
   ARCHIVED_PI_SESSIONS_KEY,
   THINKING_LEVEL_STORAGE_KEY,
+  type ModelOption,
 } from "./constants/index";
-import type {
-  ActivePanelView,
-  ComposerSubmitMode,
-  HistoryWriteMode,
-  InteractiveSudoUpgrade,
-  LauncherMode,
-  QueuedComposerMessage,
-  SettingsDraft,
-  SlashSuggestionInfo,
-  ThinkingLevel,
-  VersionUpgradeTarget,
-  VersionsResponse,
-} from "./types/index";
 import {
-  getImageDataUrl,
   getModelKey,
   getWorkspaceName,
   hasOpenDialog,
   isPanelModeShortcut,
   isSidebarToggleShortcut,
-  isSteeringSubmitShortcut,
   parseModelKey,
-  readEventStream,
-  readFileAsBase64,
-  readStoredFollowUpsForSession,
   readStoredThinkingLevel,
-  writeStoredFollowUpsForSession,
+  toPluginSlashCommand,
 } from "./utils/index";
-import {
-  createPiHistoryBubbleItem,
-  MessageHeader,
-  RenderMarkdown,
-  StreamingErrorContent,
-} from "./components/pi/PiHistoryContent";
-import { getSlashSuggestionItems } from "./components/chat/SlashSuggestions";
+import { createPiHistoryBubbleItem } from "./components/pi/PiHistoryContent";
 import { SettingsPage } from "./components/settings/SettingsPage";
-import {
-  PiLogo,
-  IconPlus,
-  IconKeyboard,
-  IconSettings,
-  IconChevronLeft,
-  IconChevronRight,
-  IconCode,
-} from "./components/icon/index";
+import { IconChevronRight } from "./components/icon/index";
 import { Modals } from "./components/modals/Modals";
-
-type ModelOption = (typeof modelPresets)[number];
-type Skill = SkillItem;
-type LocalResultStatus = Extract<PiHistoryMessage, { role: "local_result" }>["status"];
-type LocalActionResult = {
-  title: string;
-  content: string;
-  status: LocalResultStatus;
-  updatedSessionName?: string;
-  refreshProjects?: boolean;
-  refreshSessionDetail?: boolean;
-};
+import { bubbleRoles, xTheme } from "./components/chat/bubble-config";
+import { Composer } from "./components/chat/Composer";
+import { ChatMessages } from "./components/chat/ChatMessages";
+import { LauncherActions } from "./components/chat/LauncherActions";
+import { ChatHeader } from "./components/layout/ChatHeader";
+import { ContextUsageBar } from "./components/layout/ContextUsageBar";
+import { Sidebar } from "./components/layout/Sidebar";
+import { useSkillLibrary } from "./hooks/useSkillLibrary";
+import { usePiPlugins } from "./hooks/usePiPlugins";
+import { useVersionManager } from "./hooks/useVersionManager";
+import { usePiConversation } from "./hooks/usePiConversation";
 
 const TerminalPanel = lazy(async () => {
   const module = await import("./components/TerminalPanel");
   return { default: module.TerminalPanel };
 });
 
-function toPluginSlashCommand(command: PiPluginCommand): PluginSlashCommand {
-  return {
-    name: command.name,
-    description: command.description,
-    source: command.source,
-    scope: command.scope,
-    origin: command.origin,
-    path: command.path,
-    packageSource: command.packageSource,
-  };
-}
-
-const bubbleRoles: BubbleListProps["role"] = {
-  assistant: {
-    placement: "start",
-    variant: "outlined",
-    shape: "default",
-    className: "chat-bubble chat-bubble-assistant",
-    contentRender(content) {
-      if (typeof content === "string") {
-        return <RenderMarkdown content={content} />;
-      }
-      return content;
-    },
-  },
-  user: {
-    placement: "end",
-    variant: "outlined",
-    shape: "default",
-    className: "chat-bubble chat-bubble-user",
-  },
-};
-
-const xTheme = {
-  token: {
-    colorPrimary: "#0075de",
-    borderRadius: 8,
-    fontFamily:
-      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
-  },
-};
-
 export default function App() {
   const [locale, setLocale] = useState<Locale>(() => readStoredLocale());
   const t = useMemo(() => createTranslator(locale), [locale]);
-  const [input, setInput] = useState("");
-  const [selectedImage, setSelectedImage] = useState<ImageAttachment | null>(null);
+  const [interactiveSudoUpgrade, setInteractiveSudoUpgrade] =
+    useState<InteractiveSudoUpgrade | null>(null);
+
+  const { skills, skillsLoading, skillsReloading, skillsError, loadSkills } = useSkillLibrary();
+  const {
+    piPlugins,
+    piPluginsLoading,
+    piPluginsReloading,
+    piPluginsError,
+    piPluginsUpdating,
+    piPluginsUpdateError,
+    piPluginsUpdateNotice,
+    loadPiPlugins,
+    updatePiPluginsInSettings,
+  } = usePiPlugins({ t, onInteractiveSudo: setInteractiveSudoUpgrade });
+  const {
+    versions,
+    versionsLoading,
+    versionError,
+    versionNotice,
+    versionUpgradeTarget,
+    versionUpgradeRunning,
+    setVersionUpgradeTarget,
+    loadVersions,
+    confirmVersionUpgrade,
+  } = useVersionManager({ t, onInteractiveSudo: setInteractiveSudoUpgrade });
+
   const [systemPrompt, setSystemPrompt] = useState(defaultSystemPrompt);
   const [modelKey, setModelKey] = useState(() => {
     try {
@@ -245,24 +159,6 @@ export default function App() {
       return new Set();
     }
   });
-  const [draftAssistant, setDraftAssistant] = useState("");
-  const [draftError, setDraftError] = useState<string | null>(null);
-  const [draftThinking, setDraftThinking] = useState("");
-  const [draftThinkingVisible, setDraftThinkingVisible] = useState(false);
-
-  /** Patch a single session's status in the projects state without a full re-fetch. */
-  function setSessionStatusInProjects(sessionId: string, status: import("./types").SessionStatus) {
-    setProjects((prev) =>
-      prev.map((project) => ({
-        ...project,
-        sessions: project.sessions.map((session) =>
-          session.id === sessionId ? { ...session, status } : session,
-        ),
-      })),
-    );
-  }
-  const [error, setError] = useState<string | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [serverCwd, setServerCwd] = useState("");
   const [projects, setProjects] = useState<PiSessionProject[]>([]);
@@ -274,10 +170,6 @@ export default function App() {
   const [piPendingMessages, setPiPendingMessages] = useState<PiHistoryMessage[]>([]);
   const [piSessionError, setPiSessionError] = useState<string | null>(null);
   const [piSessionLoading, setPiSessionLoading] = useState(false);
-  const [draftToolMessages, setDraftToolMessages] = useState<
-    Map<string, { toolName: string; arguments: string; content: string; isError: boolean }>
-  >(new Map());
-  const [queuedFollowUps, setQueuedFollowUps] = useState<QueuedComposerMessage[]>([]);
   const [launcherMode, setLauncherMode] = useState<LauncherMode>(null);
   const [newSessionQuery, setNewSessionQuery] = useState("");
   const [selectSessionQuery, setSelectSessionQuery] = useState("");
@@ -288,41 +180,26 @@ export default function App() {
   const [scrollContainer, setScrollContainer] = useState<HTMLElement | null>(null);
   const [messagesEl, setMessagesEl] = useState<HTMLElement | null>(null);
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [skillsLoading, setSkillsLoading] = useState(false);
-  const [skillsReloading, setSkillsReloading] = useState(false);
-  const [skillsError, setSkillsError] = useState<string | null>(null);
   const [pluginCommands, setPluginCommands] = useState<PluginSlashCommand[]>([]);
-  const [piPlugins, setPiPlugins] = useState<PiPluginsResponse | null>(null);
-  const [piPluginsLoading, setPiPluginsLoading] = useState(false);
-  const [piPluginsReloading, setPiPluginsReloading] = useState(false);
-  const [piPluginsError, setPiPluginsError] = useState<string | null>(null);
-  const [piPluginsUpdating, setPiPluginsUpdating] = useState(false);
-  const [piPluginsUpdateError, setPiPluginsUpdateError] = useState<string | null>(null);
-  const [piPluginsUpdateNotice, setPiPluginsUpdateNotice] = useState<string | null>(null);
-  const [versions, setVersions] = useState<VersionsResponse | null>(null);
-  const [versionsLoading, setVersionsLoading] = useState(false);
-  const [versionError, setVersionError] = useState<string | null>(null);
-  const [versionNotice, setVersionNotice] = useState<string | null>(null);
-  const [versionUpgradeTarget, setVersionUpgradeTarget] = useState<VersionUpgradeTarget | null>(
-    null,
-  );
-  const [versionUpgradeRunning, setVersionUpgradeRunning] = useState<VersionUpgradeTarget | null>(
-    null,
-  );
-  const [interactiveSudoUpgrade, setInteractiveSudoUpgrade] =
-    useState<InteractiveSudoUpgrade | null>(null);
 
   const didHydrateSelectionRef = useRef(false);
   const piSessionRequestIdRef = useRef(0);
   const piSessionDetailCacheRef = useRef(createPiSessionDetailCache());
-  const followUpDrainAttemptedSessionRef = useRef<string | null>(null);
-  const followUpDrainInFlightRef = useRef(false);
-  const followUpDrainRequestedRef = useRef(false);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
   const chatPanelRef = useRef<HTMLElement | null>(null);
-  const thinkingFlushTimeoutRef = useRef<number | null>(null);
-  const streamSessionIdRef = useRef<string | null>(null);
+
+  /** Patch a single session's status in the projects state without a full re-fetch. */
+  function setSessionStatusInProjects(sessionId: string, status: SessionStatus) {
+    setProjects((prev) =>
+      prev.map((project) => ({
+        ...project,
+        sessions: project.sessions.map((session) =>
+          session.id === sessionId ? { ...session, status } : session,
+        ),
+      })),
+    );
+  }
+
   const piHistoryMessages = piSessionDetail?.messages ?? [];
   const selectedPiSessionId = activePanelView.kind === "pi" ? activePanelView.sessionId : null;
 
@@ -345,6 +222,46 @@ export default function App() {
     return modelOptions.find((option) => getModelKey(option.provider, option.model) === modelKey);
   }, [modelKey, modelOptions]);
   const selectedModelSupportsImages = selectedModelOption?.supportsImages ?? false;
+
+  const {
+    input,
+    setInput,
+    selectedImage,
+    setSelectedImage,
+    error,
+    setError,
+    draftError,
+    isStreaming,
+    queuedFollowUps,
+    removeQueuedFollowUp,
+    resetStreamingDraft,
+    draftToolBubbleItems,
+    thinkingBubbleItem,
+    streamingAssistantBubbleItem,
+    streamingErrorBubbleItem,
+    submitMessage,
+    handleSenderSubmit,
+    handleSlashSelect,
+    handleImageChange,
+  } = usePiConversation({
+    t,
+    panelMode,
+    activePanelView,
+    selectedModel,
+    selectedModelSupportsImages,
+    piHistoryMessages,
+    piSessionDetailLoaded: Boolean(piSessionDetail),
+    setPiSessionDetail,
+    setPiLocalMessages,
+    setPiPendingMessages,
+    setSessionStatusInProjects,
+    fetchContextUsage,
+    refreshPiProjects,
+    loadPiSessionDetail,
+    openSettingsPage,
+    openHotkeysModal,
+  });
+
   const launcherWorkspaceName = getWorkspaceName(serverCwd);
   const filteredNewProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(newSessionQuery.trim().toLowerCase()),
@@ -373,281 +290,6 @@ export default function App() {
     launcherMode !== null ||
     versionUpgradeTarget !== null ||
     interactiveSudoUpgrade !== null;
-
-  const loadVersions = useCallback(async () => {
-    setVersionsLoading(true);
-    setVersionError(null);
-
-    try {
-      const response = await fetch("/api/versions");
-      const body = (await response.json()) as VersionsResponse & { error?: string };
-      if (!response.ok) throw new Error(body.error || t("settings.versionCheckFailed"));
-      setVersions(body);
-    } catch (loadError) {
-      setVersions(null);
-      setVersionError(
-        loadError instanceof Error ? loadError.message : t("settings.versionCheckFailed"),
-      );
-    } finally {
-      setVersionsLoading(false);
-    }
-  }, [t]);
-
-  const loadSkills = useCallback(async (reload = false) => {
-    setSkillsError(null);
-    if (reload) {
-      setSkillsReloading(true);
-    } else {
-      setSkillsLoading(true);
-    }
-
-    try {
-      const response = await fetch("/api/skills");
-      const body = (await response.json().catch(() => null)) as {
-        skills?: SkillItem[];
-        error?: string;
-      };
-      if (!response.ok) throw new Error(body?.error || "Failed to load skills");
-      setSkills(body?.skills || []);
-    } catch (loadError) {
-      setSkillsError(loadError instanceof Error ? loadError.message : "Failed to load skills");
-    } finally {
-      setSkillsLoading(false);
-      setSkillsReloading(false);
-    }
-  }, []);
-
-  const loadPiPlugins = useCallback(async (reload = false) => {
-    setPiPluginsError(null);
-    if (reload) {
-      setPiPluginsReloading(true);
-    } else {
-      setPiPluginsLoading(true);
-    }
-
-    try {
-      const response = await fetch(reload ? "/api/pi-plugins/reload" : "/api/pi-plugins", {
-        method: reload ? "POST" : "GET",
-      });
-      const body = (await response.json().catch(() => null)) as PiPluginsResponse & {
-        error?: string;
-      };
-      if (!response.ok) throw new Error(body.error || "Failed to load Pi plugins");
-      setPiPlugins(body);
-    } catch (loadError) {
-      setPiPluginsError(
-        loadError instanceof Error ? loadError.message : "Failed to load Pi plugins",
-      );
-    } finally {
-      setPiPluginsLoading(false);
-      setPiPluginsReloading(false);
-    }
-  }, []);
-
-  const updatePiPluginsInSettings = useCallback(async () => {
-    if (piPluginsUpdating) return;
-
-    setPiPluginsUpdateError(null);
-    setPiPluginsUpdateNotice(null);
-    setPiPluginsUpdating(true);
-
-    try {
-      const actionToken = piPlugins?.actionToken;
-      if (!actionToken) {
-        throw new Error(t("settings.pluginsUpdatePermissionMissing"));
-      }
-      const result = await updatePiPlugins(actionToken);
-      if (!result.ok) {
-        if (result.requiresInteractiveSudo && result.interactiveCommand) {
-          setInteractiveSudoUpgrade({
-            target: "extensions",
-            command: result.interactiveCommand,
-          });
-          return;
-        }
-        throw new Error(result.error || t("settings.pluginsUpdateFailed"));
-      }
-      setPiPluginsUpdateNotice(t("settings.pluginsUpdateDone"));
-      await loadPiPlugins(true);
-    } catch (updateError) {
-      setPiPluginsUpdateError(
-        updateError instanceof Error ? updateError.message : t("settings.pluginsUpdateFailed"),
-      );
-    } finally {
-      setPiPluginsUpdating(false);
-    }
-  }, [piPluginsUpdating, piPlugins, loadPiPlugins, t]);
-
-  useEffect(() => {
-    if (!isSettingsPage) return;
-    void loadVersions();
-  }, [isSettingsPage, loadVersions]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadActiveSessionCommands() {
-      setPluginCommands([]);
-      if (!selectedPiSessionId) return;
-
-      try {
-        const response = await fetch(
-          `/api/pi-sessions/${encodeURIComponent(selectedPiSessionId)}/commands`,
-        );
-        const body = (await response.json().catch(() => null)) as {
-          commands?: PiPluginCommand[];
-        } | null;
-        if (!cancelled && response.ok) {
-          setPluginCommands((body?.commands || []).map(toPluginSlashCommand));
-        }
-      } catch {
-        if (!cancelled) setPluginCommands([]);
-      }
-    }
-
-    void loadActiveSessionCommands();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedPiSessionId]);
-
-  async function confirmVersionUpgrade() {
-    const target = versionUpgradeTarget;
-    if (!target || versionUpgradeRunning) return;
-
-    setVersionUpgradeTarget(null);
-    setVersionUpgradeRunning(target);
-    setVersionError(null);
-    setVersionNotice(null);
-
-    try {
-      const actionToken = versions?.actionToken;
-      if (!actionToken) throw new Error(t("settings.versionPermissionMissing"));
-      const response = await fetch(`/api/versions/${target}/upgrade`, {
-        method: "POST",
-        headers: { "x-pi-workspace-action-token": actionToken },
-      });
-      const body = (await response.json()) as {
-        error?: string;
-        interactiveCommand?: string;
-        message?: string;
-        requiresInteractiveSudo?: boolean;
-        restartRequired?: boolean;
-      };
-      if (!response.ok) {
-        if (body.requiresInteractiveSudo && body.interactiveCommand) {
-          setInteractiveSudoUpgrade({ target, command: body.interactiveCommand });
-          return;
-        }
-        throw new Error(body.error || t("settings.upgradeFailed"));
-      }
-      setVersionNotice(
-        body.restartRequired
-          ? t("settings.restartPiWorkspace")
-          : body.message || t("settings.upgradeComplete"),
-      );
-      await loadVersions();
-    } catch (upgradeError) {
-      setVersionError(
-        upgradeError instanceof Error ? upgradeError.message : t("settings.upgradeFailed"),
-      );
-    } finally {
-      setVersionUpgradeRunning(null);
-    }
-  }
-
-  function updateQueuedFollowUps(
-    updater: (current: QueuedComposerMessage[]) => QueuedComposerMessage[],
-  ) {
-    if (!selectedPiSessionId) return;
-
-    setQueuedFollowUps((current) => {
-      const nextQueue = updater(current);
-      writeStoredFollowUpsForSession(selectedPiSessionId, nextQueue);
-      return nextQueue;
-    });
-  }
-
-  function removeQueuedFollowUp(id: string) {
-    updateQueuedFollowUps((current) => current.filter((item) => item.id !== id));
-  }
-
-  function clearThinkingFlushTimeout() {
-    if (thinkingFlushTimeoutRef.current === null) return;
-    window.clearTimeout(thinkingFlushTimeoutRef.current);
-    thinkingFlushTimeoutRef.current = null;
-  }
-
-  function resetStreamingDraft() {
-    clearThinkingFlushTimeout();
-    setDraftAssistant("");
-    setDraftError(null);
-    setDraftThinking("");
-    setDraftThinkingVisible(false);
-    setDraftToolMessages(new Map());
-  }
-
-  const draftToolBubbleItems = useMemo<BubbleItemType[]>(() => {
-    if (panelMode !== "terminal" || draftToolMessages.size === 0) return [];
-
-    return Array.from(draftToolMessages.entries()).map(([toolCallId, entry]) => ({
-      key: `tool-streaming-${toolCallId}`,
-      role: "assistant" as const,
-      content: (
-        <details className="pi-tool-card" open>
-          <summary>
-            <span>{entry.toolName}</span>
-            <small>{t("chat.streaming")}</small>
-          </summary>
-          {entry.arguments ? <pre className="pi-tool-args">{entry.arguments}</pre> : null}
-          <pre className="pi-tool-result">{entry.content || "…"}</pre>
-        </details>
-      ),
-      header: <MessageHeader label={t("chat.tool")} meta={entry.toolName} />,
-    }));
-  }, [draftToolMessages, panelMode, t]);
-
-  const thinkingBubbleItem = useMemo<BubbleItemType | null>(() => {
-    if (!draftThinkingVisible) return null;
-
-    return {
-      key: "assistant-thinking",
-      role: "assistant",
-      content: (
-        <div className="thinking-block thinking-block-static">
-          <div className="thinking-block-title">{t("chat.thinking")}</div>
-          <div className="thinking-content">{draftThinking}</div>
-        </div>
-      ),
-      streaming: isStreaming,
-      status: "updating" as const,
-      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.streaming")} />,
-    };
-  }, [draftThinking, draftThinkingVisible, isStreaming, t]);
-
-  const streamingAssistantBubbleItem = useMemo<BubbleItemType | null>(() => {
-    if (!draftAssistant) return null;
-
-    return {
-      key: "assistant-streaming",
-      role: "assistant",
-      content: draftAssistant,
-      streaming: isStreaming,
-      status: "updating" as const,
-      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.streaming")} />,
-    };
-  }, [draftAssistant, isStreaming, t]);
-
-  const streamingErrorBubbleItem = useMemo<BubbleItemType | null>(() => {
-    if (!draftError) return null;
-
-    return {
-      key: "assistant-error",
-      role: "assistant",
-      content: <StreamingErrorContent message={draftError} />,
-      header: <MessageHeader label={t("chat.myPi")} meta={t("chat.error")} />,
-    };
-  }, [draftError, t]);
 
   const piHistoryBubbleItems = useMemo<BubbleItemType[]>(() => {
     const items = groupPiHistoryMessages([
@@ -708,6 +350,39 @@ export default function App() {
   }, [panelMode]);
 
   useEffect(() => {
+    if (!isSettingsPage) return;
+    void loadVersions();
+  }, [isSettingsPage, loadVersions]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadActiveSessionCommands() {
+      setPluginCommands([]);
+      if (!selectedPiSessionId) return;
+
+      try {
+        const response = await fetch(
+          `/api/pi-sessions/${encodeURIComponent(selectedPiSessionId)}/commands`,
+        );
+        const body = (await response.json().catch(() => null)) as {
+          commands?: PiPluginCommand[];
+        } | null;
+        if (!cancelled && response.ok) {
+          setPluginCommands((body?.commands || []).map(toPluginSlashCommand));
+        }
+      } catch {
+        if (!cancelled) setPluginCommands([]);
+      }
+    }
+
+    void loadActiveSessionCommands();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPiSessionId]);
+
+  useEffect(() => {
     function focusMainPanel() {
       window.setTimeout(() => {
         chatPanelRef.current?.focus();
@@ -764,12 +439,6 @@ export default function App() {
   }, [isAnyModalOpen, isSettingsPage, panelMode]);
 
   useEffect(() => {
-    return () => {
-      clearThinkingFlushTimeout();
-    };
-  }, []);
-
-  useEffect(() => {
     try {
       localStorage.setItem(LOCALE_STORAGE_KEY, locale);
     } catch {
@@ -781,19 +450,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("my-pi-model", modelKey);
   }, [modelKey]);
-
-  useEffect(() => {
-    if (!selectedPiSessionId) {
-      setQueuedFollowUps([]);
-      followUpDrainAttemptedSessionRef.current = null;
-      followUpDrainRequestedRef.current = false;
-      return;
-    }
-
-    setQueuedFollowUps(readStoredFollowUpsForSession(selectedPiSessionId));
-    followUpDrainAttemptedSessionRef.current = null;
-    followUpDrainRequestedRef.current = false;
-  }, [selectedPiSessionId]);
 
   function persistSelectedPiSession(sessionId: string, projectPath: string | null) {
     localStorage.setItem(ACTIVE_SESSION_KEY, sessionId);
@@ -839,6 +495,24 @@ export default function App() {
       .catch(() => {
         setContextUsage(null);
       });
+  }
+
+  async function loadPiSessionDetail(sessionId: string): Promise<PiSessionDetailResponse> {
+    const response = await fetch(`/api/pi-sessions/${encodeURIComponent(sessionId)}`);
+    const body = (await response.json().catch(() => null)) as
+      | PiSessionDetailResponse
+      | { error?: string }
+      | null;
+
+    if (!response.ok) {
+      throw new Error(
+        body && "error" in body && body.error
+          ? body.error
+          : `Request failed with ${response.status}`,
+      );
+    }
+
+    return body as PiSessionDetailResponse;
   }
 
   function createSettingsDraftFromState(nextPanelMode: PanelMode = panelMode): SettingsDraft {
@@ -1118,13 +792,6 @@ export default function App() {
     };
   }, [activePanelView, isStreaming, panelMode, projects, routeKind]);
 
-  useEffect(() => {
-    if (selectedImage && !selectedModelSupportsImages) {
-      setSelectedImage(null);
-      setError(t("errors.removedImageUnsupported"));
-    }
-  }, [selectedImage, selectedModelSupportsImages, t]);
-
   function openNewSessionLauncher() {
     setLauncherMode("new");
     setNewSessionQuery("");
@@ -1227,8 +894,8 @@ export default function App() {
         const body = (await response.json()) as { error?: string };
         console.error("Failed to update session status:", body.error || response.statusText);
       }
-    } catch (error) {
-      console.error("Failed to update session status:", error);
+    } catch (statusError) {
+      console.error("Failed to update session status:", statusError);
     }
   }
 
@@ -1390,619 +1057,19 @@ export default function App() {
     setIsHotkeysOpen(true);
   }
 
-  function closeHotkeysModal() {
-    setIsHotkeysOpen(false);
-  }
-
-  function createLocalUserMessage(content: string): Extract<PiHistoryMessage, { role: "user" }> {
-    return {
-      id: `local-user-${crypto.randomUUID()}`,
-      role: "user",
-      content,
-      timestamp: Date.now(),
-    };
-  }
-
-  function createLocalResultMessage(
-    result: LocalActionResult,
-  ): Extract<PiHistoryMessage, { role: "local_result" }> {
-    return {
-      id: `local-result-${crypto.randomUUID()}`,
-      role: "local_result",
-      title: result.title,
-      content: result.content,
-      status: result.status,
-      timestamp: Date.now(),
-    };
-  }
-
-  function appendPiLocalTurn(
-    userMessage: Extract<PiHistoryMessage, { role: "user" }>,
-    result: LocalActionResult,
-  ) {
-    setPiLocalMessages((current) => [...current, userMessage, createLocalResultMessage(result)]);
-  }
-
-  async function runClientSlashAction(
-    commandName: "settings" | "model" | "copy" | "hotkeys",
-  ): Promise<LocalActionResult> {
-    if (commandName === "settings") {
-      openSettingsPage();
-      return {
-        title: "Settings",
-        content: "Opened the Settings page.",
-        status: "success",
-      };
-    }
-
-    if (commandName === "model") {
-      openSettingsPage();
-      return {
-        title: "Model",
-        content: "Opened Settings. Update the model from the Settings page.",
-        status: "success",
-      };
-    }
-
-    if (commandName === "hotkeys") {
-      openHotkeysModal();
-      return {
-        title: "Keyboard shortcuts",
-        content: "Opened the keyboard shortcuts help.",
-        status: "success",
-      };
-    }
-
-    const latestAssistant = [...piHistoryMessages]
-      .reverse()
-      .find(
-        (message): message is Extract<PiHistoryMessage, { role: "assistant" }> =>
-          message.role === "assistant",
-      );
-
-    if (!latestAssistant?.content) {
-      return {
-        title: "Copy",
-        content: "No assistant message is available to copy yet.",
-        status: "error",
-      };
-    }
-
-    try {
-      await navigator.clipboard.writeText(latestAssistant.content);
-      return {
-        title: "Copy",
-        content: `Copied the last assistant message to the clipboard (${latestAssistant.content.length} characters).`,
-        status: "success",
-      };
-    } catch (error) {
-      return {
-        title: "Copy",
-        content:
-          error instanceof Error
-            ? `Failed to copy the last assistant message: ${error.message}`
-            : "Failed to copy the last assistant message.",
-        status: "error",
-      };
-    }
-  }
-
-  async function runServerSlashAction(
-    action: "session" | "export" | "name" | "compact",
-    args: string,
-  ): Promise<LocalActionResult> {
-    const response = await fetch("/api/pi-local-actions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-pi-session-id": activePanelView.kind === "pi" ? activePanelView.sessionId : "",
-      },
-      body: JSON.stringify({ action, args }),
-    });
-
-    const body = (await response.json().catch(() => null)) as {
-      result?: LocalActionResult;
-      error?: string;
-    } | null;
-
-    if (!response.ok || !body?.result) {
-      throw new Error(body?.error || `Request failed with ${response.status}`);
-    }
-
-    return body.result;
-  }
-
-  async function loadPiSessionDetail(sessionId: string): Promise<PiSessionDetailResponse> {
-    const response = await fetch(`/api/pi-sessions/${encodeURIComponent(sessionId)}`);
-    const body = (await response.json().catch(() => null)) as
-      | PiSessionDetailResponse
-      | { error?: string }
-      | null;
-
-    if (!response.ok) {
-      throw new Error(
-        body && "error" in body && body.error
-          ? body.error
-          : `Request failed with ${response.status}`,
-      );
-    }
-
-    return body as PiSessionDetailResponse;
-  }
-
-  async function submitSteeringMessage(messageText: string, image: ImageAttachment | null) {
-    if (activePanelView.kind !== "pi") return;
-
-    const response = await fetch("/api/chat/steer", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-pi-session-id": activePanelView.sessionId,
-      },
-      body: JSON.stringify({
-        ...selectedModel,
-        prompt: messageText,
-        images: image
-          ? [
-              {
-                name: image.name,
-                mimeType: image.mimeType,
-                size: image.size,
-                data: image.data,
-              },
-            ]
-          : undefined,
-      }),
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      throw new Error(body?.error || `Request failed with ${response.status}`);
-    }
-  }
-
-  function queueFollowUpMessage(message: QueuedComposerMessage) {
-    followUpDrainRequestedRef.current = true;
-    updateQueuedFollowUps((current) => [...current, message]);
-  }
-
-  async function runPiPrompt(userMessage: UserMessage) {
-    if (activePanelView.kind !== "pi") return;
-
-    const sessionId = activePanelView.sessionId;
-
-    setPiPendingMessages([
-      {
-        id: `pi-user-${userMessage.timestamp}`,
-        role: "user",
-        content: userMessage.content,
-        images: userMessage.images,
-        timestamp: userMessage.timestamp,
-      },
-    ]);
-
-    setInput("");
-    setSelectedImage(null);
-    resetStreamingDraft();
-    setError(null);
-    setIsStreaming(true);
-    streamSessionIdRef.current = sessionId;
-    setSessionStatusInProjects(sessionId, "in_progress");
-
-    let streamState = createPiSessionStreamingState(panelMode);
-    setDraftThinkingVisible(streamState.thinkingVisible);
-
-    const syncStreamingDraft = () => {
-      setDraftAssistant(streamState.assistant);
-      setDraftError(streamState.error);
-      setDraftThinkingVisible(streamState.thinkingVisible);
-      setDraftThinking(streamState.visibleThinking);
-      setDraftToolMessages(new Map(streamState.activeToolMessages));
-    };
-
-    const flushThinkingDraft = () => {
-      thinkingFlushTimeoutRef.current = null;
-      streamState = flushPiSessionThinking(streamState);
-      syncStreamingDraft();
-    };
-
-    const scheduleThinkingFlush = () => {
-      if (thinkingFlushTimeoutRef.current !== null) return;
-
-      thinkingFlushTimeoutRef.current = window.setTimeout(() => {
-        flushThinkingDraft();
-      }, 75);
-    };
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-pi-session-id": sessionId,
-        },
-        body: JSON.stringify({
-          ...selectedModel,
-          prompt: userMessage.content,
-          thinkingLevel:
-            (localStorage.getItem(THINKING_LEVEL_STORAGE_KEY) as ThinkingLevel | null) || "high",
-          images: userMessage.images?.map((image) => ({
-            name: image.name,
-            mimeType: image.mimeType,
-            size: image.size,
-            data: image.data,
-          })),
-        }),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || `Request failed with ${response.status}`);
+  const openEditor = piSessionDetail
+    ? () => {
+        const cwd = piSessionDetail.session.cwd;
+        if (cwd) window.open(`vscode://file/${encodeURIComponent(cwd)}`);
       }
-
-      await readEventStream(response, (streamEvent) => {
-        streamState = applyPiSessionStreamingEvent(streamState, streamEvent);
-
-        if (streamEvent.type === "thinking") {
-          if (streamState.acceptsThinking && streamState.bufferedThinking) {
-            scheduleThinkingFlush();
-          }
-          return;
-        }
-
-        clearThinkingFlushTimeout();
-        if (streamEvent.type !== "done" && streamEvent.type !== "error") {
-          streamState = flushPiSessionThinking(streamState);
-        }
-        syncStreamingDraft();
-
-        if (streamEvent.type === "error") {
-          setError(streamEvent.error);
-        }
-      });
-
-      if (streamState.finalMessage && streamSessionIdRef.current === sessionId) {
-        fetchContextUsage(sessionId);
-
-        const fm = streamState.finalMessage as AssistantMessage;
-        const finalAssistantMsg: AssistantMessage = {
-          role: "assistant",
-          content: fm.content,
-          provider: fm.provider,
-          model: fm.model,
-          timestamp: fm.timestamp,
-        };
-
-        const pendingUserMsg: PiHistoryMessage = {
-          id: `pi-user-${Date.now()}`,
-          role: "user",
-          content: userMessage.content,
-          images: userMessage.images,
-          timestamp: userMessage.timestamp,
-        };
-        const thinkingMessage = streamState.completedThinking
-          ? ({
-              id: `thinking-${Date.now()}`,
-              role: "thinking",
-              content: streamState.completedThinking,
-              timestamp: finalAssistantMsg.timestamp - 1,
-            } as Extract<PiHistoryMessage, { role: "thinking" }>)
-          : null;
-        const toolBaseTimestamp = finalAssistantMsg.timestamp + 1;
-        const toolMsgs: Extract<PiHistoryMessage, { role: "tool" }>[] =
-          streamState.completedToolMessages.map(
-            (tool, index) =>
-              ({
-                id: `tool-${Date.now()}-${index}`,
-                role: "tool",
-                toolCallId: tool.toolCallId,
-                toolName: tool.toolName,
-                arguments: tool.arguments,
-                content: tool.content,
-                isError: tool.isError,
-                expandable: true,
-                timestamp: toolBaseTimestamp + index,
-              }) as Extract<PiHistoryMessage, { role: "tool" }>,
-          );
-        setPiSessionDetail((current) =>
-          current
-            ? {
-                ...current,
-                session: {
-                  ...current.session,
-                  modified: new Date(finalAssistantMsg.timestamp).toISOString(),
-                },
-                messages: [
-                  ...current.messages,
-                  pendingUserMsg,
-                  ...(thinkingMessage ? [thinkingMessage] : []),
-                  {
-                    id: finalAssistantMsg.content.slice(0, 32),
-                    role: "assistant",
-                    content: finalAssistantMsg.content,
-                    provider: finalAssistantMsg.provider,
-                    model: finalAssistantMsg.model,
-                    timestamp: finalAssistantMsg.timestamp,
-                  } as Extract<PiHistoryMessage, { role: "assistant" }>,
-                  ...toolMsgs,
-                ],
-              }
-            : current,
-        );
-        setPiPendingMessages([]);
-      }
-      setSessionStatusInProjects(sessionId, "pending_review");
-    } catch (err) {
-      if (err instanceof Error && err.message === "No response stream returned.") {
-        setError(t("errors.streamMissing"));
-      } else {
-        setError(err instanceof Error ? err.message : t("errors.unexpectedChat"));
-      }
-      setPiPendingMessages([]);
-      throw err;
-    } finally {
-      if (!streamState.error) {
-        resetStreamingDraft();
-      }
-      setIsStreaming(false);
-    }
-  }
-
-  async function submitLocalSlashAction(trimmedInput: string): Promise<boolean> {
-    const parsed = parseSlashCommandInput(trimmedInput);
-    if (!parsed) return false;
-
-    const command = findAppSlashCommand(parsed.normalizedName);
-    if (!command) return false;
-
-    const userMessage = createLocalUserMessage(trimmedInput);
-    setInput("");
-    setSelectedImage(null);
-    setError(null);
-    setIsStreaming(true);
-
-    let result: LocalActionResult;
-    try {
-      result = isServerAppSlashCommand(command)
-        ? await runServerSlashAction(command.name, parsed.args)
-        : await runClientSlashAction(command.name);
-    } catch (error) {
-      appendPiLocalTurn(userMessage, {
-        title: command.name,
-        content: error instanceof Error ? error.message : "The local action failed unexpectedly.",
-        status: "error",
-      });
-      setIsStreaming(false);
-      return true;
-    }
-
-    appendPiLocalTurn(userMessage, result);
-
-    if (result.updatedSessionName) {
-      setPiSessionDetail((current) =>
-        current
-          ? {
-              ...current,
-              session: {
-                ...current.session,
-                name: result.updatedSessionName || current.session.name,
-              },
-            }
-          : current,
-      );
-    }
-
-    try {
-      if (result.refreshProjects) {
-        try {
-          await refreshPiProjects();
-        } catch (error) {
-          setError(
-            error instanceof Error
-              ? error.message
-              : "The command succeeded, but refreshing the project list failed.",
-          );
-        }
-      }
-
-      if (result.refreshSessionDetail && activePanelView.kind === "pi") {
-        try {
-          const detail = await loadPiSessionDetail(activePanelView.sessionId);
-          setPiSessionDetail(detail);
-        } catch (error) {
-          setError(
-            error instanceof Error
-              ? error.message
-              : "The session updated, but refreshing the latest history failed.",
-          );
-        }
-      }
-    } finally {
-      setIsStreaming(false);
-    }
-
-    return true;
-  }
-
-  async function submitMessage(messageText: string, mode: ComposerSubmitMode = "default") {
-    const trimmed = messageText.trim();
-    if ((!trimmed && !selectedImage) || activePanelView.kind !== "pi") return;
-
-    if (isStreaming) {
-      if (mode === "steering") {
-        const queuedImage = selectedImage;
-        const steeringContent = trimmed || t("composer.defaultImagePrompt");
-        const steeringId = `pi-steering-${Date.now()}`;
-        setPiLocalMessages((current) => [
-          ...current,
-          {
-            id: steeringId,
-            role: "steering",
-            content: steeringContent,
-            timestamp: Date.now(),
-          },
-        ]);
-        setInput("");
-        setSelectedImage(null);
-        setError(null);
-        void submitSteeringMessage(steeringContent, queuedImage).catch((err) => {
-          setPiLocalMessages((current) => current.filter((message) => message.id !== steeringId));
-          setError(err instanceof Error ? err.message : t("errors.unexpectedChat"));
-        });
-        return;
-      }
-      queueFollowUpMessage({
-        id: crypto.randomUUID(),
-        content: trimmed || t("composer.defaultImagePrompt"),
-        image: selectedImage || undefined,
-      });
-      setInput("");
-      setSelectedImage(null);
-      setError(null);
-      return;
-    }
-
-    if (await submitLocalSlashAction(trimmed)) {
-      return;
-    }
-
-    if (selectedImage && !selectedModelSupportsImages) {
-      setError(t("errors.noImageSupport"));
-      return;
-    }
-
-    const userMessage: UserMessage = {
-      role: "user",
-      content: trimmed || t("composer.defaultImagePrompt"),
-      images: selectedImage ? [selectedImage] : undefined,
-      timestamp: Date.now(),
-    };
-    try {
-      await runPiPrompt(userMessage);
-    } catch {
-      // Error state is handled inside runPiPrompt.
-    }
-  }
-
-  async function drainNextQueuedFollowUp() {
-    if (
-      activePanelView.kind !== "pi" ||
-      followUpDrainInFlightRef.current ||
-      isStreaming ||
-      queuedFollowUps.length === 0
-    ) {
-      return;
-    }
-
-    const [nextFollowUp, ...remainingFollowUps] = queuedFollowUps;
-    followUpDrainInFlightRef.current = true;
-    writeStoredFollowUpsForSession(activePanelView.sessionId, remainingFollowUps);
-    setQueuedFollowUps(remainingFollowUps);
-
-    try {
-      await runPiPrompt({
-        role: "user",
-        content: nextFollowUp.content,
-        images: nextFollowUp.image ? [nextFollowUp.image] : undefined,
-        timestamp: Date.now(),
-      });
-      followUpDrainRequestedRef.current = remainingFollowUps.length > 0;
-    } catch {
-      writeStoredFollowUpsForSession(activePanelView.sessionId, [
-        nextFollowUp,
-        ...remainingFollowUps,
-      ]);
-      setQueuedFollowUps([nextFollowUp, ...remainingFollowUps]);
-      followUpDrainRequestedRef.current = false;
-    } finally {
-      followUpDrainInFlightRef.current = false;
-    }
-  }
-
-  useEffect(() => {
-    if (
-      activePanelView.kind !== "pi" ||
-      !piSessionDetail ||
-      isStreaming ||
-      queuedFollowUps.length === 0
-    ) {
-      return;
-    }
-
-    const shouldAttemptHydratedDrain =
-      followUpDrainAttemptedSessionRef.current !== activePanelView.sessionId;
-    if (!followUpDrainRequestedRef.current && !shouldAttemptHydratedDrain) {
-      return;
-    }
-
-    followUpDrainAttemptedSessionRef.current = activePanelView.sessionId;
-    void drainNextQueuedFollowUp();
-  }, [
-    activePanelView,
-    drainNextQueuedFollowUp,
-    isStreaming,
-    piSessionDetail,
-    queuedFollowUps.length,
-  ]);
-
-  function handleSenderSubmit(messageText: string) {
-    void submitMessage(messageText);
-  }
-
-  function handleSlashSelect(value: string) {
-    setInput(`${value} `);
-  }
-
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    if (!selectedModelSupportsImages) {
-      setError(t("errors.noImageSupport"));
-      return;
-    }
-    if (!supportedImageMimeTypes.includes(file.type)) {
-      setError(t("errors.uploadSupportedImage"));
-      return;
-    }
-    if (file.size > maxImageBytes) {
-      setError(t("errors.imageTooLarge"));
-      return;
-    }
-
-    try {
-      const data = await readFileAsBase64(file);
-      setSelectedImage({
-        id: crypto.randomUUID(),
-        name: file.name,
-        mimeType: file.type,
-        size: file.size,
-        data,
-      });
-      setError(null);
-    } catch {
-      setError(t("errors.readImageFailed"));
-    }
-  }
+    : undefined;
 
   const launcherActions = (
-    <div className="launcher-actions">
-      <button
-        className="settings-btn settings-btn-confirm"
-        type="button"
-        onClick={openNewSessionLauncher}
-      >
-        {t("launcher.newPiSession")}
-      </button>
-      <button
-        className="settings-btn settings-btn-cancel"
-        type="button"
-        onClick={openSelectSessionLauncher}
-      >
-        {t("launcher.selectPiSession")}
-      </button>
-    </div>
+    <LauncherActions
+      t={t}
+      onNewSession={openNewSessionLauncher}
+      onSelectSession={openSelectSessionLauncher}
+    />
   );
 
   return (
@@ -2041,75 +1108,37 @@ export default function App() {
         />
       ) : (
         <main className={`app-shell${sidebarCollapsed ? " app-shell-collapsed" : ""}`}>
-          <aside className="sidebar">
-            <div className="sidebar-inner">
-              <div className="sidebar-top-row">
-                <div className="sidebar-brand-icon">
-                  <PiLogo />
-                </div>
-                <div className="sidebar-actions">
-                  <button
-                    className="icon-button"
-                    type="button"
-                    title={t("sidebar.newPiSession")}
-                    onClick={openNewSessionLauncher}
-                  >
-                    <IconPlus />
-                  </button>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    title={t("hotkeys.open")}
-                    onClick={openHotkeysModal}
-                  >
-                    <IconKeyboard />
-                  </button>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    title={t("settings.title")}
-                    onClick={openSettingsPage}
-                  >
-                    <IconSettings />
-                  </button>
-                  <button
-                    className="sidebar-collapse-btn"
-                    type="button"
-                    onClick={() => setSidebarCollapsed(true)}
-                    title={`${t("sidebar.collapse")} (${sidebarShortcutLabel})`}
-                  >
-                    <IconChevronLeft />
-                  </button>
-                </div>
-              </div>
-
-              <PiSessionSection
-                error={projectsError}
-                isStreaming={isStreaming}
-                locale={locale}
-                loading={projectsLoading}
-                onCreateSessionInProject={(projectPath) => {
-                  void createPiSessionInProject(projectPath);
-                }}
-                projects={visibleSidebarProjects}
-                selectedSessionId={selectedPiSessionId}
-                onSelectSession={(sessionId) => {
-                  if (panelMode === "terminal") {
-                    window.open(buildPiSessionUrl(sessionId, "terminal"), "_blank");
-                    return;
-                  }
-                  void selectPiSession(sessionId);
-                }}
-                onRename={openRenameModal}
-                archivedSessionIds={archivedPiSessionIds}
-                onArchive={archivePiSession}
-                onRestore={restorePiSession}
-                onStatusChange={handleStatusChange}
-                onDeleteProject={handleDeleteProject}
-                onRevealProject={handleRevealProject}
-              />
-            </div>
-          </aside>
+          <Sidebar
+            t={t}
+            locale={locale}
+            projects={visibleSidebarProjects}
+            selectedSessionId={selectedPiSessionId}
+            archivedSessionIds={archivedPiSessionIds}
+            loading={projectsLoading}
+            error={projectsError}
+            isStreaming={isStreaming}
+            shortcutLabel={sidebarShortcutLabel}
+            onCreateSessionInProject={(projectPath) => {
+              void createPiSessionInProject(projectPath);
+            }}
+            onSelectSession={(sessionId) => {
+              if (panelMode === "terminal") {
+                window.open(buildPiSessionUrl(sessionId, "terminal"), "_blank");
+                return;
+              }
+              void selectPiSession(sessionId);
+            }}
+            onRename={openRenameModal}
+            onArchive={archivePiSession}
+            onRestore={restorePiSession}
+            onStatusChange={handleStatusChange}
+            onDeleteProject={handleDeleteProject}
+            onRevealProject={handleRevealProject}
+            onOpenNewSession={openNewSessionLauncher}
+            onOpenHotkeys={openHotkeysModal}
+            onOpenSettings={openSettingsPage}
+            onCollapse={() => setSidebarCollapsed(true)}
+          />
 
           {sidebarCollapsed && (
             <button
@@ -2129,27 +1158,12 @@ export default function App() {
               aria-label={t("panel.terminal")}
               tabIndex={-1}
             >
-              <header className="chat-header">
-                <div className="chat-header-copy">
-                  <span className="chat-header-title">{t("panel.terminal")}</span>
-                  <small className="chat-header-meta" title={terminalCwd}>
-                    {terminalCwd}
-                  </small>
-                </div>
-                {piSessionDetail ? (
-                  <button
-                    className="chat-header-action-btn"
-                    type="button"
-                    title={t("panel.openEditor")}
-                    onClick={() => {
-                      const cwd = piSessionDetail?.session.cwd;
-                      if (cwd) window.open(`vscode://file/${encodeURIComponent(cwd)}`);
-                    }}
-                  >
-                    <IconCode />
-                  </button>
-                ) : null}
-              </header>
+              <ChatHeader
+                title={t("panel.terminal")}
+                meta={terminalCwd}
+                openEditorLabel={t("panel.openEditor")}
+                onOpenEditor={openEditor}
+              />
               {activePanelView.kind === "empty" ? (
                 <div className="messages messages-empty">
                   <div className="empty-state">
@@ -2191,229 +1205,62 @@ export default function App() {
               aria-label={t("chat.agentDialogue")}
               tabIndex={-1}
             >
-              <header className="chat-header">
-                <div className="chat-header-copy">
-                  <span className="chat-header-title" title={panelTitle}>
-                    {panelTitle}
-                  </span>
-                  {panelMeta ? (
-                    <small className="chat-header-meta" title={panelMeta}>
-                      {panelMeta}
-                    </small>
-                  ) : null}
-                </div>
-                {piSessionDetail ? (
-                  <button
-                    className="chat-header-action-btn"
-                    type="button"
-                    title={t("panel.openEditor")}
-                    onClick={() => {
-                      const cwd = piSessionDetail?.session.cwd;
-                      if (cwd) window.open(`vscode://file/${encodeURIComponent(cwd)}`);
-                    }}
-                  >
-                    <IconCode />
-                  </button>
-                ) : null}
-              </header>
+              <ChatHeader
+                title={panelTitle}
+                meta={panelMeta}
+                openEditorLabel={t("panel.openEditor")}
+                onOpenEditor={openEditor}
+              />
 
-              {activePanelView.kind === "empty" ? (
-                <div className="messages messages-empty">
-                  <div className="empty-state">
-                    <h3>{t("launcher.title", { workspace: launcherWorkspaceName })}</h3>
-                    <p>{t("launcher.body")}</p>
-                    {launcherActions}
-                    {projectsError ? <div className="error-banner">{projectsError}</div> : null}
-                  </div>
-                </div>
-              ) : piSessionError && !piSessionDetail ? (
-                <div className="messages messages-empty">
-                  <div className="error-banner">
-                    <p>{piSessionError}</p>
-                    <button
-                      className="inline-action-button"
-                      type="button"
-                      onClick={() => {
-                        void selectPiSession(activePanelView.sessionId);
-                      }}
-                    >
-                      {t("panel.retry")}
-                    </button>
-                  </div>
-                </div>
-              ) : !piSessionDetail ? (
-                <div className="messages messages-empty" aria-busy={piSessionLoading} />
-              ) : piHistoryBubbleItems.length === 0 ? (
-                <div className="messages messages-empty">
-                  <div className="empty-state">
-                    <h3>{t("session.newPiTitle")}</h3>
-                    <p>{t("session.newPiBody")}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="messages" ref={setMessagesEl}>
-                  <Bubble.List
-                    autoScroll
-                    className="chat-bubble-list"
-                    items={piHistoryBubbleItems}
-                    role={bubbleRoles}
-                  />
-                  {userBubbleCount >= 2 && (
-                    <Minimap
-                      userCount={userBubbleCount}
-                      userPreviews={userPreviews}
-                      scrollContainer={scrollContainer}
-                      onNavigate={handleMinimapNavigate}
-                    />
-                  )}
-                  {piSessionError && piSessionDetail ? (
-                    <div className="error-banner">{piSessionError}</div>
-                  ) : null}
-                  {error && !draftError ? <div className="error-banner">{error}</div> : null}
-                </div>
-              )}
+              <ChatMessages
+                view={activePanelView}
+                t={t}
+                launcherWorkspaceName={launcherWorkspaceName}
+                launcherActions={launcherActions}
+                projectsError={projectsError}
+                piSessionError={piSessionError}
+                piSessionLoading={piSessionLoading}
+                piSessionDetail={piSessionDetail}
+                historyItems={piHistoryBubbleItems}
+                roles={bubbleRoles}
+                userBubbleCount={userBubbleCount}
+                userPreviews={userPreviews}
+                scrollContainer={scrollContainer}
+                onMinimapNavigate={handleMinimapNavigate}
+                messagesRef={setMessagesEl}
+                error={error}
+                draftError={draftError}
+                onRetry={() => {
+                  if (activePanelView.kind === "pi")
+                    void selectPiSession(activePanelView.sessionId);
+                }}
+              />
 
-              {activePanelView.kind === "pi" &&
-              contextUsage &&
-              contextUsage.tokens !== null &&
-              contextUsage.contextWindow > 0 ? (
-                <div className="context-usage-bar">
-                  <span className="context-usage-label">
-                    {t("composer.contextUsage", {
-                      used: contextUsage.tokens.toLocaleString(),
-                      total: contextUsage.contextWindow.toLocaleString(),
-                    })}
-                  </span>
-                  <div className="context-usage-track">
-                    <div
-                      className={`context-usage-fill${
-                        contextUsage.percent !== null && contextUsage.percent >= 80
-                          ? " context-usage-fill-high"
-                          : contextUsage.percent !== null && contextUsage.percent >= 50
-                            ? " context-usage-fill-mid"
-                            : ""
-                      }`}
-                      style={{ width: `${Math.min(contextUsage.percent ?? 0, 100)}%` }}
-                    />
-                  </div>
-                  <span className="context-usage-percent">
-                    {contextUsage.percent !== null
-                      ? t("composer.contextPercent", { percent: Math.round(contextUsage.percent) })
-                      : null}
-                  </span>
-                </div>
-              ) : activePanelView.kind === "pi" && piSessionDetail ? (
-                <div className="context-usage-bar">
-                  <span className="context-usage-label">{t("composer.contextNotAvailable")}</span>
-                </div>
+              {activePanelView.kind === "pi" ? (
+                <ContextUsageBar
+                  usage={contextUsage}
+                  showUnavailable={Boolean(piSessionDetail)}
+                  t={t}
+                />
               ) : null}
 
               {activePanelView.kind === "pi" ? (
-                <div className="composer">
-                  {queuedFollowUps.length > 0 ? (
-                    <div className="composer-queue-header">
-                      <div className="composer-queue-title">{t("composer.followingUp")}</div>
-                      <div className="composer-queue-list">
-                        {queuedFollowUps.map((item) => (
-                          <div className="composer-queue-item" key={item.id}>
-                            <span>{item.content}</span>
-                            <button
-                              type="button"
-                              aria-label={`Remove queued follow-up: ${item.content}`}
-                              onClick={() => removeQueuedFollowUp(item.id)}
-                            >
-                              {t("composer.remove")}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                  {selectedImage ? (
-                    <div className="attachment-preview">
-                      <img alt={selectedImage.name} src={getImageDataUrl(selectedImage)} />
-                      <div>
-                        <strong>{selectedImage.name}</strong>
-                        <span>
-                          {t("composer.attachmentMeta", {
-                            size: Math.ceil(selectedImage.size / 1024),
-                          })}
-                        </span>
-                      </div>
-                      <button type="button" onClick={() => setSelectedImage(null)}>
-                        {t("composer.remove")}
-                      </button>
-                    </div>
-                  ) : null}
-                  <input
-                    className="composer-upload-input"
-                    accept={supportedImageMimeTypes.join(",")}
-                    onChange={handleImageChange}
-                    type="file"
-                  />
-                  <Suggestion<SlashSuggestionInfo>
-                    block
-                    className="slash-command-suggestion"
-                    items={(info) =>
-                      getSlashSuggestionItems(t, skills, pluginCommands, info?.query)
-                    }
-                    onSelect={handleSlashSelect}
-                  >
-                    {({ onKeyDown, onTrigger }) => (
-                      <Sender
-                        autoSize={{ minRows: 2, maxRows: 8 }}
-                        className="chat-sender"
-                        disabled={piSessionLoading || Boolean(piSessionError)}
-                        loading={false}
-                        onChange={(value) => {
-                          setInput(value);
-                          onTrigger(
-                            shouldShowSlashSuggestions(value) ? { query: value.slice(1) } : false,
-                          );
-                        }}
-                        onKeyDown={(event) => {
-                          if (isSidebarToggleShortcut(event)) {
-                            return;
-                          }
-
-                          if (isPanelModeShortcut(event)) {
-                            return;
-                          }
-
-                          if (isSteeringSubmitShortcut(event)) {
-                            event.preventDefault();
-                            void submitMessage(input, "steering");
-                            onTrigger(false);
-                            return;
-                          }
-
-                          event.stopPropagation();
-
-                          if (!event.shiftKey && event.key === "Tab") {
-                            const autocompleteValue = getSlashAutocompleteValue(
-                              input,
-                              skills.map((skill) => skill.name),
-                              pluginCommands,
-                            );
-
-                            if (autocompleteValue) {
-                              event.preventDefault();
-                              handleSlashSelect(autocompleteValue);
-                              onTrigger(false);
-                              return;
-                            }
-                          }
-
-                          onKeyDown(event);
-                        }}
-                        onSubmit={handleSenderSubmit}
-                        placeholder={t("composer.continuePiSession")}
-                        submitType="enter"
-                        value={input}
-                      />
-                    )}
-                  </Suggestion>
-                </div>
+                <Composer
+                  t={t}
+                  input={input}
+                  onInputChange={setInput}
+                  onSlashSelect={handleSlashSelect}
+                  selectedImage={selectedImage}
+                  onRemoveImage={() => setSelectedImage(null)}
+                  onImageChange={handleImageChange}
+                  skills={skills}
+                  pluginCommands={pluginCommands}
+                  disabled={piSessionLoading || Boolean(piSessionError)}
+                  queuedFollowUps={queuedFollowUps}
+                  onRemoveQueuedFollowUp={removeQueuedFollowUp}
+                  onSubmit={handleSenderSubmit}
+                  onSubmitSteering={(messageText) => void submitMessage(messageText, "steering")}
+                />
               ) : null}
             </section>
           )}
