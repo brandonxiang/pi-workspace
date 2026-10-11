@@ -1,6 +1,6 @@
 {
   "name": "pi-workspace",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "Local workspace for Pi Agent sessions, dialogue, and terminal work",
   "homepage": "https://pi-workspace.brandonxiang.top",
   "license": "MIT",
