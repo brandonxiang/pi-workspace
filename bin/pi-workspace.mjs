@@ -2,7 +2,7 @@
 
 import { spawn, execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -81,6 +81,23 @@ function isGloballyInstalled() {
   return __dirname.includes("node_modules") && !__dirname.includes(projectRoot + "/node_modules");
 }
 
+/**
+ * Recover PNPM_HOME when it is missing from the environment.
+ *
+ * pnpm >= 10 aborts a global install with `ERR_PNPM_NO_GLOBAL_BIN_DIR` unless it
+ * can resolve the global bin directory. That directory is `PNPM_HOME`, which
+ * `pnpm setup` exports in an interactive shell — but a CLI launched from a
+ * service, GUI launcher, or bare shell will not have it.
+ *
+ * pnpm installs globals under `<PNPM_HOME>/global/<n>/...`, so this package's
+ * own location reveals PNPM_HOME as the prefix before `/global/`.
+ */
+function inferPnpmHome() {
+  const marker = `${sep}global${sep}`;
+  const index = __dirname.indexOf(marker);
+  return index > 0 ? __dirname.slice(0, index) : null;
+}
+
 async function checkForUpdate() {
   try {
     const latest = await fetchLatestVersion();
@@ -110,10 +127,18 @@ async function handleUpdate() {
     const installArgs =
       pm === "pnpm" ? ["add", "-g", `${cliName}@latest`] : ["install", "-g", `${cliName}@latest`];
 
+    // pnpm needs PNPM_HOME for a global install; recover it from the install
+    // path when the process was started without `pnpm setup`'s shell exports.
+    const env = {};
+    if (pm === "pnpm" && !process.env.PNPM_HOME) {
+      const pnpmHome = inferPnpmHome();
+      if (pnpmHome) env.PNPM_HOME = pnpmHome;
+    }
+
     console.log(
       `[${cliName}] Installing v${latestVersion} via \`${pm} ${installArgs.join(" ")}\`...`,
     );
-    await run(pm, installArgs);
+    await run(pm, installArgs, env);
     console.log(`[${cliName}] Updated to v${latestVersion}.`);
   } else {
     // Local development copy – rebuild from source
