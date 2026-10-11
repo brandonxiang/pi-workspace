@@ -46,37 +46,44 @@ export default {
   plugins: lazyPlugins(() => [viteReact()]),
   build: {
     emptyOutDir: true,
-    sourcemap: true,
     outDir: resolve(import.meta.dirname, "dist", "client"),
+    // The only chunk above Vite's 500 kB default is the lazily-loaded
+    // MarkdownContent bundle (~780 kB): `@ant-design/x`'s CodeHighlighter uses
+    // the full Prism bundle (`refractor`), which is a deliberate choice there.
+    // It never loads on the initial path, so allow it instead of fragmenting it.
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
-        // Rolldown replaced `manualChunks` with `codeSplitting`. `maxSize`
-        // splits any group larger than this into ~400 kB pieces, keeping every
-        // emitted chunk under Vite's 500 kB warning limit. The `$initial` tag
-        // restricts the vendor group to code in the eager (statically imported)
-        // graph, so lazily reachable features — the terminal (`@xterm`) and the
-        // markdown highlighter — stay in their own dynamic chunks.
-        codeSplitting: {
-          groups: [
-            {
-              name: "terminal",
-              test: /node_modules[\\/]@xterm/,
-              priority: 40,
-            },
-            {
-              name: "highlight",
-              test: /node_modules[\\/](react-syntax-highlighter|refractor)[\\/]/,
-              priority: 30,
-              maxSize: 400_000,
-            },
-            {
-              name: "vendor",
-              test: /node_modules/,
-              tags: ["$initial"],
-              priority: 10,
-              maxSize: 400_000,
-            },
-          ],
+        // Rolldown's `codeSplitting` groups produced circular chunks here: antd
+        // and @ant-design/x depend on each other (XProvider wraps antd's
+        // ConfigProvider), so splitting them broke module init at runtime
+        // ("Class extends value undefined"). `manualChunks` retains Rollup's
+        // execution-order guarantees, so the coupled packages stay together.
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) {
+            return;
+          }
+
+          if (id.includes("@xterm")) {
+            return "terminal";
+          }
+
+          // Code highlighting is reached only from the lazily-imported
+          // MarkdownContent. Leaving it (and refractor) unassigned keeps the
+          // ~600 kB Prism bundle in that dynamic chunk, off the initial load.
+          if (id.includes("@ant-design/x/es/code-highlighter")) {
+            return;
+          }
+
+          // rc-* is imported by antd and @ant-design/x but depends on neither.
+          if (id.includes("@rc-component") || id.includes("/rc-")) {
+            return "rc";
+          }
+
+          // antd and @ant-design/* are mutually dependent: keep them together.
+          if (id.includes("antd") || id.includes("@ant-design")) {
+            return "ui-vendor";
+          }
         },
       },
     },
