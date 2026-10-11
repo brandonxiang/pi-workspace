@@ -46,17 +46,37 @@ export default {
   plugins: lazyPlugins(() => [viteReact()]),
   build: {
     emptyOutDir: true,
+    sourcemap: true,
     outDir: resolve(import.meta.dirname, "dist", "client"),
     rollupOptions: {
       output: {
-        manualChunks(id: string) {
-          if (id.includes("@xterm")) {
-            return "terminal";
-          }
-
-          if (id.includes("antd") || id.includes("@ant-design")) {
-            return "ui-vendor";
-          }
+        // Rolldown replaced `manualChunks` with `codeSplitting`. `maxSize`
+        // splits any group larger than this into ~400 kB pieces, keeping every
+        // emitted chunk under Vite's 500 kB warning limit. The `$initial` tag
+        // restricts the vendor group to code in the eager (statically imported)
+        // graph, so lazily reachable features — the terminal (`@xterm`) and the
+        // markdown highlighter — stay in their own dynamic chunks.
+        codeSplitting: {
+          groups: [
+            {
+              name: "terminal",
+              test: /node_modules[\\/]@xterm/,
+              priority: 40,
+            },
+            {
+              name: "highlight",
+              test: /node_modules[\\/](react-syntax-highlighter|refractor)[\\/]/,
+              priority: 30,
+              maxSize: 400_000,
+            },
+            {
+              name: "vendor",
+              test: /node_modules/,
+              tags: ["$initial"],
+              priority: 10,
+              maxSize: 400_000,
+            },
+          ],
         },
       },
     },
