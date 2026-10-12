@@ -763,11 +763,7 @@ export function usePiConversation(options: UsePiConversationOptions) {
     setInput(`${value} `);
   }
 
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
+  async function handleImageFile(file: File) {
     if (!selectedModelSupportsImages) {
       setError(t("errors.noImageSupport"));
       return;
@@ -796,6 +792,12 @@ export function usePiConversation(options: UsePiConversationOptions) {
     }
   }
 
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) void handleImageFile(file);
+  }
+
   return {
     input,
     setInput,
@@ -816,5 +818,6 @@ export function usePiConversation(options: UsePiConversationOptions) {
     handleSenderSubmit,
     handleSlashSelect,
     handleImageChange,
+    handleImageFile,
   };
 }

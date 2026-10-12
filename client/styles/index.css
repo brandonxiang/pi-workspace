@@ -1984,6 +1984,30 @@ pre.pi-tool-result {
   display: none;
 }
 
+.composer-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--canvas);
+  color: var(--ink-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.composer-attach-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.composer-attach-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .chat-sender {
   border: 1px solid var(--hairline);
   border-radius: 8px;
@@ -2000,6 +2024,9 @@ pre.pi-tool-result {
 }
 
 .chat-sender .ant-sender-actions-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   align-self: end;
   justify-self: end;
   margin: 0;

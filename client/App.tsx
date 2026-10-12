@@ -243,6 +243,7 @@ export default function App() {
     handleSenderSubmit,
     handleSlashSelect,
     handleImageChange,
+    handleImageFile,
   } = usePiConversation({
     t,
     panelMode,
@@ -1253,6 +1254,7 @@ export default function App() {
                   selectedImage={selectedImage}
                   onRemoveImage={() => setSelectedImage(null)}
                   onImageChange={handleImageChange}
+                  onImageFile={handleImageFile}
                   skills={skills}
                   pluginCommands={pluginCommands}
                   disabled={piSessionLoading || Boolean(piSessionError)}

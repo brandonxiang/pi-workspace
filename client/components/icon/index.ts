@@ -5,3 +5,4 @@ export { IconSettings } from "./IconSettings";
 export { IconChevronLeft } from "./IconChevronLeft";
 export { IconChevronRight } from "./IconChevronRight";
 export { IconCode } from "./IconCode";
+export { IconImage } from "./IconImage";

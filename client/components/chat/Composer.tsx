@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useRef, type ChangeEvent } from "react";
 import Sender from "@ant-design/x/es/sender";
 import Suggestion from "@ant-design/x/es/suggestion";
 import {
@@ -20,6 +20,7 @@ import {
   isSidebarToggleShortcut,
   isSteeringSubmitShortcut,
 } from "../../utils/index";
+import { IconImage } from "../icon/index";
 import { getSlashSuggestionItems } from "./SlashSuggestions";
 
 export interface ComposerProps {
@@ -30,6 +31,7 @@ export interface ComposerProps {
   selectedImage: ImageAttachment | null;
   onRemoveImage: () => void;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onImageFile: (file: File) => void;
   skills: SkillItem[];
   pluginCommands: PluginSlashCommand[];
   disabled: boolean;
@@ -47,6 +49,7 @@ export function Composer({
   selectedImage,
   onRemoveImage,
   onImageChange,
+  onImageFile,
   skills,
   pluginCommands,
   disabled,
@@ -55,6 +58,8 @@ export function Composer({
   onSubmit,
   onSubmitSteering,
 }: ComposerProps) {
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="composer">
       {queuedFollowUps.length > 0 ? (
@@ -91,6 +96,7 @@ export function Composer({
         </div>
       ) : null}
       <input
+        ref={uploadInputRef}
         className="composer-upload-input"
         accept={supportedImageMimeTypes.join(",")}
         onChange={onImageChange}
@@ -108,6 +114,25 @@ export function Composer({
             className="chat-sender"
             disabled={disabled}
             loading={false}
+            onPasteFile={(files) => {
+              const file = files[0];
+              if (file) onImageFile(file);
+            }}
+            suffix={(actionNode) => (
+              <>
+                <button
+                  type="button"
+                  className="composer-attach-btn"
+                  title={t("composer.attachImage")}
+                  aria-label={t("composer.attachImage")}
+                  disabled={disabled}
+                  onClick={() => uploadInputRef.current?.click()}
+                >
+                  <IconImage />
+                </button>
+                {actionNode}
+              </>
+            )}
             onChange={(value) => {
               onInputChange(value);
               onTrigger(shouldShowSlashSuggestions(value) ? { query: value.slice(1) } : false);
