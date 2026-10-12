@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { ModelRegistry, ModelRuntime, readStoredCredential } from "@earendil-works/pi-coding-agent";
 import type { CommandCodeApiModel } from "../model/index.js";
+import { registerExtensionProviders } from "./extension-providers.js";
 
 const commandCodeProviderBaseUrl =
   process.env.COMMANDCODE_API_BASE || "https://api.commandcode.ai/provider";
@@ -143,6 +144,13 @@ async function registerCommandCodeProvider(
 export async function createLocalModelRegistry() {
   const modelRuntime = await ModelRuntime.create();
   await configureRuntimeAuth(modelRuntime);
+  // Replay provider/model registrations declared by local Pi extensions so the
+  // model list and sessions include locally configured gateways (for example
+  // `~/.pi/agent/extensions/ais-switch.ts`).
+  const extensionErrors = await registerExtensionProviders(modelRuntime);
+  for (const message of extensionErrors) {
+    console.error(`[pi-workspace] ${message}`);
+  }
   const modelRegistry = new ModelRegistry(modelRuntime);
   await registerCommandCodeProvider(modelRuntime, modelRegistry);
 
