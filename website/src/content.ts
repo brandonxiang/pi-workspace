@@ -5,6 +5,8 @@ type CapabilityKey = "sessions" | "dialogue" | "terminal";
 export type SiteContent = {
   meta: { title: string; description: string };
   navigation: {
+    overview: string;
+    comparison: string;
     features: string;
     workflow: string;
     openSource: string;
@@ -82,6 +84,8 @@ export const siteContent: Record<Locale, SiteContent> = {
       description: "A local workspace for Pi Agent sessions, dialogue, and terminal work.",
     },
     navigation: {
+      overview: "Overview",
+      comparison: "Pi interfaces",
       features: "Features",
       workflow: "How it works",
       openSource: "Open source",
@@ -183,6 +187,8 @@ export const siteContent: Record<Locale, SiteContent> = {
       description: "面向 Pi Agent Session、对话与终端工作的本地工作台。",
     },
     navigation: {
+      overview: "概览",
+      comparison: "Pi 可视化工具",
       features: "功能",
       workflow: "工作方式",
       openSource: "开源",

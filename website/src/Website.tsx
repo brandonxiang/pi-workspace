@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { comparisonContent } from "./comparison";
 import { InstallCommand } from "./components/InstallCommand";
+import { PiComparison } from "./components/PiComparison";
 import { ProductStage } from "./components/ProductStage";
 import { siteContent, type Locale } from "./content";
 import {
@@ -26,15 +28,31 @@ const themeLabel = { light: "☾", dark: "☀" } as const;
 export function Website() {
   const [locale, setLocale] = useState<Locale>(readInitialLocale);
   const [theme, setTheme] = useState<Theme>(readInitialTheme);
+  const [isComparison, setIsComparison] = useState(() => window.location.hash === "#compare");
   const content = siteContent[locale];
+  const comparison = comparisonContent[locale];
+  const title = isComparison ? `${comparison.title} — pi-workspace` : content.meta.title;
+  const description = isComparison ? comparison.description : content.meta.description;
+
+  useEffect(() => {
+    function selectPage() {
+      setIsComparison(window.location.hash === "#compare");
+    }
+
+    window.addEventListener("hashchange", selectPage);
+    return () => window.removeEventListener("hashchange", selectPage);
+  }, []);
+
+  useEffect(() => {
+    const anchor = document.getElementById(window.location.hash.slice(1));
+    (anchor ?? document.getElementById("top"))?.scrollIntoView?.({ behavior: "instant" });
+  }, [isComparison]);
 
   useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
-    document.title = content.meta.title;
-    document
-      .querySelector('meta[name="description"]')
-      ?.setAttribute("content", content.meta.description);
-  }, [content.meta.description, content.meta.title, locale]);
+    document.title = title;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", description);
+  }, [description, locale, title]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -72,6 +90,12 @@ export function Website() {
           <span>pi-workspace</span>
         </a>
         <nav className="site-nav" aria-label="Primary navigation">
+          <a className="page-tab" href="#top" aria-current={!isComparison ? "page" : undefined}>
+            {content.navigation.overview}
+          </a>
+          <a className="page-tab" href="#compare" aria-current={isComparison ? "page" : undefined}>
+            {content.navigation.comparison}
+          </a>
           <a href="#features">{content.navigation.features}</a>
           <a href="#workflow">{content.navigation.workflow}</a>
           <a href="#open-source">{content.navigation.openSource}</a>
@@ -110,7 +134,8 @@ export function Website() {
         </div>
       </header>
 
-      <main id="top">
+      {isComparison && <PiComparison locale={locale} />}
+      <main id="top" hidden={isComparison}>
         <section className="hero-section" aria-labelledby="hero-title">
           <div className="hero-grid">
             <div className="hero-copy">
